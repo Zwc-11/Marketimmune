@@ -35,6 +35,8 @@ class TaskMetric(models.Model):
     other_metrics = models.JSONField(default=dict)
     status = models.CharField(max_length=20, default='active')
     phase = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['phase', 'task_name']
@@ -59,6 +61,8 @@ class ModelMetric(models.Model):
     extra_metrics = models.JSONField(default=dict)
     phase = models.IntegerField()
     rank = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['rank']
@@ -78,6 +82,7 @@ class ProjectStats(models.Model):
     linting_violations = models.IntegerField()
     test_count = models.IntegerField()
     last_updated = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name_plural = 'Project Stats'
