@@ -1,0 +1,53 @@
+{% extends "dashboard/demo_base.html" %}
+{% block title %}Alert Center - MarketImmune{% endblock %}
+{% block content %}
+<section>
+    <div class="eyebrow">Alert Center</div>
+    <h2>Review risk alerts with linked model predictions.</h2>
+    <p class="lede">Alerts are generated when the demo risk score crosses the warning threshold, then stored with severity and a linked prediction for review.</p>
+    <div class="actions">
+        <span class="pill info">Demo risk model output</span>
+        <span class="pill info">Stored in local SQLite</span>
+        <span class="pill info">Synthetic agent scenario</span>
+    </div>
+</section>
+
+<section class="section grid four">
+    <div class="stat panel"><strong>{{ total_alerts }}</strong><span>total alerts</span></div>
+    <div class="stat panel" style="border-left-color:var(--red);"><strong>{{ high_alerts }}</strong><span>high severity</span></div>
+    <div class="stat panel" style="border-left-color:var(--amber);"><strong>{{ medium_alerts }}</strong><span>medium severity</span></div>
+    <div class="stat panel" style="border-left-color:var(--green);"><strong>{% if latest_alert %}{{ latest_alert.created_at|date:"H:i:s" }}{% else %}--{% endif %}</strong><span>latest alert time</span></div>
+</section>
+
+{% if latest_alert %}
+<section class="section panel pad">
+    <span class="pill {{ latest_alert.severity }}">{{ latest_alert.severity }}</span>
+    <h3 style="margin-top:14px;">{{ latest_alert.message }}</h3>
+    <p class="muted">Prediction #{{ latest_alert.prediction_id }} | Score {{ latest_alert.prediction.risk_score }} | Label {{ latest_alert.prediction.risk_label }}</p>
+</section>
+{% else %}
+<section class="section empty">No alerts yet. The live dashboard will still store normal predictions until risk rises.</section>
+{% endif %}
+
+<section class="section panel">
+    <div class="table-wrap">
+        <table aria-label="Risk alert stream">
+            <thead><tr><th>Time</th><th>Severity</th><th>Message</th><th>Prediction</th><th>Risk score</th><th>Label</th></tr></thead>
+            <tbody>
+                {% for alert in alerts %}
+                <tr>
+                    <td class="mono">{{ alert.created_at|date:"Y-m-d H:i:s" }}</td>
+                    <td><span class="pill {{ alert.severity }}">{{ alert.severity }}</span></td>
+                    <td>{{ alert.message }}</td>
+                    <td>#{{ alert.prediction_id }}</td>
+                    <td>{{ alert.prediction.risk_score }}</td>
+                    <td>{{ alert.prediction.risk_label }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6"><div class="empty">No alerts are stored yet.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

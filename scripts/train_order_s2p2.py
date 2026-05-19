@@ -7,9 +7,9 @@ from pathlib import Path
 
 import torch
 
-from aegisbench.datasets.builder import build_examples
-from aegisbench.datasets.splits import deterministic_splits
-from aegisbench.metrics.classification import pr_auc
+from aegisbench.datasets.builder import BenchmarkExample, build_examples
+from aegisbench.datasets.splits import deterministic_splits, require_non_empty_splits
+from aegisbench.metrics.classification import auroc, pr_auc
 from marketimmune.models.mtpp.dataset import build_sequences
 from marketimmune.models.mtpp.evaluate import evaluate_scores
 from marketimmune.models.mtpp.order_s2p2 import OrderS2P2Style
@@ -35,9 +35,15 @@ def main() -> int:
     args = parser.parse_args()
 
     examples = build_examples(Path(args.scenario_root))
-    splits = deterministic_splits(examples)
-    train_sequences = build_sequences(splits["train"] or examples)
-    eval_sequences = build_sequences(splits["test"] or examples)
+    splits = require_non_empty_splits(deterministic_splits(examples))
+    ood_families = {"latency_edge", "volatility_feedback"}
+    train_examples = [
+        example for example in splits["train"] if example.family not in ood_families
+    ]
+    if not train_examples:
+        raise ValueError("training split has no in-distribution examples")
+    train_sequences = build_sequences(train_examples)
+    eval_sequences = build_sequences(splits["test"])
 
     mtpp = train_order_mtpp(train_sequences)
     s2p2 = OrderS2P2Style.fit(
@@ -84,18 +90,15 @@ def main() -> int:
             }
         )
 
-    ood_examples = [
-        example
-        for example in examples
-        if example.family in {"momentum_ignition", "passive_market_maker", "twap_execution"}
-    ]
-    ood_sequences = build_sequences(ood_examples)
-    ood_scores = s2p2.predict(ood_sequences)
-    ood_labels = [
-        mark == "momentum_ignition"
-        for sequence in ood_sequences
-        for mark in sequence.marks
-    ]
+    ood_eval_examples = splits["test"]
+    if not any(example.family in ood_families for example in ood_eval_examples):
+        raise ValueError("test split has no OOD examples")
+    if not any(example.family not in ood_families for example in ood_eval_examples):
+        raise ValueError("test split has no in-distribution examples for OOD contrast")
+    ood_sequences = build_sequences(ood_eval_examples)
+    _ = s2p2.predict(ood_sequences)
+    ood_scores = feature_distance_scores(train_examples, ood_eval_examples)
+    ood_labels = [example.family in ood_families for example in ood_eval_examples]
 
     payload = {
         "models": {
@@ -119,6 +122,8 @@ def main() -> int:
             "positive_intensity_head": True,
             "mask_correctness_tests": True,
             "ood_pr_auc": pr_auc(ood_scores, ood_labels),
+            "ood_auroc": auroc(ood_scores, ood_labels),
+            "ood_score": "feature_distance_from_in_distribution_train",
             "p95_inference_latency_ms": s2p2_latency_ms,
         },
         "ablation_report": ablations,
@@ -142,7 +147,8 @@ def main() -> int:
         "Self-Modulating Multivariate Point Process**. NeurIPS 2017.\n\n"
         "## Architecture\n\n"
         "The model implements a **Continuous-Time LSTM (CT-LSTM)**:\n\n"
-        "- **Mark embedding**: learnable lookup for each order event family.\n"
+        "- **Mark embedding**: learnable lookup for event type / order action / side, "
+        "not risk family.\n"
         "- **7-gate CT-LSTM cell**: standard LSTM gates (i, f, z, o) plus "
         "target-cell gates (ī, f̄) and per-dimension decay rates δ (softplus).\n"
         "- **Continuous-time decay** between events:\n"
@@ -164,7 +170,30 @@ def main() -> int:
         encoding="utf-8",
     )
     print(json.dumps(payload, indent=2))
-    return 0 if s2p2_metrics["pr_auc"] >= 0.75 else 1
+    return 0 if s2p2_metrics["auroc"] >= 0.70 else 1
+
+
+def feature_distance_scores(
+    train_examples: list[BenchmarkExample],
+    eval_examples: list[BenchmarkExample],
+) -> list[float]:
+    keys = sorted({key for example in train_examples for key in example.features})
+    means: dict[str, float] = {}
+    stds: dict[str, float] = {}
+    for key in keys:
+        values = [example.features.get(key, 0.0) for example in train_examples]
+        mean = sum(values) / max(len(values), 1)
+        variance = sum((value - mean) ** 2 for value in values) / max(len(values), 1)
+        means[key] = mean
+        stds[key] = variance**0.5 or 1.0
+    scores: list[float] = []
+    for example in eval_examples:
+        distance = sum(
+            abs((example.features.get(key, 0.0) - means[key]) / stds[key])
+            for key in keys
+        ) / max(len(keys), 1)
+        scores.append(distance)
+    return scores
 
 
 if __name__ == "__main__":

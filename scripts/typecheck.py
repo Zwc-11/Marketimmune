@@ -47,7 +47,15 @@ def main() -> int:
         return fallback_typecheck()
     try:
         completed = subprocess.run(
-            [sys.executable, "-m", "mypy", "marketimmune", "aegisbench"],
+            [
+                sys.executable,
+                "-m",
+                "mypy",
+                "--config-file",
+                "pyproject.toml",
+                "marketimmune",
+                "aegisbench",
+            ],
             check=False,
             text=True,
         )

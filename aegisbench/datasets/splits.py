@@ -22,6 +22,15 @@ def deterministic_splits(examples: list[BenchmarkExample]) -> dict[str, list[Ben
     return {name: splits.get(name, []) for name in ["train", "validation", "test"]}
 
 
+def require_non_empty_splits(
+    splits: dict[str, list[BenchmarkExample]],
+) -> dict[str, list[BenchmarkExample]]:
+    missing = [name for name in ["train", "validation", "test"] if not splits.get(name)]
+    if missing:
+        raise ValueError(f"empty benchmark split(s): {', '.join(missing)}")
+    return splits
+
+
 def has_scenario_leakage(splits: dict[str, list[BenchmarkExample]]) -> bool:
     seen: dict[str, str] = {}
     for split, examples in splits.items():

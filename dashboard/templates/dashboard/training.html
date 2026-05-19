@@ -1,0 +1,71 @@
+{% extends "dashboard/demo_base.html" %}
+{% block title %}Training Runs - MarketImmune{% endblock %}
+{% block content %}
+<section>
+    <div class="eyebrow">Model Training</div>
+    <h2>Training history, metrics, and artifacts.</h2>
+    <p class="lede">This page turns benchmark outputs into an ML-readiness story: model name, dataset version, split, quality metrics, lead time, and artifact path.</p>
+    <div class="actions">
+        <span class="pill info">Benchmark-trained artifacts shown separately</span>
+        <span class="pill info">Real Binance background data where applicable</span>
+        <span class="pill info">Synthetic agent scenario labels</span>
+    </div>
+</section>
+
+<section class="section grid three">
+    {% for item in training_runs %}
+    <article class="panel card">
+        <span class="pill info">{{ item.run.dataset_version }}</span>
+        <h3 style="margin-top:16px;">{{ item.run.model_name }} <span class="muted">({{ item.provenance.version }})</span></h3>
+        <p class="muted">{{ item.run.split_summary }}</p>
+        <div class="section grid">
+            <div><strong>PR-AUC {{ item.run.pr_auc }}</strong><div class="bar"><span style="--value:{{ item.pr_auc_pct }}%"></span></div></div>
+            <div><strong>F1 {{ item.run.f1 }}</strong><div class="bar"><span style="--value:{{ item.f1_pct }}%"></span></div></div>
+            <div><strong>Precision {{ item.run.precision }}</strong><div class="bar"><span style="--value:{{ item.precision_pct }}%"></span></div></div>
+            <div><strong>Recall {{ item.run.recall }}</strong><div class="bar"><span style="--value:{{ item.recall_pct }}%"></span></div></div>
+        </div>
+        <div class="section grid">
+            <p><strong>Training command</strong><br><span class="mono muted">{{ item.provenance.command }}</span></p>
+            <p><strong>Dataset source</strong><br><span class="muted">{{ item.provenance.dataset_source }}</span></p>
+            <p><strong>Split method</strong><br><span class="muted">{{ item.provenance.split_method }}</span></p>
+            <p><strong>Metric source</strong><br><span class="pill info">{{ item.provenance.metric_source }}</span></p>
+            <p><strong>Artifact timestamp</strong><br><span class="muted">{{ item.provenance.artifact_timestamp }}</span></p>
+        </div>
+        <p class="mono muted" style="margin-top:16px;">Report path: {{ item.run.artifact_path }}</p>
+        <span class="pill normal" style="margin-top:14px;">Lead time {{ item.run.lead_time_ms }} ms</span>
+    </article>
+    {% empty %}
+    <div class="empty">No model training runs are loaded yet. Run <span class="mono">python manage.py load_metrics</span>.</div>
+    {% endfor %}
+</section>
+
+<section class="section grid aside">
+    <div class="panel">
+        <div class="table-wrap">
+            <table aria-label="Training run metrics">
+                <thead><tr><th>Model</th><th>Version</th><th>Metric source</th><th>Dataset</th><th>PR-AUC</th><th>F1</th><th>Precision</th><th>Recall</th><th>Lead time</th><th>Report path</th></tr></thead>
+                <tbody>
+                    {% for item in training_runs %}
+                    <tr><td><strong>{{ item.run.model_name }}</strong></td><td>{{ item.provenance.version }}</td><td>{{ item.provenance.metric_source }}</td><td>{{ item.run.dataset_version }}</td><td>{{ item.run.pr_auc }}</td><td>{{ item.run.f1 }}</td><td>{{ item.run.precision }}</td><td>{{ item.run.recall }}</td><td>{{ item.run.lead_time_ms }} ms</td><td class="mono">{{ item.run.artifact_path }}</td></tr>
+                    {% empty %}
+                    <tr><td colspan="10"><div class="empty">No training data available.</div></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <aside class="panel pad">
+        <div class="eyebrow">Feature Importance</div>
+        <div class="grid">
+            {% for feature in feature_importance %}
+            <div>
+                <div style="display:flex; justify-content:space-between; gap:12px;"><strong>{{ feature.name }}</strong><span>{{ feature.importance }}%</span></div>
+                <div class="bar" aria-label="{{ feature.name }} importance {{ feature.importance }} percent"><span style="--value:{{ feature.importance }}%"></span></div>
+            </div>
+            {% empty %}
+            <div class="empty">Feature importance is not available for this model yet.</div>
+            {% endfor %}
+        </div>
+    </aside>
+</section>
+{% endblock %}

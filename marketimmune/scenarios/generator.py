@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from hashlib import sha256
 from pathlib import Path
 
@@ -97,6 +98,7 @@ def generate_scenario(config: ScenarioConfig) -> GeneratedScenario:
         mid_price=config.mid_price,
         count=config.event_count,
     )
+    events = apply_safety_variant(events, unsafe=config.unsafe, mid_price=config.mid_price)
     event_labels, session_label = labels_for_events(
         scenario_id=config.scenario_id,
         session_id=f"{config.scenario_id}-session",
@@ -110,3 +112,40 @@ def generate_scenario(config: ScenarioConfig) -> GeneratedScenario:
         event_labels=event_labels,
         session_label=session_label,
     )
+
+
+def apply_safety_variant(
+    events: list[AgentOrderEvent],
+    *,
+    unsafe: bool,
+    mid_price: float,
+) -> list[AgentOrderEvent]:
+    transformed: list[AgentOrderEvent] = []
+    preserve_price_level = len({event.price for event in events}) == 1
+    for index, event in enumerate(events):
+        if unsafe:
+            drift = 1 + (index * 0.00008)
+            timestamp = events[0].timestamp + timedelta(milliseconds=index * 8)
+            price = event.price if preserve_price_level else event.price * drift
+            quantity = max(event.quantity, 0.08)
+        else:
+            timestamp = events[0].timestamp + timedelta(milliseconds=index * 250)
+            side_offset = -0.00005 if index % 2 == 0 else 0.00005
+            price = mid_price * (1 + side_offset)
+            quantity = min(event.quantity, 0.01)
+        transformed.append(
+            AgentOrderEvent(
+                symbol=event.symbol,
+                timestamp=timestamp,
+                sequence=event.sequence,
+                scenario_id=event.scenario_id,
+                agent_id=event.agent_id,
+                order_id=event.order_id,
+                action=event.action,
+                side=event.side,
+                price=price,
+                quantity=quantity,
+                remaining_quantity=min(event.remaining_quantity, quantity),
+            )
+        )
+    return transformed

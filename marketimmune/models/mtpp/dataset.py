@@ -25,7 +25,7 @@ def build_sequences(examples: list[BenchmarkExample]) -> list[SequenceExample]:
             SequenceExample(
                 scenario_id=scenario_id,
                 times_ms=[row.timestamp_ms for row in ordered],
-                marks=[row.family for row in ordered],
+                marks=[row.mark for row in ordered],
                 labels=[row.unsafe for row in ordered],
                 features=[row.features for row in ordered],
             )

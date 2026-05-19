@@ -8,7 +8,7 @@ from pathlib import Path
 import torch
 
 from aegisbench.datasets.builder import build_examples
-from aegisbench.datasets.splits import deterministic_splits
+from aegisbench.datasets.splits import deterministic_splits, require_non_empty_splits
 from marketimmune.models.mtpp.dataset import build_sequences
 from marketimmune.models.mtpp.evaluate import evaluate_scores
 from marketimmune.models.mtpp.train import train_order_mtpp
@@ -28,9 +28,9 @@ def main() -> int:
     args = parser.parse_args()
 
     examples = build_examples(Path(args.scenario_root))
-    splits = deterministic_splits(examples)
-    train_sequences = build_sequences(splits["train"] or examples)
-    eval_sequences = build_sequences(splits["test"] or examples)
+    splits = require_non_empty_splits(deterministic_splits(examples))
+    train_sequences = build_sequences(splits["train"])
+    eval_sequences = build_sequences(splits["test"])
 
     model = train_order_mtpp(
         train_sequences,
@@ -83,7 +83,7 @@ def main() -> int:
         "end-to-end with PyTorch.\n\n"
         "### Input representation\n\n"
         "Each order event is encoded as:\n"
-        "- A learnable mark embedding (event family / type)\n"
+        "- A learnable mark embedding (event type / order action / side, not risk family)\n"
         "- Log-transformed inter-event time delta (time since previous event in the sequence)\n"
         "- Numeric feature vector from the feature store "
         "(burst rate, price drift, cancel rates)\n\n"
@@ -100,9 +100,8 @@ def main() -> int:
         encoding="utf-8",
     )
     print(json.dumps(payload, indent=2))
-    return 0 if metrics["pr_auc"] >= 0.70 else 1
+    return 0 if metrics["auroc"] >= 0.70 else 1
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

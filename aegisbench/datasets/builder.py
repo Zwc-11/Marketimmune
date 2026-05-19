@@ -7,6 +7,7 @@ from typing import cast
 
 from marketimmune.features.feature_store import build_feature_store
 from marketimmune.schemas.events import AgentOrderEvent, parse_event
+from marketimmune.schemas.labels import EventLabel
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,7 @@ class BenchmarkExample:
     family: str
     unsafe: bool
     features: dict[str, float]
+    mark: str = "agent_order:new"
 
 
 def _load_events(path: Path) -> list[AgentOrderEvent]:
@@ -34,22 +36,31 @@ def _load_manifest(path: Path) -> dict[str, object]:
     return cast(dict[str, object], json.loads(path.read_text(encoding="utf-8")))
 
 
+def _load_labels(path: Path) -> dict[str, EventLabel]:
+    payloads = json.loads(path.read_text(encoding="utf-8"))
+    labels = [EventLabel.model_validate(payload) for payload in payloads]
+    return {label.event_id: label for label in labels}
+
+
 def build_examples(scenario_root: Path) -> list[BenchmarkExample]:
     examples: list[BenchmarkExample] = []
     for event_file in sorted(scenario_root.glob("*_events.json")):
         scenario_id = event_file.name.removesuffix("_events.json")
         manifest = _load_manifest(scenario_root / f"{scenario_id}_manifest.json")
         events = _load_events(event_file)
+        labels_by_event_id = _load_labels(scenario_root / f"{scenario_id}_labels.json")
         feature_rows, _ = build_feature_store(events)
         for event, features in zip(events, feature_rows, strict=True):
+            label = labels_by_event_id[event.event_id or ""]
             examples.append(
                 BenchmarkExample(
                     scenario_id=scenario_id,
                     event_id=event.event_id or "",
                     timestamp_ms=event.timestamp.timestamp() * 1000,
                     family=str(manifest["family"]),
-                    unsafe=bool(manifest["unsafe"]),
+                    unsafe=label.unsafe,
                     features=features,
+                    mark=f"{event.event_type}:{event.action}:{event.side}",
                 )
             )
     return examples
@@ -64,6 +75,7 @@ def examples_to_rows(examples: list[BenchmarkExample]) -> list[dict[str, object]
             "family": example.family,
             "unsafe": example.unsafe,
             "features": example.features,
+            "mark": example.mark,
         }
         for example in examples
     ]

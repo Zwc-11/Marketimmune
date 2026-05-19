@@ -1,6 +1,18 @@
 from rest_framework import serializers
 
-from dashboard.models import BenchmarkMetrics, ModelMetric, ProjectStats, TaskMetric
+from dashboard.models import (
+    BenchmarkMetrics,
+    DemoAgentEvent,
+    DemoAgentTrace,
+    DemoAlert,
+    DemoFeatureRow,
+    DemoMarketEvent,
+    DemoPrediction,
+    DemoTrainingRun,
+    ModelMetric,
+    ProjectStats,
+    TaskMetric,
+)
 
 
 class TaskMetricSerializer(serializers.ModelSerializer):
@@ -59,4 +71,94 @@ class ProjectStatsSerializer(serializers.ModelSerializer):
             'linting_violations',
             'test_count',
             'last_updated',
+        ]
+
+
+class DemoMarketEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DemoMarketEvent
+        fields = [
+            'id',
+            'timestamp',
+            'symbol',
+            'mid_price',
+            'bid_price',
+            'ask_price',
+            'spread_bps',
+            'source',
+        ]
+
+
+class DemoAgentEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DemoAgentEvent
+        fields = [
+            'id',
+            'market_event_id',
+            'agent_id',
+            'strategy',
+            'simulated_order',
+            'simulated_trade',
+            'side',
+            'quantity',
+            'order_price',
+        ]
+
+
+class DemoFeatureRowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DemoFeatureRow
+        fields = ['id', 'market_event_id', 'features', 'created_at']
+
+
+class DemoPredictionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DemoPrediction
+        fields = [
+            'id',
+            'feature_row_id',
+            'model_name',
+            'risk_score',
+            'risk_label',
+            'explanation',
+            'created_at',
+        ]
+
+
+class DemoAlertSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DemoAlert
+        fields = ['id', 'prediction_id', 'severity', 'message', 'created_at']
+
+
+class DemoTrainingRunSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DemoTrainingRun
+        fields = [
+            'id',
+            'model_name',
+            'dataset_version',
+            'split_summary',
+            'pr_auc',
+            'f1',
+            'precision',
+            'recall',
+            'lead_time_ms',
+            'artifact_path',
+            'created_at',
+        ]
+
+
+class DemoAgentTraceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DemoAgentTrace
+        fields = [
+            'id',
+            'prediction_id',
+            'observation',
+            'risk_evidence',
+            'decision',
+            'action',
+            'confidence',
+            'created_at',
         ]

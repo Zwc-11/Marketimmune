@@ -1,7 +1,7 @@
 # MarketImmune Core V1
 
-MarketImmune is a research-grade benchmark and safety framework for identifying harmful or
-unsafe autonomous trading-agent behavior in crypto exchange microstructure.
+MarketImmune is a working AI market-safety benchmark and demo platform for identifying harmful
+or unsafe autonomous trading-agent behavior in crypto exchange microstructure.
 
 The project combines:
 
@@ -58,6 +58,55 @@ Additional phase runners:
 .\make.ps1 phase46
 .\make.ps1 phase79
 ```
+
+## Demo Website
+
+Run the demo-first dashboard:
+
+```bash
+python manage.py migrate
+python manage.py load_metrics
+python manage.py runserver
+```
+
+Open:
+
+- `http://127.0.0.1:8000/demo/` for the plain-English project homepage.
+- `http://127.0.0.1:8000/dashboard/live/` for simulated trades, live ML risk predictions, alerts, and reasoning traces.
+- `http://127.0.0.1:8000/dashboard/data/` for stored market events, synthetic agent events, features, predictions, and alerts.
+- `http://127.0.0.1:8000/dashboard/model/` for the active model, latest prediction, feature importance, and artifact path.
+- `http://127.0.0.1:8000/dashboard/alerts/` for stored risk alerts and linked predictions.
+- `http://127.0.0.1:8000/dashboard/training/` for model training history and artifact paths.
+- `http://127.0.0.1:8000/dashboard/agents/` for structured agent reasoning traces.
+- `http://127.0.0.1:8000/dashboard/benchmark/` for phase 7-9 benchmark metrics and leaderboard.
+
+Optional background simulator:
+
+```bash
+python manage.py run_live_demo
+```
+
+The live page also writes one fresh simulated row set every second while it is open.
+
+## Demo Tour
+
+Screenshot placeholders to capture before sharing:
+
+1. Homepage: `/demo/`
+   - Placeholder: `docs/screenshots/homepage.png`
+   - Shows the product headline, provenance labels, Simulate/Detect/Explain cards, and product diagram.
+2. Live cockpit: `/dashboard/live/`
+   - Placeholder: `docs/screenshots/live-cockpit.png`
+   - Shows simulated live stream, scenario name, market regime, event ID, prediction ID, risk gauge, trade feed, alert stream, and decision audit trail.
+3. Data storage page: `/dashboard/data/`
+   - Placeholder: `docs/screenshots/data-storage.png`
+   - Shows local SQLite row counts, latest inserted timestamp, and tabbed stored rows.
+4. Training/model page: `/dashboard/training/` and `/dashboard/model/`
+   - Placeholder: `docs/screenshots/training-model.png`
+   - Shows model metrics, training command, dataset source, split method, metric source, artifact timestamp, and report path.
+5. Decision audit trail and alerts: `/dashboard/agents/` and `/dashboard/alerts/`
+   - Placeholder: `docs/screenshots/audit-alerts.png`
+   - Shows observation, feature evidence, model interpretation, policy decision, recommended control, confidence, linked event ID, linked prediction ID, and alert severity.
 
 ## Scope Rules
 

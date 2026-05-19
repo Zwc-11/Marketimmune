@@ -1,9 +1,0 @@
-auroc,f1,false_blocks_per_100k,lead_time_ms,mae,mean_lead_time_ms,model,pr_auc,precision_at_10,rank_correlation,sessions_warned,task
-0.8343745704467354,0.9002741603838246,,,,,RuleEngine,0.9870404882455998,1.0,,,event_detection
-,0.9065420560747663,,,,,RuleEngine,1.0,,,,session_classification
-,,,,,1030.5463917525774,RuleEngine,,,,97.0,early_warning
-,,4333.333333333333,,,,RuleEngine,,,,,action_selection
-,,,,0.24871794871794872,,RuleEngine,,,0.4792686208827603,,harm_estimation
-0.3906096135583315,,,,,,RuleEngine,0.5755836290594922,,,,ood_detection
-1.0,0.9965753424657535,,1331.2886597938145,,,GRU-MTPP,1.0,,,,event_detection
-0.9983333333333333,0.9931740614334471,,1331.2886597938145,,,S2P2-NHP,0.9997686573198015,,,,event_detection

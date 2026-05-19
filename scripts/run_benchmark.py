@@ -5,7 +5,11 @@ import json
 from pathlib import Path
 
 from aegisbench.datasets.builder import build_examples, examples_to_rows
-from aegisbench.datasets.splits import deterministic_splits, has_scenario_leakage
+from aegisbench.datasets.splits import (
+    deterministic_splits,
+    has_scenario_leakage,
+    require_non_empty_splits,
+)
 from aegisbench.leaderboard.csv import write_leaderboard
 from aegisbench.reports.json_report import write_json_report, write_markdown_report
 from aegisbench.tasks.action_selection import ActionSelectionTask
@@ -31,6 +35,30 @@ def rule_scores(examples: list) -> list[float]:  # type: ignore[type-arg]
     return scores
 
 
+def calibrate_block_threshold(
+    examples: list,  # type: ignore[type-arg]
+    scores: list[float],
+    false_blocks_per_100k_budget: float = 1000.0,
+) -> float:
+    candidates = sorted(set(scores + [1.1]), reverse=True)
+    benign = [not example.unsafe for example in examples]
+    for threshold in candidates:
+        false_blocks = sum(
+            score >= threshold
+            for score, is_benign in zip(scores, benign, strict=True)
+            if is_benign
+        )
+        benign_count = sum(benign)
+        per_100k = false_blocks * 100_000 / max(benign_count, 1)
+        if per_100k <= false_blocks_per_100k_budget:
+            return threshold
+    return 1.1
+
+
+def apply_block_threshold(scores: list[float], threshold: float) -> list[float]:
+    return [1.0 if score >= threshold else min(score, 0.5) for score in scores]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run AegisBench phase-7 benchmark.")
     parser.add_argument("--scenario-root", default="reports/phase5/scenarios")
@@ -38,10 +66,12 @@ def main() -> int:
     args = parser.parse_args()
 
     examples = build_examples(Path(args.scenario_root))
-    splits = deterministic_splits(examples)
+    splits = require_non_empty_splits(deterministic_splits(examples))
     leakage = has_scenario_leakage(splits)
-    evaluation_examples = splits["test"] or examples
-    scores = rule_scores(evaluation_examples)
+    evaluation_examples = splits["test"]
+    validation_scores = rule_scores(splits["validation"])
+    block_threshold = calibrate_block_threshold(splits["validation"], validation_scores)
+    scores = apply_block_threshold(rule_scores(evaluation_examples), block_threshold)
     tasks = [
         EventDetectionTask(),
         SessionClassificationTask(),
@@ -56,6 +86,10 @@ def main() -> int:
         "examples": len(examples),
         "splits": {name: len(rows) for name, rows in splits.items()},
         "scenario_leakage": leakage,
+        "rule_calibration": {
+            "block_threshold": block_threshold,
+            "false_blocks_per_100k_budget": 1000.0,
+        },
         "tasks": metrics,
     }
     write_json_report(output_dir / "benchmark_report.json", report)
