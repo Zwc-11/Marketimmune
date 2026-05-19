@@ -1,0 +1,146 @@
+{% extends "dashboard/demo_base.html" %}
+{% block title %}Data Explorer - MarketImmune{% endblock %}
+{% block content %}
+<section>
+    <div class="eyebrow">Stored Data Explorer</div>
+    <h2>Inspect the local evidence created by the demo.</h2>
+    <p class="lede">Each tab shows total row count, latest inserted timestamp, and the latest 12 rows stored in local SQLite.</p>
+    <div class="actions">
+        <span class="pill info">Stored in local SQLite</span>
+        <span class="pill info">Simulated live stream</span>
+        <span class="pill info">Synthetic agent scenario</span>
+        <span class="pill info">Real Binance background data where applicable</span>
+    </div>
+</section>
+
+<section class="section grid four">
+    {% for label, value in count_cards %}
+    <div class="stat panel"><strong>{{ value }}</strong><span>{{ label }}</span></div>
+    {% endfor %}
+</section>
+
+<section class="section panel pad">
+    <div class="actions" role="tablist" aria-label="Stored data tables" style="margin-top:0;">
+        <button class="button primary data-tab" type="button" data-target="market">Market Events</button>
+        <button class="button data-tab" type="button" data-target="agents">Agent Events</button>
+        <button class="button data-tab" type="button" data-target="features">Features</button>
+        <button class="button data-tab" type="button" data-target="predictions">Predictions</button>
+        <button class="button data-tab" type="button" data-target="alerts">Alerts</button>
+    </div>
+</section>
+
+<section class="section data-panel" id="tab-market">
+    <div class="panel pad">
+        <span class="pill info">Total rows: {{ counts.market_events }}</span>
+        <span class="pill info">Latest inserted: {% if latest_timestamp %}{{ latest_timestamp|date:"Y-m-d H:i:s" }}{% else %}none{% endif %}</span>
+        <h3 style="margin-top:18px;">Latest 12 Market Events</h3>
+    </div>
+    <div class="panel table-wrap">
+        <table aria-label="Stored market events">
+            <thead><tr><th>Event ID</th><th>Time</th><th>Symbol</th><th>Mid</th><th>Bid</th><th>Ask</th><th>Spread</th></tr></thead>
+            <tbody>
+                {% for row in market_events %}
+                <tr><td>#{{ row.id }}</td><td class="mono">{{ row.timestamp|date:"H:i:s" }}</td><td>{{ row.symbol }}</td><td>{{ row.mid_price }}</td><td>{{ row.bid_price }}</td><td>{{ row.ask_price }}</td><td>{{ row.spread_bps }} bps</td></tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="empty">No market events yet. Run <span class="mono">python manage.py load_metrics</span> or open the live dashboard.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="section data-panel" id="tab-agents" hidden>
+    <div class="panel pad">
+        <span class="pill info">Total rows: {{ counts.synthetic_agent_events }}</span>
+        <span class="pill info">Latest inserted: {% if latest_timestamp %}{{ latest_timestamp|date:"Y-m-d H:i:s" }}{% else %}none{% endif %}</span>
+        <h3 style="margin-top:18px;">Latest 12 Synthetic Agent Events</h3>
+    </div>
+    <div class="panel table-wrap">
+        <table aria-label="Synthetic agent events">
+            <thead><tr><th>Agent</th><th>Strategy</th><th>Order</th><th>Trade</th><th>Linked event</th></tr></thead>
+            <tbody>
+                {% for row in agent_events %}
+                <tr><td>{{ row.agent_id }}</td><td>{{ row.strategy }}</td><td class="mono">{{ row.simulated_order }}</td><td class="mono">{{ row.simulated_trade }}</td><td>#{{ row.market_event_id }}</td></tr>
+                {% empty %}
+                <tr><td colspan="5"><div class="empty">No synthetic agent events yet. Run <span class="mono">python manage.py run_live_demo --ticks 5</span>.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="section data-panel" id="tab-features" hidden>
+    <div class="panel pad">
+        <span class="pill info">Total rows: {{ counts.feature_rows }}</span>
+        <span class="pill info">Latest inserted: {% if latest_timestamp %}{{ latest_timestamp|date:"Y-m-d H:i:s" }}{% else %}none{% endif %}</span>
+        <h3 style="margin-top:18px;">Latest 12 Feature Rows</h3>
+    </div>
+    <div class="grid">
+        {% for row in feature_rows %}
+        <article class="panel card">
+            <strong>Feature row #{{ row.id }} | linked event #{{ row.market_event_id }}</strong>
+            <div class="actions" style="margin-top:12px;">
+                {% for key, value in row.features.items %}
+                <span class="pill info">{{ key }}: {{ value }}</span>
+                {% endfor %}
+            </div>
+        </article>
+        {% empty %}
+        <div class="empty">No feature rows yet. Run <span class="mono">python manage.py load_metrics</span>.</div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="section data-panel" id="tab-predictions" hidden>
+    <div class="panel pad">
+        <span class="pill info">Total rows: {{ counts.predictions }}</span>
+        <span class="pill info">Latest inserted: {% if latest_timestamp %}{{ latest_timestamp|date:"Y-m-d H:i:s" }}{% else %}none{% endif %}</span>
+        <h3 style="margin-top:18px;">Latest 12 Demo Risk Model Outputs</h3>
+    </div>
+    <div class="panel table-wrap">
+        <table aria-label="Model predictions">
+            <thead><tr><th>Prediction ID</th><th>Model</th><th>Score</th><th>Label</th><th>Explanation</th></tr></thead>
+            <tbody>
+                {% for row in predictions %}
+                <tr><td>#{{ row.id }}</td><td>{{ row.model_name }}</td><td>{{ row.risk_score }}</td><td><span class="pill {{ row.risk_label }}">{{ row.risk_label }}</span></td><td>{{ row.explanation }}</td></tr>
+                {% empty %}
+                <tr><td colspan="5"><div class="empty">No predictions yet. Open <span class="mono">/dashboard/live/</span>.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="section data-panel" id="tab-alerts" hidden>
+    <div class="panel pad">
+        <span class="pill info">Total rows: {{ counts.alerts }}</span>
+        <span class="pill info">Latest inserted: {% if latest_timestamp %}{{ latest_timestamp|date:"Y-m-d H:i:s" }}{% else %}none{% endif %}</span>
+        <h3 style="margin-top:18px;">Latest 12 Alerts</h3>
+    </div>
+    <div class="panel table-wrap">
+        <table aria-label="Stored alerts">
+            <thead><tr><th>Severity</th><th>Message</th><th>Prediction</th><th>Created</th></tr></thead>
+            <tbody>
+                {% for row in alerts %}
+                <tr><td><span class="pill {{ row.severity }}">{{ row.severity }}</span></td><td>{{ row.message }}</td><td>#{{ row.prediction_id }}</td><td class="mono">{{ row.created_at|date:"H:i:s" }}</td></tr>
+                {% empty %}
+                <tr><td colspan="4"><div class="empty">No alerts yet. Low-risk predictions are still stored; run more live ticks to trigger alerts.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+const tabs = document.querySelectorAll('.data-tab');
+const panels = document.querySelectorAll('.data-panel');
+tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        tabs.forEach(item => item.classList.remove('primary'));
+        panels.forEach(panel => panel.hidden = true);
+        tab.classList.add('primary');
+        document.getElementById(`tab-${tab.dataset.target}`).hidden = false;
+    });
+});
+</script>
+{% endblock %}

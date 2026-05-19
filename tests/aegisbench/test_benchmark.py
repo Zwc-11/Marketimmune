@@ -8,7 +8,12 @@ from pathlib import Path
 import pytest
 
 from aegisbench.datasets.builder import BenchmarkExample, build_examples, examples_to_rows
-from aegisbench.datasets.splits import deterministic_splits, has_scenario_leakage, split_name
+from aegisbench.datasets.splits import (
+    deterministic_splits,
+    has_scenario_leakage,
+    require_non_empty_splits,
+    split_name,
+)
 from aegisbench.leaderboard.csv import write_leaderboard
 from aegisbench.metrics.classification import auroc, f1_at_threshold, pr_auc, precision_at_k
 from aegisbench.reports.json_report import write_json_report, write_markdown_report
@@ -50,6 +55,28 @@ def test_build_examples_and_rows(tmp_path: Path) -> None:
     examples = build_examples(tmp_path)
     assert len(examples) == 3
     assert examples_to_rows(examples)[0]["scenario_id"] == "scenario-a"
+    assert examples[0].mark.startswith("agent_order:new:")
+
+
+def test_build_examples_uses_event_labels_not_manifest(tmp_path: Path) -> None:
+    scenario = generate_scenario(
+        ScenarioConfig(
+            scenario_id="scenario-label-source",
+            family="quote_stuffing",
+            seed=1,
+            start=NOW,
+            mid_price=65000,
+            event_count=2,
+            unsafe=True,
+        )
+    )
+    scenario.write(tmp_path)
+    manifest_path = tmp_path / "scenario-label-source_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["unsafe"] = False
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    examples = build_examples(tmp_path)
+    assert any(example.unsafe for example in examples)
 
 
 def test_build_examples_rejects_non_agent_events(tmp_path: Path) -> None:
@@ -84,6 +111,15 @@ def test_splits_are_deterministic_and_detect_leakage() -> None:
     assert seen_splits == {"train", "validation", "test"}
     splits = deterministic_splits(examples)
     assert not has_scenario_leakage(splits)
+    complete_splits = deterministic_splits(
+        [
+            BenchmarkExample(f"scenario-{index}", f"e-{index}", 0.0, "quote_stuffing", True, {})
+            for index in range(100)
+        ]
+    )
+    assert require_non_empty_splits(complete_splits) is complete_splits
+    with pytest.raises(ValueError, match="empty benchmark split"):
+        require_non_empty_splits({"train": examples, "validation": [], "test": []})
     assert has_scenario_leakage(
         {
             "train": [examples[0]],
@@ -121,7 +157,7 @@ def test_tasks_evaluate() -> None:
     assert EarlyWarningTask().evaluate(examples, scores)["sessions_warned"] == 2
     assert ActionSelectionTask().evaluate(examples, scores)["false_blocks_per_100k"] == 0
     assert HarmEstimationTask().evaluate(examples, scores)["mae"] >= 0
-    assert OODDetectionTask().evaluate(examples, scores)["pr_auc"] > 0
+    assert OODDetectionTask({"momentum_ignition"}).evaluate(examples, scores)["pr_auc"] > 0
 
 
 def test_harm_estimation_single_example_and_rank_error() -> None:

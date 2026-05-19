@@ -1,0 +1,94 @@
+{% extends "dashboard/demo_base.html" %}
+{% block title %}MarketImmune - AI Market Safety Demo{% endblock %}
+{% block content %}
+<section class="hero">
+    <div>
+        <div class="eyebrow">Fintech AI Safety Infrastructure</div>
+        <h1>Detect unsafe trading-agent behavior before it becomes market risk.</h1>
+        <p class="lede" style="margin-top:22px;">MarketImmune is a market-safety benchmark and simulation platform for detecting unsafe autonomous trading-agent behavior in crypto microstructure.</p>
+        <p class="lede" style="margin-top:14px;">MarketImmune does not trade. It creates a controlled safety lab for evaluating trading-agent behavior.</p>
+        <div class="actions" aria-label="Provenance labels">
+            <span class="pill info">Simulated live stream</span>
+            <span class="pill info">Demo risk model output</span>
+            <span class="pill info">Stored in local SQLite</span>
+            <span class="pill info">Benchmark-trained artifacts shown separately</span>
+        </div>
+        <div class="actions">
+            <a class="button primary" href="/dashboard/live/">Open Live Demo</a>
+            <a class="button" href="/dashboard/benchmark/">View Benchmarks</a>
+        </div>
+    </div>
+    <aside class="panel pad" aria-label="MarketImmune product flow diagram">
+        <div class="eyebrow">System Flow</div>
+        <div class="diagram">
+            <div class="diagram-row">
+                <div class="diagram-node"><strong>Market stream</strong><p class="muted">Simulated order-book and trade ticks; real Binance background data where applicable</p></div>
+                <div class="diagram-arrow" aria-hidden="true">-&gt;</div>
+                <div class="diagram-node"><strong>Agent events</strong><p class="muted">Synthetic agent scenario behavior</p></div>
+            </div>
+            <div class="diagram-row">
+                <div class="diagram-node"><strong>Feature store</strong><p class="muted">Burst rate, cancel pressure, spread, imbalance</p></div>
+                <div class="diagram-arrow" aria-hidden="true">-&gt;</div>
+                <div class="diagram-node"><strong>Risk model</strong><p class="muted">Prediction score, label, and explanation</p></div>
+            </div>
+            <div class="diagram-row">
+                <div class="diagram-node"><strong>Alert center</strong><p class="muted">Reviewable warnings with evidence</p></div>
+                <div class="diagram-arrow" aria-hidden="true">-&gt;</div>
+                <div class="diagram-node"><strong>Benchmark</strong><p class="muted">Phase 7-9 ML performance artifacts</p></div>
+            </div>
+        </div>
+    </aside>
+</section>
+
+<section class="section grid three">
+    <article class="panel card">
+        <span class="pill info">Simulate</span>
+        <h3 style="margin-top:16px;">Live market microstructure</h3>
+        <p class="muted">Generate BTCUSDT ticks, synthetic orders, fills, and feature rows without placing real trades.</p>
+    </article>
+    <article class="panel card">
+        <span class="pill watch">Detect</span>
+        <h3 style="margin-top:16px;">Risk scores and alerts</h3>
+        <p class="muted">Convert market and agent behavior into model predictions, labels, and alert severity.</p>
+    </article>
+    <article class="panel card">
+        <span class="pill normal">Explain</span>
+        <h3 style="margin-top:16px;">Structured reasoning</h3>
+        <p class="muted">Show the observation, evidence, decision, action, and confidence behind each risk outcome.</p>
+    </article>
+</section>
+
+<section class="section grid aside">
+    <div class="panel pad">
+        <div class="eyebrow">Why It Matters</div>
+        <h2>Autonomous trading needs safety benchmarks, not just alpha claims.</h2>
+        <p class="lede" style="margin-top:16px;">Trading agents can create harmful patterns such as bursty order flow, runaway inventory, spoof-like behavior, or volatility feedback. MarketImmune makes those behaviors visible, measurable, and explainable in a controlled environment.</p>
+    </div>
+    <div class="grid">
+        <div class="stat panel"><strong>1/sec</strong><span>live simulated row set</span></div>
+        <div class="stat panel" style="border-left-color:var(--green);"><strong>7</strong><span>stored demo tables</span></div>
+        <div class="stat panel" style="border-left-color:var(--violet);"><strong>7-9</strong><span>benchmark phases shown</span></div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="eyebrow">Who This Is For</div>
+    <div class="grid three">
+        <article class="panel card">
+            <span class="pill info">Quant teams</span>
+            <h3 style="margin-top:16px;">Testing autonomous agents</h3>
+            <p class="muted">Run controlled synthetic scenarios before trusting agent behavior in market-like conditions.</p>
+        </article>
+        <article class="panel card">
+            <span class="pill watch">Risk teams</span>
+            <h3 style="margin-top:16px;">Monitoring harmful behavior</h3>
+            <p class="muted">Review alerts, evidence, and recommended controls for potentially unsafe market patterns.</p>
+        </article>
+        <article class="panel card">
+            <span class="pill normal">ML engineers</span>
+            <h3 style="margin-top:16px;">Benchmarking temporal safety models</h3>
+            <p class="muted">Compare model outputs against benchmark tasks, training provenance, and report artifacts.</p>
+        </article>
+    </div>
+</section>
+{% endblock %}

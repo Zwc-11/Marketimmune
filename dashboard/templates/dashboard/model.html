@@ -1,0 +1,77 @@
+{% extends "dashboard/demo_base.html" %}
+{% block title %}Model Inspector - MarketImmune{% endblock %}
+{% block content %}
+<section>
+    <div class="eyebrow">Model Inspector</div>
+    <h2>Current risk model, latest prediction, and feature evidence.</h2>
+    <p class="lede">This page gives technical reviewers a quick read on what model is active, how it scored the latest event, and where the supporting artifact lives.</p>
+    <div class="actions">
+        <span class="pill info">Demo risk model output</span>
+        <span class="pill info">Benchmark-trained artifacts shown separately</span>
+        <span class="pill info">Real Binance background data where applicable</span>
+    </div>
+</section>
+
+<section class="section grid aside">
+    <div class="panel pad">
+        <div class="eyebrow">Latest Prediction</div>
+        {% if latest_prediction %}
+        <div style="display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap;">
+            <div>
+                <h2>{{ latest_prediction.model_name }}</h2>
+                <p class="muted" style="margin-top:10px;">{{ latest_prediction.explanation }}</p>
+            </div>
+            <span class="pill {{ latest_prediction.risk_label }}">{{ latest_prediction.risk_label }} risk</span>
+        </div>
+        <div class="section grid three">
+            <div class="stat panel"><strong>{{ latest_prediction.risk_score }}</strong><span>risk score</span></div>
+            <div class="stat panel" style="border-left-color:var(--green);"><strong>#{{ latest_prediction.id }}</strong><span>prediction id</span></div>
+            <div class="stat panel" style="border-left-color:var(--violet);"><strong>#{{ latest_prediction.feature_row_id }}</strong><span>feature row</span></div>
+        </div>
+        {% else %}
+        <div class="empty">No prediction yet. Open the live dashboard or run the simulator.</div>
+        {% endif %}
+    </div>
+    <aside class="panel pad">
+        <div class="eyebrow">Best Training Run</div>
+        {% if best_run %}
+        <h3>{{ best_run.model_name }}</h3>
+        <p class="muted">{{ best_run.dataset_version }}</p>
+        <div class="section grid">
+            <div><strong>PR-AUC {{ best_run.pr_auc }}</strong><div class="bar"><span style="--value:{% widthratio best_run.pr_auc 1 100 %}%"></span></div></div>
+            <div><strong>F1 {{ best_run.f1 }}</strong><div class="bar"><span style="--value:{% widthratio best_run.f1 1 100 %}%"></span></div></div>
+            <p class="mono muted">{{ best_run.artifact_path }}</p>
+        </div>
+        {% else %}
+        <div class="empty">No trained model metrics are loaded yet.</div>
+        {% endif %}
+    </aside>
+</section>
+
+<section class="section grid two">
+    <div class="panel pad">
+        <div class="eyebrow">Feature Importance</div>
+        <div class="grid">
+            {% for feature in feature_importance %}
+            <div>
+                <div style="display:flex; justify-content:space-between; gap:12px;"><strong>{{ feature.name }}</strong><span>{{ feature.importance }}%</span></div>
+                <div class="bar"><span style="--value:{{ feature.importance }}%"></span></div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="panel pad">
+        <div class="eyebrow">Linked Decision Audit Trail</div>
+        {% if latest_trace %}
+        <div class="grid">
+            <div class="panel card"><strong>Observation</strong><p class="muted">{{ latest_trace.observation }}</p></div>
+            <div class="panel card"><strong>Model interpretation</strong><p class="muted">{{ latest_prediction.explanation }}</p></div>
+            <div class="panel card"><strong>Policy decision</strong><p class="muted">{{ latest_trace.decision }}</p></div>
+            <div class="panel card"><strong>Recommended control</strong><p class="muted">{{ latest_trace.action }}</p></div>
+        </div>
+        {% else %}
+        <div class="empty">No linked reasoning trace available yet.</div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

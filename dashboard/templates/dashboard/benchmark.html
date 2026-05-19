@@ -1,0 +1,113 @@
+{% extends "dashboard/demo_base.html" %}
+{% block title %}Benchmark Results - MarketImmune{% endblock %}
+{% block content %}
+<section>
+    <div class="eyebrow">AegisBench Phase 7-9</div>
+    <h2>Benchmark metrics that make the demo technically credible.</h2>
+    <p class="lede">The live UI is backed by phase 7-9 artifacts: task metrics, model baselines, leaderboard rows, temporal models, and OOD detection output.</p>
+    <div class="actions">
+        <span class="pill info">Benchmark-trained artifacts shown separately</span>
+        <span class="pill info">Real Binance background data where applicable</span>
+        <span class="pill info">Synthetic agent scenario labels</span>
+    </div>
+</section>
+
+<section class="section grid four">
+    <div class="panel card"><strong>PR-AUC</strong><p class="muted">How well the model ranks risky events under class imbalance.</p></div>
+    <div class="panel card"><strong>Lead time</strong><p class="muted">How early the system warns before unsafe behavior is labeled.</p></div>
+    <div class="panel card"><strong>OOD</strong><p class="muted">Whether unfamiliar behavior families are detected.</p></div>
+    <div class="panel card"><strong>False blocks</strong><p class="muted">How often benign orders are incorrectly blocked.</p></div>
+</section>
+
+<section class="section grid three">
+    <div class="stat panel"><strong>{{ phase79.phase7.examples|default:"18000" }}</strong><span>phase 7 benchmark examples</span></div>
+    <div class="stat panel" style="border-left-color:var(--green);"><strong>{{ task_metrics|length }}</strong><span>evaluation tasks</span></div>
+    <div class="stat panel" style="border-left-color:var(--violet);"><strong>{{ model_metrics|length }}</strong><span>leaderboard models</span></div>
+</section>
+
+<section class="section grid aside">
+    <div class="panel pad">
+        <div class="eyebrow">PR-AUC by Task</div>
+        <div class="grid">
+            {% for metric in task_metrics %}
+            <div>
+                <div style="display:flex; justify-content:space-between; gap:12px;">
+                    <strong>{{ metric.get_task_name_display }}</strong>
+                    <span>{{ metric.pr_auc|default:"n/a" }}</span>
+                </div>
+                {% if metric.pr_auc %}
+                <div class="bar"><span style="--value:{% widthratio metric.pr_auc 1 100 %}%"></span></div>
+                {% else %}
+                <div class="empty" style="padding:8px 10px;">PR-AUC not used for this task.</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <aside class="panel pad">
+        <div class="eyebrow">OOD Performance</div>
+        {% for metric in task_metrics %}
+            {% if metric.task_name == "ood_detection" %}
+            <h3>OOD Detection</h3>
+            <p class="muted">PR-AUC {{ metric.pr_auc }} | AUROC {{ metric.auroc }}</p>
+            <div class="section">
+                <div class="bar"><span style="--value:{% widthratio metric.auroc 1 100 %}%"></span></div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </aside>
+</section>
+
+<section class="section grid two">
+    <div class="panel">
+        <div class="table-wrap">
+            <table aria-label="Model leaderboard">
+                <thead><tr><th>Rank</th><th>Model</th><th>Task</th><th>PR-AUC</th><th>AUROC</th><th>Latency</th></tr></thead>
+                <tbody>
+                    {% for model in model_metrics %}
+                    <tr><td>{{ model.rank }}</td><td><strong>{{ model.get_model_name_display }}</strong></td><td>{{ model.task_name }}</td><td>{{ model.pr_auc }}</td><td>{{ model.auroc|default:"-" }}</td><td>{{ model.inference_latency_ms|default:"-" }} ms</td></tr>
+                    {% empty %}
+                    <tr><td colspan="6"><div class="empty">No leaderboard data loaded.</div></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="panel pad">
+        <div class="eyebrow">Early-Warning Lead Time</div>
+        <div class="grid">
+            {% for run in training_runs %}
+            <div>
+                <div style="display:flex; justify-content:space-between; gap:12px;">
+                    <strong>{{ run.model_name }}</strong><span>{{ run.lead_time_ms }} ms</span>
+                </div>
+                <div class="bar"><span style="--value:{% widthratio run.lead_time_ms 250 100 %}%"></span></div>
+            </div>
+            {% empty %}
+            <div class="empty">No training runs loaded.</div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="section panel">
+    <div class="table-wrap">
+        <table aria-label="Task metric table">
+            <thead><tr><th>Task</th><th>PR-AUC</th><th>AUROC</th><th>F1</th><th>Other metrics</th></tr></thead>
+            <tbody>
+                {% for metric in task_metrics %}
+                <tr><td><strong>{{ metric.get_task_name_display }}</strong></td><td>{{ metric.pr_auc|default:"-" }}</td><td>{{ metric.auroc|default:"-" }}</td><td>{{ metric.f1_score|default:"-" }}</td><td class="mono">{{ metric.other_metrics }}</td></tr>
+                {% empty %}
+                <tr><td colspan="5"><div class="empty">No benchmark metrics loaded.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="section grid three">
+    <div class="panel card"><span class="pill info">Phase 7</span><h3 style="margin-top:12px;">Benchmark report</h3><p class="mono muted">reports/phase7/benchmark_report.md</p></div>
+    <div class="panel card"><span class="pill info">Phase 8</span><h3 style="margin-top:12px;">GRU-MTPP card</h3><p class="mono muted">reports/phase8/model_card.md</p></div>
+    <div class="panel card"><span class="pill info">Phase 9</span><h3 style="margin-top:12px;">S2P2 model card</h3><p class="mono muted">reports/phase9/s2p2_model_card.md</p></div>
+</section>
+{% endblock %}

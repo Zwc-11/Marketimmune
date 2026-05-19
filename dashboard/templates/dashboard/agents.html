@@ -1,0 +1,55 @@
+{% extends "dashboard/demo_base.html" %}
+{% block title %}Decision Audit Trail - MarketImmune{% endblock %}
+{% block content %}
+<section>
+    <div class="eyebrow">Decision Audit Trail</div>
+    <h2>Structured explanations without hidden chain-of-thought.</h2>
+    <p class="lede">Each trace shows what the model observed, which evidence mattered, how risk was interpreted, what decision was made, and what action followed.</p>
+    <div class="actions">
+        <span class="pill info">Demo risk model output</span>
+        <span class="pill info">Synthetic agent scenario</span>
+        <span class="pill info">Stored in local SQLite</span>
+    </div>
+</section>
+
+<section class="section grid">
+    {% for trace in agent_traces %}
+    <article class="panel pad">
+        <div style="display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap;">
+            <div>
+                <span class="pill {{ trace.prediction.risk_label }}">{{ trace.prediction.risk_label }} risk</span>
+                <h3 style="margin-top:14px;">{{ trace.decision }}</h3>
+                <p class="muted">Linked event #{{ trace.prediction.feature_row.market_event_id }} | Linked prediction #{{ trace.prediction_id }} | Score {{ trace.prediction.risk_score }} | {{ trace.created_at|date:"Y-m-d H:i:s" }}</p>
+            </div>
+            <div style="min-width:180px;">
+                <strong>Confidence {{ trace.confidence }}</strong>
+                <div class="bar"><span style="--value:{% widthratio trace.confidence 1 100 %}%"></span></div>
+            </div>
+        </div>
+        <div class="section grid three">
+            <div class="panel card">
+                <span class="pill info">Observation</span>
+                <p style="margin-top:12px;">{{ trace.observation }}</p>
+            </div>
+            <div class="panel card">
+                <span class="pill watch">Evidence</span>
+                <h3 style="margin-top:12px;">Feature evidence</h3>
+                <div class="actions" style="margin-top:12px;">
+                    {% for evidence in trace.risk_evidence %}
+                    <span class="pill info">{{ evidence }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="panel card">
+                <span class="pill normal">Decision</span>
+                <p style="margin-top:12px;"><strong>Model interpretation:</strong> {{ trace.prediction.explanation }}</p>
+                <p style="margin-top:10px;"><strong>Policy decision:</strong> {{ trace.decision }}</p>
+                <p style="margin-top:10px;"><strong>Recommended control:</strong> {{ trace.action }}</p>
+            </div>
+        </div>
+    </article>
+    {% empty %}
+    <div class="empty">No reasoning traces yet. Open the live dashboard or run the simulator.</div>
+    {% endfor %}
+</section>
+{% endblock %}

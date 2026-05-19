@@ -28,9 +28,10 @@ def main() -> int:
     manifests: list[dict[str, object]] = []
     for index in range(args.count):
         family = families[index % len(families)]
-        unsafe = AGENT_REGISTRY[family].unsafe
+        unsafe = (index // len(families)) % 2 == 1
+        variant = "unsafe" if unsafe else "benign"
         config = ScenarioConfig(
-            scenario_id=f"scenario-{index:03d}-{family}",
+            scenario_id=f"scenario-{index:03d}-{family}-{variant}",
             family=family,
             seed=args.seed + index,
             start=datetime(2024, 5, 1, tzinfo=UTC),

@@ -44,6 +44,7 @@ def examples() -> list[BenchmarkExample]:
 
 def test_build_sequences_and_batch() -> None:
     sequences = build_sequences(examples())
+    assert sequences[0].marks == ["agent_order:new", "agent_order:new"]
     tokenizer = MarkTokenizer().fit([mark for sequence in sequences for mark in sequence.marks])
     batch = make_batch(sequences, tokenizer)
     assert batch.marks[0][0] > 0

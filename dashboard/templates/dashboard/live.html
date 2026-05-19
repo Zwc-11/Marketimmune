@@ -1,0 +1,254 @@
+{% extends "dashboard/demo_base.html" %}
+{% block title %}Live Cockpit - MarketImmune{% endblock %}
+{% block head %}
+<style>
+    .cockpit { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(340px, .65fr); gap: 16px; }
+    .price-chart { width: 100%; height: 250px; display: block; }
+    .chart-grid { stroke: rgba(154,171,194,.14); stroke-width: 1; }
+    .chart-line { fill: none; stroke: var(--green); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .gauge {
+        width: 190px; height: 190px; border-radius: 50%;
+        display: grid; place-items: center; margin: 0 auto;
+        background: conic-gradient(var(--red) var(--risk, 0deg), rgba(154,171,194,.16) 0deg);
+        position: relative;
+    }
+    .gauge::after { content: ""; position: absolute; inset: 18px; border-radius: 50%; background: var(--panel); }
+    .gauge-value { position: relative; z-index: 1; font-size: 42px; font-weight: 950; letter-spacing: -.05em; }
+    .feed { display: grid; gap: 10px; max-height: 320px; overflow: auto; padding-right: 4px; }
+    .feed-item { padding: 12px; border-radius: 11px; background: rgba(255,255,255,.045); border: 1px solid rgba(154,171,194,.13); }
+    @media (max-width: 980px) { .cockpit { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+{% block content %}
+<section>
+    <div class="eyebrow">Live Demo Cockpit</div>
+    <h2>Market events, ML predictions, alerts, and agent reasoning in one view.</h2>
+    <p class="lede">The cockpit writes simulated rows while it runs, then shows the current market state, risk model output, and reviewable evidence.</p>
+    <div class="actions" aria-label="Live dashboard provenance">
+        <span class="pill info">Simulated live stream</span>
+        <span class="pill info">Demo risk model output</span>
+        <span class="pill info">Stored in local SQLite</span>
+        <span class="pill info">Synthetic agent scenario</span>
+    </div>
+</section>
+
+<section class="section panel pad">
+    <div style="display:flex; justify-content:space-between; gap:16px; align-items:center; flex-wrap:wrap;">
+        <div>
+            <span class="pill normal" id="sim-state">Running</span>
+            <span class="pill info" id="last-updated">Last updated: waiting</span>
+        </div>
+        <div class="actions" style="margin-top:0;">
+            <button class="button primary" id="start-btn" type="button">Start</button>
+            <button class="button" id="pause-btn" type="button">Pause</button>
+            <button class="button danger" id="reset-btn" type="button">Reset View</button>
+        </div>
+    </div>
+</section>
+
+<section class="section cockpit">
+    <div class="panel pad">
+        <div style="display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap;">
+            <div>
+                <div class="eyebrow">BTCUSDT Mid Price</div>
+                <div class="live-price" id="mid-price">--</div>
+                <p class="mono muted" id="timestamp">Waiting for first tick</p>
+                <div class="actions" style="margin-top:14px;">
+                    <span class="pill info" id="scenario-name">Scenario: pending</span>
+                    <span class="pill info" id="market-regime">Regime: pending</span>
+                    <span class="pill info" id="event-id">Event: --</span>
+                    <span class="pill info" id="prediction-id">Prediction: --</span>
+                </div>
+            </div>
+            <span class="pill" id="risk-label">pending</span>
+        </div>
+        <svg class="price-chart" id="price-chart" viewBox="0 0 720 250" role="img" aria-label="Live simulated mid price chart">
+            <line class="chart-grid" x1="0" y1="50" x2="720" y2="50"></line>
+            <line class="chart-grid" x1="0" y1="125" x2="720" y2="125"></line>
+            <line class="chart-grid" x1="0" y1="200" x2="720" y2="200"></line>
+            <polyline class="chart-line" id="price-line" points=""></polyline>
+        </svg>
+        <div class="grid two">
+            <div class="panel card">
+                <h3>Simulated order</h3>
+                <p class="mono muted" id="simulated-order">No order yet.</p>
+            </div>
+            <div class="panel card">
+                <h3>Simulated trade</h3>
+                <p class="mono muted" id="simulated-trade">No trade yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <aside class="grid">
+        <div class="panel pad">
+            <div class="eyebrow">Risk Score</div>
+            <div class="gauge" id="risk-gauge"><div class="gauge-value" id="risk-score">0.00</div></div>
+            <p class="muted" id="prediction-copy" style="text-align:center; margin-top:14px;">Waiting for model prediction.</p>
+            <div class="panel card" style="margin-top:16px;">
+                <strong>Why risk changed</strong>
+                <p class="muted" id="risk-delta">Waiting for feature delta.</p>
+            </div>
+        </div>
+        <div class="panel pad">
+            <div class="eyebrow">Stored Rows</div>
+            <div class="grid two" id="counts"><div class="loading">Loading counts...</div></div>
+        </div>
+    </aside>
+</section>
+
+<section class="section grid two">
+    <div class="panel pad">
+        <div class="eyebrow">Alert Stream</div>
+        <div class="feed" id="alert-feed"><div class="empty">No alerts received yet.</div></div>
+    </div>
+    <div class="panel pad">
+        <div class="eyebrow">Risk Explanation Trace</div>
+        <div class="feed">
+            <div class="feed-item"><strong>Observation</strong><p id="trace-observation" class="muted">Waiting for simulation.</p></div>
+            <div class="feed-item"><strong>Feature evidence</strong><p id="trace-evidence" class="muted">No evidence yet.</p></div>
+            <div class="feed-item"><strong>Model interpretation</strong><p id="trace-interpretation" class="muted">No interpretation yet.</p></div>
+            <div class="feed-item"><strong>Policy decision</strong><p id="trace-decision" class="muted">No decision yet.</p></div>
+            <div class="feed-item"><strong>Recommended control</strong><p id="trace-control" class="muted">No control yet.</p></div>
+            <div class="feed-item"><strong>Confidence</strong><p id="trace-confidence" class="muted">--</p></div>
+        </div>
+    </div>
+</section>
+
+<section class="section panel pad">
+    <div class="eyebrow">Trade Feed</div>
+    <div class="feed" id="trade-feed"><div class="empty">No simulated trades yet.</div></div>
+</section>
+
+<script>
+const labelClass = { normal: 'normal', watch: 'watch', elevated: 'elevated', critical: 'critical' };
+let running = true;
+let timer = null;
+let prices = [];
+let tradeFeed = [];
+let alertFeed = [];
+
+function setText(id, value) {
+    document.getElementById(id).textContent = value;
+}
+
+function renderChart() {
+    const line = document.getElementById('price-line');
+    if (prices.length < 2) {
+        line.setAttribute('points', '');
+        return;
+    }
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const span = Math.max(1, max - min);
+    const points = prices.map((price, index) => {
+        const x = (index / Math.max(1, prices.length - 1)) * 720;
+        const y = 220 - ((price - min) / span) * 190;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    line.setAttribute('points', points);
+}
+
+function renderFeed(id, items, emptyText) {
+    const target = document.getElementById(id);
+    if (!items.length) {
+        target.innerHTML = `<div class="empty">${emptyText}</div>`;
+        return;
+    }
+    target.innerHTML = items.map(item => `<div class="feed-item">${item}</div>`).join('');
+}
+
+async function refreshCounts() {
+    const response = await fetch('/api/demo/counts/');
+    if (!response.ok) throw new Error('Count API failed');
+    const counts = await response.json();
+    document.getElementById('counts').innerHTML = Object.entries(counts).slice(0, 6).map(([name, value]) => `
+        <div class="stat panel">
+            <strong>${value}</strong>
+            <span>${name.replaceAll('_', ' ')}</span>
+        </div>
+    `).join('');
+}
+
+async function tick() {
+    if (!running) return;
+    try {
+        const response = await fetch('/api/live/tick/');
+        if (!response.ok) throw new Error('Live API failed');
+        const data = await response.json();
+        const score = Number(data.current_risk_score);
+        const mid = Number(data.mid_price);
+        prices.push(mid);
+        prices = prices.slice(-36);
+        renderChart();
+
+        setText('mid-price', `$${mid.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);
+        setText('timestamp', new Date(data.timestamp).toLocaleString());
+        setText('last-updated', `Last updated: ${new Date(data.timestamp).toLocaleTimeString()}`);
+        setText('scenario-name', `Scenario: ${data.scenario_name}`);
+        setText('market-regime', `Regime: ${data.market_regime}`);
+        setText('event-id', `Event #${data.event_id}`);
+        setText('prediction-id', `Prediction #${data.prediction_id}`);
+        setText('simulated-order', data.simulated_order);
+        setText('simulated-trade', data.simulated_trade);
+        setText('risk-score', score.toFixed(2));
+        document.getElementById('risk-gauge').style.setProperty('--risk', `${Math.round(score * 360)}deg`);
+        const label = document.getElementById('risk-label');
+        label.textContent = `${data.predicted_risk_label} risk`;
+        label.className = `pill ${labelClass[data.predicted_risk_label] || ''}`;
+        setText('prediction-copy', `${data.symbol} classified as ${data.predicted_risk_label} by Order-S2P2 risk head.`);
+        setText('risk-delta', data.why_risk_changed);
+        setText('trace-observation', data.agent_reasoning.observation);
+        setText('trace-evidence', data.agent_reasoning.risk_evidence.join(' | '));
+        setText('trace-interpretation', data.agent_reasoning.model_interpretation);
+        setText('trace-decision', data.agent_reasoning.policy_decision);
+        setText('trace-control', data.agent_reasoning.recommended_control);
+        setText('trace-confidence', data.agent_reasoning.confidence.toFixed(3));
+
+        tradeFeed.unshift(`<strong>${data.symbol} | ${data.scenario_name}</strong><br><span class="mono">${data.simulated_trade}</span><br><span class="muted">Event #${data.event_id} | Prediction #${data.prediction_id}</span>`);
+        tradeFeed = tradeFeed.slice(0, 8);
+        renderFeed('trade-feed', tradeFeed, 'No simulated trades yet.');
+
+        if (!data.latest_alert.toLowerCase().startsWith('no alert')) {
+            alertFeed.unshift(`<span class="pill ${data.predicted_risk_label}">${data.predicted_risk_label}</span><p style="margin-top:8px;">${data.latest_alert}</p>`);
+            alertFeed = alertFeed.slice(0, 6);
+            renderFeed('alert-feed', alertFeed, 'No alerts received yet.');
+        }
+        await refreshCounts();
+    } catch (error) {
+        document.getElementById('sim-state').className = 'pill critical';
+        setText('sim-state', 'API error');
+        document.getElementById('alert-feed').innerHTML = '<div class="error">Live update failed. Check the Django server and refresh.</div>';
+    }
+}
+
+function start() {
+    running = true;
+    document.getElementById('sim-state').className = 'pill normal';
+    setText('sim-state', 'Running');
+    tick();
+}
+
+function pause() {
+    running = false;
+    document.getElementById('sim-state').className = 'pill watch';
+    setText('sim-state', 'Paused');
+}
+
+function resetView() {
+    prices = [];
+    tradeFeed = [];
+    alertFeed = [];
+    renderChart();
+    renderFeed('trade-feed', tradeFeed, 'No simulated trades yet.');
+    renderFeed('alert-feed', alertFeed, 'No alerts received yet.');
+    start();
+}
+
+document.getElementById('start-btn').addEventListener('click', start);
+document.getElementById('pause-btn').addEventListener('click', pause);
+document.getElementById('reset-btn').addEventListener('click', resetView);
+timer = setInterval(tick, 1000);
+tick();
+</script>
+{% endblock %}

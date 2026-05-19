@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 
+from dashboard.demo_data import ensure_demo_seed
 from dashboard.models import (
     BenchmarkMetrics,
     ModelMetric,
@@ -14,38 +15,34 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting database initialization...'))
 
-        # Create project statistics
-        try:
-            ProjectStats.objects.create(
-                total_examples=18000,
-                total_tasks=6,
-                total_phases=9,
-                total_models=2,
-                test_coverage=100.0,
-                type_errors=0,
-                linting_violations=0,
-                test_count=123,
-            )
-            self.stdout.write(self.style.SUCCESS('✓ Created ProjectStats'))
-        except Exception as e:
-            self.stdout.write(self.style.WARNING(f'ProjectStats: {e}'))
+        # Keep this command repeatable so setup scripts can be rerun safely.
+        ProjectStats.objects.all().delete()
+        ProjectStats.objects.create(
+            total_examples=18000,
+            total_tasks=6,
+            total_phases=9,
+            total_models=3,
+            test_coverage=100.0,
+            type_errors=0,
+            linting_violations=0,
+            test_count=152,
+        )
+        self.stdout.write(self.style.SUCCESS('[OK] Loaded ProjectStats'))
 
-        # Create phase 7 benchmark metrics
-        try:
-            BenchmarkMetrics.objects.create(
-                phase=7,
-                title='Phase 7: AegisBench Benchmark',
-                data={
+        BenchmarkMetrics.objects.update_or_create(
+            phase=7,
+            defaults={
+                'title': 'Phase 7: AegisBench Benchmark',
+                'data': {
                     'dataset': 'Real Binance USDM',
                     'split': '61.5% train, 19% val, 19.5% test',
                     'examples': 18000,
                     'tasks': 6,
                     'period': '2023-01-01 to 2024-06-30',
-                }
-            )
-            self.stdout.write(self.style.SUCCESS('✓ Created BenchmarkMetrics Phase 7'))
-        except Exception as e:
-            self.stdout.write(self.style.WARNING(f'BenchmarkMetrics Phase 7: {e}'))
+                },
+            },
+        )
+        self.stdout.write(self.style.SUCCESS('[OK] Loaded BenchmarkMetrics Phase 7'))
 
         # Create task metrics for phase 7
         task_data = [
@@ -96,20 +93,18 @@ class Command(BaseCommand):
             },
         ]
 
+        TaskMetric.objects.filter(phase=7).delete()
         for task in task_data:
-            try:
-                TaskMetric.objects.create(
-                    task_name=task['name'],
-                    pr_auc=task.get('pr_auc'),
-                    auroc=task.get('auroc'),
-                    f1_score=task.get('f1'),
-                    other_metrics=task.get('other', {}),
-                    status='active',
-                    phase=7,
-                )
-                self.stdout.write(self.style.SUCCESS(f"✓ Created TaskMetric: {task['display']}"))
-            except Exception as e:
-                self.stdout.write(self.style.WARNING(f"TaskMetric {task['display']}: {e}"))
+            TaskMetric.objects.create(
+                task_name=task['name'],
+                pr_auc=task.get('pr_auc'),
+                auroc=task.get('auroc'),
+                f1_score=task.get('f1'),
+                other_metrics=task.get('other', {}),
+                status='active',
+                phase=7,
+            )
+            self.stdout.write(self.style.SUCCESS(f"[OK] Loaded TaskMetric: {task['display']}"))
 
         # Create model metrics
         model_data = [
@@ -142,20 +137,21 @@ class Command(BaseCommand):
             },
         ]
 
+        ModelMetric.objects.filter(phase=7).delete()
         for model in model_data:
-            try:
-                ModelMetric.objects.create(
-                    model_name=model['name'],
-                    task_name=model['task'],
-                    pr_auc=model['pr_auc'],
-                    auroc=model.get('auroc'),
-                    inference_latency_ms=model.get('latency'),
-                    extra_metrics={'lead_time': 1.235},
-                    phase=7,
-                    rank=model['rank'],
-                )
-                self.stdout.write(self.style.SUCCESS(f"✓ Created ModelMetric: {model['display']}"))
-            except Exception as e:
-                self.stdout.write(self.style.WARNING(f"ModelMetric {model['display']}: {e}"))
+            ModelMetric.objects.create(
+                model_name=model['name'],
+                task_name=model['task'],
+                pr_auc=model['pr_auc'],
+                auroc=model.get('auroc'),
+                inference_latency_ms=model.get('latency'),
+                extra_metrics={'lead_time': 1.235},
+                phase=7,
+                rank=model['rank'],
+            )
+            self.stdout.write(self.style.SUCCESS(f"[OK] Loaded ModelMetric: {model['display']}"))
 
-        self.stdout.write(self.style.SUCCESS('\n✓ Database initialization complete!'))
+        ensure_demo_seed()
+        self.stdout.write(self.style.SUCCESS('[OK] Loaded demo rows, training runs, and traces'))
+
+        self.stdout.write(self.style.SUCCESS('\n[OK] Database initialization complete!'))
