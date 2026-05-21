@@ -136,7 +136,7 @@ class ModelTrainerAgent(Agent):
                     "triggered_by": triggered_by,
                     "job": None,
                 },
-                "artifacts": {"job": None},  # type: ignore[dict-item]
+                "artifacts": {"job": None},
             }
 
         job = self._run_training(triggered_by=triggered_by, goal=goal)
@@ -146,7 +146,7 @@ class ModelTrainerAgent(Agent):
                 "triggered_by": triggered_by,
                 "job": job.to_dict(),
             },
-            "artifacts": {"job": job},  # type: ignore[dict-item]
+            "artifacts": {"job": job},
         }
 
     # ---- decision policy ------------------------------------------
@@ -286,7 +286,7 @@ class ModelTrainerAgent(Agent):
             return "(unreadable)"
 
     @staticmethod
-    def _parse_report(path: Path) -> tuple[dict, dict | None]:
+    def _parse_report(path: Path) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if not path.exists():
             return {}, None
         try:

@@ -147,7 +147,7 @@ class AgentRun:
     output: Mapping[str, Any]
     success: bool = True
     error: str | None = None
-    linked_artifacts: Mapping[str, str] = field(default_factory=dict)
+    linked_artifacts: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def summary(self) -> str:
@@ -200,7 +200,7 @@ class Agent(abc.ABC):
         success = True
         error: str | None = None
         output: Mapping[str, Any] = {}
-        artifacts: Mapping[str, str] = {}
+        artifacts: Mapping[str, Any] = {}
 
         try:
             result = self._execute(goal=goal, **inputs)

@@ -88,7 +88,7 @@ class AnthropicLLMClient:
         # otherwise be passed straight through to the API and rejected
         # as a 400 invalid_request_error.
         raw_max = int(
-            max_tokens or os.environ.get("CLAUDE_MAX_TOKENS", self.DEFAULT_MAX_TOKENS)
+            max_tokens or os.environ.get("CLAUDE_MAX_TOKENS", str(self.DEFAULT_MAX_TOKENS))
         )
         self.max_tokens = max(1024, min(raw_max, self.HARD_MAX_OUTPUT_TOKENS))
         if self.max_tokens != raw_max:
@@ -98,7 +98,7 @@ class AnthropicLLMClient:
             )
         self.thinking_budget = int(
             thinking_budget
-            or os.environ.get("CLAUDE_THINKING_BUDGET", self.DEFAULT_THINKING_BUDGET)
+            or os.environ.get("CLAUDE_THINKING_BUDGET", str(self.DEFAULT_THINKING_BUDGET))
         )
         if self.thinking_budget >= self.max_tokens:
             # Auto-shrink rather than throwing — a misconfig should
