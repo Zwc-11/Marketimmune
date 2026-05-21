@@ -1,0 +1,326 @@
+{% extends "dashboard/demo_base.html" %}
+{% block title %}Agentic Immune Loop — MarketImmune{% endblock %}
+
+{% block head %}
+<style>
+.loop-strip {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    margin: 20px 0 28px;
+}
+.loop-step {
+    background: var(--panel);
+    border: 1px solid rgba(154,171,194,.16);
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-align: center;
+    font-size: 12px;
+    position: relative;
+}
+.loop-step .step-name { font-weight: 700; color: var(--ink); font-size: 12px; }
+.loop-step .step-time { font-family: monospace; color: var(--blue); font-size: 11px; margin-top: 2px; }
+.loop-step .step-status { font-size: 10px; color: var(--muted); margin-top: 4px; }
+.loop-step.ok { border-left: 4px solid var(--green); }
+.loop-step.warn { border-left: 4px solid var(--amber); }
+.loop-step.fail { border-left: 4px solid var(--red); }
+.loop-step.empty { opacity: 0.5; border-left: 4px solid var(--muted); }
+
+.case-card, .memory-card {
+    background: var(--panel);
+    border: 1px solid rgba(154,171,194,.16);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+}
+.case-card.critical { border-left: 4px solid var(--red); }
+.case-card.high     { border-left: 4px solid var(--amber); }
+.case-card.medium   { border-left: 4px solid var(--blue); }
+.case-card.low      { border-left: 4px solid var(--muted); }
+
+.case-header {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: monospace; font-size: 11px; color: var(--muted);
+    margin-bottom: 8px;
+}
+.case-title { font-size: 14px; color: var(--ink); font-weight: 700; margin-bottom: 6px; }
+.case-explanation { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.feature-evidence {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 16px;
+    font-family: monospace; font-size: 10px; color: var(--muted);
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px dashed rgba(154,171,194,.16);
+}
+.policy-action {
+    background: rgba(100,166,255,.10); color: var(--blue);
+    padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;
+    display: inline-block; margin-top: 6px;
+}
+.policy-action.block_simulated_agent,
+.policy-action.critical_alert { background: rgba(255,107,107,.14); color: var(--red); }
+.policy-action.warning_alert,
+.policy-action.monitor        { background: rgba(244,201,93,.14); color: var(--amber); }
+
+.run-row { display: flex; justify-content: space-between; padding: 6px 0;
+           border-bottom: 1px solid rgba(154,171,194,.08); font-size: 12px; }
+.run-row a { color: var(--blue); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 18px;">
+    <span class="eyebrow">Agentic Immune Loop · Day 1</span>
+    <h2 style="margin: 8px 0 6px;">Generate → Simulate → Detect → Investigate → Decide → Remember</h2>
+    <p class="lede" style="max-width: 880px;">
+        Six autonomous agents wired into one pipeline over real Binance kline + bookDepth data.
+        Run a fresh iteration with the button below — everything you see is persisted in the
+        seven new <code>ImmuneLoopRun</code> / <code>AgentRunRecord</code> /
+        <code>InvestigationCaseRecord</code> / <code>PolicyDecisionRecord</code> /
+        <code>ImmuneMemoryEntry</code> / <code>ScenarioProposalRecord</code> /
+        <code>AgentDecisionTraceRecord</code> tables.
+    </p>
+    <div style="margin-top: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <button class="button primary" id="run-loop-btn">▶ Run a new loop</button>
+        <select id="loop-difficulty" style="background:#13233a; color:#fff;
+                border:1px solid #344966; border-radius:6px; padding:6px 10px;">
+            <option value="easy">easy (detector wins)</option>
+            <option value="medium" selected>medium</option>
+            <option value="hard">hard (red team wins)</option>
+        </select>
+        <span id="llm-status" style="font-size:11px; color:var(--muted);
+              padding: 4px 10px; border: 1px solid rgba(154,171,194,.18); border-radius:14px;">
+            Checking LLM status…
+        </span>
+        <span id="run-status" style="font-size:12px; color: var(--muted);"></span>
+    </div>
+</div>
+
+<!-- 6-step loop strip -->
+{% if loop %}
+<div class="loop-strip">
+    {% for agent in agent_runs %}
+    <div class="loop-step {% if agent.success %}ok{% else %}fail{% endif %}">
+        <div class="step-name">{{ agent.agent_name|cut:"Agent" }}</div>
+        <div class="step-time">{{ agent.duration_ms|floatformat:1 }} ms</div>
+        <div class="step-status">{{ agent.goal|truncatechars:42 }}</div>
+    </div>
+    {% endfor %}
+    {% if agent_runs|length < 6 %}
+    {% for i in "123456" %}
+        {% if forloop.counter > agent_runs|length %}
+        <div class="loop-step empty">
+            <div class="step-name">—</div>
+            <div class="step-status">not run</div>
+        </div>
+        {% endif %}
+    {% endfor %}
+    {% endif %}
+</div>
+
+<!-- Loop summary -->
+<div class="grid four" style="margin-bottom: 22px;">
+    <div class="stat panel pad">
+        <strong>{{ loop.alert_count }}</strong>
+        <span>Sentinel alerts</span>
+    </div>
+    <div class="stat panel pad" style="border-left-color:var(--amber);">
+        <strong>{{ loop.case_count }}</strong>
+        <span>Investigation cases</span>
+    </div>
+    <div class="stat panel pad" style="border-left-color:var(--violet);">
+        <strong>{{ loop.new_memory_count }}</strong>
+        <span>New immune memories</span>
+    </div>
+    <div class="stat panel pad" style="border-left-color:var(--green);">
+        <strong style="font-size:18px;">{{ loop.aggregate_posture }}</strong>
+        <span>Aggregate posture</span>
+    </div>
+</div>
+
+<!-- Promotion decision (Day 2) -->
+{% if promotion %}
+<div class="panel pad" style="margin-bottom:22px; border-left:4px solid
+        {% if promotion.verdict == 'promote' %}var(--green){% elif promotion.verdict == 'reject' %}var(--red){% else %}var(--amber){% endif %};">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">Latest Judge Verdict · {{ promotion.verdict|upper }}</h3>
+        <span class="pill {% if promotion.verdict == 'promote' %}normal{% elif promotion.verdict == 'reject' %}critical{% else %}watch{% endif %}">
+            {{ promotion.metrics.promote_votes|default:"-" }} / 5 criteria pass
+        </span>
+    </div>
+    <p style="font-family:monospace; font-size:11px; color:var(--muted); margin-top:8px;">
+        {{ promotion.candidate_model }} vs {{ promotion.incumbent_model }}
+    </p>
+    {% if promotion.metrics.criteria %}
+    <div style="margin-top:10px;">
+        {% for name, c in promotion.metrics.criteria.items %}
+        <div style="display:flex; align-items:center; gap:10px; padding:6px 0;
+                    border-bottom:1px solid rgba(154,171,194,.06); font-size:12px;">
+            <span style="width:18px; color:{% if c.passed %}var(--green){% else %}var(--red){% endif %}; font-family:monospace;">
+                {% if c.passed %}✓{% else %}✗{% endif %}
+            </span>
+            <span style="font-family:monospace; min-width:140px; color:var(--ink);">{{ name }}</span>
+            <span style="color:var(--muted); font-family:monospace; font-size:11px;">{{ c.detail }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- 3-column body -->
+<div class="grid aside">
+    <div>
+        {% if proposal %}
+        <div class="panel pad" style="margin-bottom: 18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0;">Red-Team Proposal · {{ proposal.name }}</h3>
+                {% if proposal.features.rationale_source == 'llm' %}
+                <span class="pill info" style="font-size:9px;">Claude · extended thinking</span>
+                {% else %}
+                <span class="pill" style="font-size:9px;">deterministic</span>
+                {% endif %}
+            </div>
+            <p style="color: var(--muted); font-size: 13px; margin-top:10px;">{{ proposal.rationale|linebreaksbr }}</p>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;">
+                <span class="pill info">{{ proposal.base_scenario }}</span>
+                {% if proposal.cover_scenario %}<span class="pill watch">cover: {{ proposal.cover_scenario }}</span>{% endif %}
+                <span class="pill">{{ proposal.difficulty }}</span>
+            </div>
+            <p style="font-family:monospace; font-size:11px; color:var(--muted); margin-top:10px;">
+                Evasion strategy: {{ proposal.evasion_strategy }}
+            </p>
+        </div>
+        {% endif %}
+
+        <h3 style="margin-bottom:10px;">Investigation cases ({{ cases|length }})</h3>
+        {% for case in cases %}
+        <div class="case-card {{ case.severity }}">
+            <div class="case-header">
+                <span>{{ case.case_id }}</span>
+                <span class="pill {% if case.severity == 'critical' %}critical{% elif case.severity == 'high' %}watch{% else %}info{% endif %}">{{ case.severity }}</span>
+            </div>
+            <div class="case-title">{{ case.suspected_behavior }}</div>
+            <div class="case-explanation">{{ case.explanation }}</div>
+            {% if case.model_evidence.narrative %}
+            <div style="margin-top:10px; padding:10px 12px; background:rgba(169,151,255,.08);
+                        border-left:3px solid var(--violet); border-radius:6px;">
+                <div style="font-size:10px; text-transform:uppercase; letter-spacing:.08em;
+                            color:var(--violet); margin-bottom:4px;">
+                    Analyst narrative
+                    {% if case.model_evidence.narrative_source == 'llm' %}
+                    <span class="pill info" style="font-size:9px; margin-left:6px;">Claude · extended thinking</span>
+                    {% else %}
+                    <span class="pill" style="font-size:9px; margin-left:6px;">deterministic</span>
+                    {% endif %}
+                </div>
+                <div style="font-size:12px; color:var(--ink); line-height:1.55;">
+                    {{ case.model_evidence.narrative|linebreaksbr }}
+                </div>
+            </div>
+            {% endif %}
+            <div class="feature-evidence">
+                {% for k, v in case.feature_evidence.items %}
+                <div>{{ k }}: <span style="color:var(--violet);">{{ v|floatformat:2 }}</span></div>
+                {% endfor %}
+            </div>
+            {% for d in decisions %}
+                {% if d.case_id == case.case_id %}
+                <div style="margin-top:10px;">
+                    <span class="policy-action {{ d.recommended_action }}">{{ d.recommended_action }}</span>
+                    <span style="font-size:11px; color: var(--muted); margin-left:8px;">conf {{ d.confidence|floatformat:2 }}</span>
+                    <p style="font-size:11px; color:var(--muted); margin-top:6px;">{{ d.rationale }}</p>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% empty %}
+        <div class="empty">No investigation cases for this loop. Try `easy` difficulty to make the detector fire.</div>
+        {% endfor %}
+    </div>
+
+    <div>
+        <h3 style="margin-bottom:10px;">Immune memory shelf ({{ memories|length }})</h3>
+        {% for mem in memories %}
+        <div class="memory-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <strong>{{ mem.threat_name }}</strong>
+                <span class="pill info">novelty {{ mem.novelty_score|floatformat:2 }}</span>
+            </div>
+            <p style="color:var(--muted); font-size:12px; margin: 4px 0;">{{ mem.description|truncatechars:140 }}</p>
+            <div style="font-family:monospace; font-size:10px; color: var(--muted); margin-top:6px;">
+                source: {{ mem.scenario_source|truncatechars:50 }}<br>
+                best: {{ mem.best_detector }} · seen {{ mem.times_seen }}×
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty">No memories yet. Run a few easy loops first.</div>
+        {% endfor %}
+
+        <h3 style="margin: 22px 0 10px;">Recent loops</h3>
+        {% for l in recent_loops %}
+        <div class="run-row">
+            <a href="?loop={{ l.loop_id }}">{{ l.loop_id|slice:":18" }}</a>
+            <span class="pill {% if 'block' in l.aggregate_posture %}critical{% elif 'alert' in l.aggregate_posture %}watch{% else %}info{% endif %}">{{ l.aggregate_posture }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% else %}
+<div class="panel pad">
+    <h3 style="color: var(--amber);">No loops have been recorded yet</h3>
+    <p>Run one from this page, or from the CLI:</p>
+    <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px;">python manage.py run_immune_loop --difficulty easy --repeat 3</pre>
+</div>
+{% endif %}
+
+<script>
+(async function showLlmStatus() {
+    try {
+        const resp = await fetch('/api/agentic/llm-status/');
+        const data = await resp.json();
+        const el = document.getElementById('llm-status');
+        if (data.enabled) {
+            el.style.color = 'var(--violet)';
+            el.style.borderColor = 'rgba(169,151,255,.45)';
+            el.style.background = 'rgba(169,151,255,.08)';
+            el.textContent = `LLM: ${data.provider} · ${data.model}`;
+        } else {
+            el.textContent = `LLM: off (deterministic mode)`;
+        }
+    } catch (e) { /* leave default text */ }
+})();
+
+document.getElementById('run-loop-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('run-loop-btn');
+    const status = document.getElementById('run-status');
+    const difficulty = document.getElementById('loop-difficulty').value;
+    btn.disabled = true;
+    status.textContent = 'Running immune loop…';
+    try {
+        const resp = await fetch('/api/agentic/run/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ difficulty, limit: 30 }),
+        });
+        const data = await resp.json();
+        if (data.error) {
+            status.textContent = 'Error: ' + data.error;
+            status.style.color = 'var(--red)';
+        } else {
+            status.textContent =
+                `Loop ${data.loop_id.slice(0,18)} · posture=${data.aggregate_posture} · ` +
+                `${data.alert_count} alerts · ${data.case_count} cases · ` +
+                `${data.new_memory_count} new memories`;
+            status.style.color = 'var(--green)';
+            setTimeout(() => window.location.reload(), 1500);
+        }
+    } catch (e) {
+        status.textContent = 'Request failed: ' + e.message;
+        status.style.color = 'var(--red)';
+    } finally {
+        btn.disabled = false;
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "dashboard/demo_base.html" %}
+
+{% block title %}Decision Audit Traces - MarketImmune{% endblock %}
+
+{% block content %}
+<div class="header" style="margin-bottom:34px;">
+    <span class="eyebrow">Explainability Log</span>
+    <h2>Decision Audit Traces</h2>
+    <p class="lede">Verify complete feature evidence, models inputs, and recommended control records mapped to policy decisions in real time.</p>
+</div>
+
+<div class="grid two">
+    {% for trace in traces %}
+    <div class="panel pad" style="font-family:'SFMono-Regular', Consolas, monospace; font-size:12px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">
+            <span style="color:var(--muted);">{{ trace.timestamp|date:"H:i:s.u" }}</span>
+            {% if trace.policy_decision == 'block' %}
+            <span class="pill critical">BLOCK</span>
+            {% elif trace.policy_decision == 'alert' %}
+            <span class="pill watch">ALERT</span>
+            {% else %}
+            <span class="pill normal">ALLOW</span>
+            {% endif %}
+        </div>
+
+        <div style="margin-bottom:8px;">
+            <strong style="color:var(--blue);">Observation:</strong>
+            <p style="font-size:12px; margin-top:2px; font-family:sans-serif; color:var(--ink);">{{ trace.observation }}</p>
+        </div>
+
+        <div style="margin-bottom:8px;">
+            <strong>Interpretation:</strong>
+            <p style="font-size:12px; margin-top:2px; font-family:sans-serif; color:var(--muted);">{{ trace.model_interpretation }}</p>
+        </div>
+
+        <div>
+            <strong style="color:var(--amber);">Recommended Control Action:</strong>
+            <p style="font-size:11px; margin-top:2px; color:var(--ink); background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; border-left:2px solid var(--amber);">{{ trace.recommended_control }}</p>
+        </div>
+    </div>
+    {% empty %}
+    <div class="panel pad" style="grid-column: span 2;">
+        <div class="empty">No decision traces stored. Select and run a scenario inside the Replay Cockpit simulator to log execution policy checks.</div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

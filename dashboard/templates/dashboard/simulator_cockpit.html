@@ -1,0 +1,1257 @@
+{% extends "dashboard/demo_base.html" %}
+
+{% block title %}Exchange Replay Cockpit - MarketImmune{% endblock %}
+
+{% block head %}
+<!-- TradingView Lightweight Charts -->
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+    /* Professional trading layout styling */
+    .cockpit-container {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 400px;
+        gap: 16px;
+        margin-top: 0;
+        font-family: 'SFMono-Regular', Consolas, Monaco, monospace;
+        color: #eef5ff;
+        font-size: 13px;
+    }
+    
+    .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #0d192b;
+        border-bottom: 1px solid #1c2e42;
+        padding: 8px 11px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: bold;
+    }
+    
+    .panel-body {
+        padding: 10px;
+        position: relative;
+    }
+    
+    .badge-prov {
+        font-size: 10px;
+        font-weight: normal;
+        background: rgba(100, 166, 255, 0.15);
+        color: var(--blue);
+        border: 1px solid rgba(100, 166, 255, 0.3);
+        padding: 2px 6px;
+        border-radius: 3px;
+        text-transform: capitalize;
+    }
+    
+    .badge-prov.simulated {
+        background: rgba(96, 165, 250, 0.12);
+        color: var(--blue);
+        border-color: rgba(96, 165, 250, 0.28);
+    }
+    
+    .badge-prov.model {
+        background: rgba(53, 211, 154, 0.15);
+        color: var(--green);
+        border-color: rgba(53, 211, 154, 0.3);
+    }
+
+    .badge-prov.failed {
+        background: rgba(255, 107, 107, 0.15);
+        color: var(--red);
+        border-color: rgba(255, 107, 107, 0.3);
+    }
+
+    .cockpit-top-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #0d192b;
+        border: 1px solid #1c2e42;
+        padding: 10px 16px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        font-size: 13px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .top-stat-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .top-stat-val {
+        font-size: 18px;
+        font-weight: bold;
+        color: var(--ink);
+    }
+
+    .top-stat-label {
+        font-size: 10px;
+        color: var(--muted);
+        text-transform: uppercase;
+    }
+
+    .cockpit-bottom-control {
+        background: #0d192b;
+        border: 1px solid #1c2e42;
+        border-radius: 6px;
+        padding: 10px 16px;
+        margin-top: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+    }
+
+    .scrubber-wrap {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        margin: 0 20px;
+    }
+
+    .scrubber {
+        width: 100%;
+        accent-color: var(--blue);
+        cursor: pointer;
+    }
+
+    /* DOM style */
+    .dom-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+    .dom-table th, .dom-table td {
+        padding: 5px 6px;
+        border-bottom: 1px solid rgba(255,255,255,0.02);
+        text-align: right;
+    }
+    .dom-table th {
+        background: rgba(255,255,255,0.02);
+        font-size: 10px;
+    }
+    .dom-bid {
+        color: var(--green);
+    }
+    .dom-ask {
+        color: var(--red);
+    }
+    .dom-size-bar {
+        height: 12px;
+        background: currentColor;
+        opacity: 0.15;
+    }
+
+    /* Tape styles */
+    .tape-container {
+        height: 150px;
+        overflow-y: auto;
+        font-size: 12px;
+        line-height: 1.45;
+    }
+    .tape-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 6px;
+        border-bottom: 1px solid rgba(255,255,255,0.01);
+    }
+
+    .gauge-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px 0;
+    }
+    .gauge-val {
+        font-size: 40px;
+        font-weight: 900;
+        margin-top: -5px;
+    }
+    .gauge-label {
+        font-size: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+        border-radius: 4px;
+        padding: 2px 8px;
+    }
+
+    .panel-group-vert {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    /* Mode headers and buttons */
+    .btn-icon {
+        background: #13233a;
+        border: 1px solid #263851;
+        color: #eef5ff;
+        padding: 7px 11px;
+        border-radius: 4px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 13px;
+    }
+    .btn-icon:hover {
+        background: #1c2e42;
+    }
+    .btn-icon.active {
+        background: var(--blue-bg);
+        border-color: var(--blue);
+        color: #fff;
+    }
+
+    .control-label {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--muted);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .control-input {
+        width: 100%;
+        background: #101d31;
+        border: 1px solid #263851;
+        color: #fff;
+        padding: 8px 9px;
+        font-size: 13px;
+        border-radius: 6px;
+        font-family: inherit;
+        cursor: pointer;
+    }
+
+    .control-grid {
+        display: grid;
+        gap: 10px;
+    }
+
+    .coverage-note {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.45;
+    }
+
+    @media (max-width: 1120px) {
+        .cockpit-container { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Status banner: visible whenever simulator state is loading or broken. -->
+<div id="status-banner"
+     style="display:none; margin-bottom:10px; padding:8px 12px; border-radius:6px;
+            background:#13233a; border:1px solid #263851; font-size:12px; gap:10px;
+            align-items:center; justify-content:space-between;">
+    <span id="status-text">Loading simulator session...</span>
+    <button id="status-retry"
+            style="display:none; background:#1c2e42; color:#eef5ff; border:1px solid #344966;
+                   padding:4px 10px; border-radius:4px; cursor:pointer; font-size:11px;">
+        Retry
+    </button>
+</div>
+
+<!-- Top Header Info -->
+<div class="cockpit-top-bar">
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <span style="font-size: 18px; font-weight: bold; color: var(--green); display: flex; align-items: center; gap: 8px;">
+            <span class="mark" style="width: 24px; height: 24px; font-size: 10px; border-radius: 5px;">BTC</span>
+            BTCUSDT
+        </span>
+        <div class="top-stat-item">
+            <span class="top-stat-val" id="top-price">-</span>
+            <span class="top-stat-label">Last Price</span>
+        </div>
+        <div class="top-stat-item">
+            <span class="top-stat-val" id="top-volume">-</span>
+            <span class="top-stat-label">1m Volume (BTC)</span>
+        </div>
+        <div class="top-stat-item">
+            <span class="top-stat-val" id="top-spread" style="color: var(--blue);">-</span>
+            <span class="top-stat-label">Ask - bid at +/-1% band</span>
+        </div>
+        <div class="top-stat-item">
+            <span class="top-stat-val" id="top-time">-</span>
+            <span class="top-stat-label">Replay Clock (UTC)</span>
+        </div>
+        <div class="top-stat-item">
+            <span class="top-stat-val" id="coverage-range">-</span>
+            <span class="top-stat-label">Local data coverage</span>
+        </div>
+    </div>
+    
+    <!-- Provenance Badges block -->
+    <div style="display: flex; gap: 6px;">
+        <span class="badge-prov">Binance USD-M parquet - 1m kline + bookDepth</span>
+        <span class="badge-prov simulated">Simulated agent overlay</span>
+        <span class="badge-prov model">RuleEngine risk output</span>
+        <span class="badge-prov info">No real orders sent</span>
+    </div>
+</div>
+
+<div class="cockpit-container">
+    <!-- Left Main Column (Charts, volume, tapes) -->
+    <div class="panel-group-vert">
+        <!-- Chart Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>BTCUSDT 1m candles - real Binance OHLC + EMA 20/50 + volume</span>
+                <span class="badge-prov">Binance parquet</span>
+            </div>
+            <div class="panel-body" style="height: 440px; background: #08111f;" id="tv-chart-container">
+                <!-- TV Chart Mount -->
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <!-- Order Book Heatmap Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Aggregated L2 depth - % from mid</span>
+                    <span class="badge-prov" id="heatmap-prov">Binance bookDepth</span>
+                </div>
+                <div class="panel-body" style="height: 170px; background: #08111f; display: flex; flex-direction: column; justify-content: center; position: relative;">
+                    <canvas id="heatmap-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+                    <div id="heatmap-placeholder" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(8,17,31,0.85); font-size: 11px; color: var(--muted); text-align: center; padding: 10px;">
+                        Loading depth ladder...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Volume / Order Flow Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Signed-volume CVD proxy - close vs open x volume</span>
+                    <span class="badge-prov">Derived from klines</span>
+                </div>
+                <div class="panel-body" style="height: 170px; background: #08111f; padding: 0;">
+                    <canvas id="cvd-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <!-- Live Trade Tape -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Per-minute kline tape - real volume</span>
+                    <span class="badge-prov">Binance parquet</span>
+                </div>
+                <div class="panel-body">
+                    <div class="tape-container" id="trade-tape">
+                        <!-- Filled Trades -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Simulated agent orders feed -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Simulated agent orders &amp; fills</span>
+                    <span class="badge-prov simulated">Simulated overlay</span>
+                </div>
+                <div class="panel-body">
+                    <div class="tape-container" style="color: var(--blue);" id="agent-tape">
+                        <!-- Active Simulated agent actions -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Side Column (DOM, Predictions, Audit traces) -->
+    <div class="panel-group-vert">
+        <!-- Scenario / Mode selection card -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>Active Simulator Scenario</span>
+                <span class="badge-prov simulated">Controller</span>
+            </div>
+            <div class="panel-body">
+                <div class="control-grid">
+                    <div>
+                        <label class="control-label" for="scenario-selector">Scenario profile</label>
+                        <select id="scenario-selector" class="control-input">
+                            {% for sc in scenarios %}
+                            <option value="{{ sc.name }}">{{ sc.label }} ({{ sc.family|title }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="control-label" for="date-selector">Replay date</label>
+                        <select id="date-selector" class="control-input"></select>
+                    </div>
+                    <div>
+                        <label class="control-label" for="limit-selector">Replay window</label>
+                        <select id="limit-selector" class="control-input">
+                            <option value="120">120 minutes</option>
+                            <option value="360">6 hours</option>
+                            <option value="720">12 hours</option>
+                            <option value="1440" selected>Full day (1,440 minutes)</option>
+                        </select>
+                    </div>
+                    <button class="btn-icon" id="btn-build" type="button">Rebuild replay</button>
+                </div>
+                <p id="scenario-description" style="font-size:10px; color:var(--muted); margin-top:6px; line-height:1.4;"></p>
+                <p id="coverage-note" class="coverage-note"></p>
+            </div>
+        </div>
+
+        <!-- DOM / Order Book Ladder -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>Aggregated depth ladder</span>
+                <span class="badge-prov">Binance bookDepth</span>
+            </div>
+            <div class="panel-body" style="padding: 5px;">
+                <table class="dom-table">
+                    <thead>
+                        <tr>
+                            <th>Side</th>
+                            <th>% from mid</th>
+                            <th>Price</th>
+                            <th>Depth (BTC)</th>
+                            <th>Notional</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dom-body">
+                        <!-- DOM rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Feature evidence panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>Feature evidence at cursor</span>
+                <span class="badge-prov simulated">Simulated overlay</span>
+            </div>
+            <div class="panel-body" style="padding: 8px 10px; font-size: 11px;">
+                <table class="dom-table" style="font-size: 10px;">
+                    <tbody id="feature-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Risk Gauge & prediction -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>ML/Rule anomaly detector</span>
+                <span class="badge-prov model">Risk model output</span>
+            </div>
+            <div class="panel-body" style="padding: 10px; text-align: center;">
+                <div class="gauge-container">
+                    <span class="gauge-val" id="risk-score">0.05</span>
+                    <span class="gauge-label" id="risk-label" style="background: var(--green-bg); color: var(--green);">ALLOW</span>
+                </div>
+                <div style="font-size: 10px; color: var(--muted); text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; margin-top: 5px;">
+                    <div style="font-weight: bold;">Detector Model: <span style="color:var(--blue);" id="risk-model-name">RuleEngine</span></div>
+                    <div id="risk-explanation" style="margin-top: 3px;">Normal flow detected.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Decision Audit Trace -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>Decision Audit Trace</span>
+                <span class="badge-prov model">Explainability Audit</span>
+            </div>
+            <div class="panel-body" style="font-size: 10px; max-height: 153px; overflow-y: auto;" id="audit-trace-container">
+                <div style="font-family: inherit;">
+                    <div style="color: var(--muted); text-transform: uppercase; font-size: 8px; margin-bottom: 4px;">Latest Action Log</div>
+                    <div id="audit-observation" style="margin-bottom: 6px;"><span class="muted">Observation:</span> Loading...</div>
+                    <div id="audit-interpretation" style="margin-bottom: 6px;"><span class="muted">Interpretation:</span> Loading...</div>
+                    <div id="audit-control" style="border-left: 2px solid var(--blue); padding-left: 6px; color: var(--ink);"><span class="muted">Command:</span> Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bottom Control Panel -->
+<div class="cockpit-bottom-control">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="btn-icon" id="btn-play">
+            <span id="play-icon">&gt;</span> <span id="play-text">PLAY</span>
+        </button>
+        <button class="btn-icon" id="btn-reset">
+            RESET
+        </button>
+    </div>
+
+    <div class="scrubber-wrap">
+        <span style="font-size: 9px; color: var(--muted);">START</span>
+        <input type="range" class="scrubber" id="replay-scrubber" min="0" max="0" value="0">
+        <span style="font-size: 9px; color: var(--muted);" id="scrubber-end-val">END</span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="font-size: 11px;">
+            Speed: 
+            <select id="speed-selector" style="background:#13233a; border:1px solid #263851; color:#fff; font-size:11px; padding:2px 5px; border-radius:4px; font-family:inherit; cursor:pointer;">
+                <option value="1">1x</option>
+                <option value="5">5x</option>
+                <option value="10" selected>10x</option>
+                <option value="50">50x</option>
+                <option value="100">100x</option>
+            </select>
+        </div>
+        <div style="font-size: 11px; text-transform: uppercase;">
+            Step: <span id="event-counter" style="color: var(--blue);">0 / 0</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Main JavaScript Player Logic
+    let simData = null;
+    let currentIdx = 0;
+    let isPlaying = false;
+    let playInterval = null;
+    let isLoading = false;
+
+    function setStatus(text, { kind = 'info', showRetry = false } = {}) {
+        const banner = document.getElementById('status-banner');
+        const label = document.getElementById('status-text');
+        const retry = document.getElementById('status-retry');
+        if (!banner || !label || !retry) return;
+        if (text === null) { banner.style.display = 'none'; return; }
+        banner.style.display = 'flex';
+        label.textContent = text;
+        retry.style.display = showRetry ? 'inline-block' : 'none';
+        const colors = {
+            info:  ['#13233a', '#263851', '#9aabc2'],
+            ok:    ['#123c31', '#1f6a52', '#35d39a'],
+            warn:  ['#3f3217', '#735c1f', '#f4c95d'],
+            error: ['#431d26', '#7d3540', '#ff6b6b'],
+        }[kind] || ['#13233a', '#263851', '#9aabc2'];
+        banner.style.background = colors[0];
+        banner.style.borderColor = colors[1];
+        label.style.color = colors[2];
+    }
+
+    // Charts references
+    let chart = null;
+    let candleSeries = null;
+    let volumeSeries = null;
+    let emaFastSeries = null;
+    let emaSlowSeries = null;
+    let isChartCreated = false;
+
+    // Heatmap helper & cumulative volume delta proxy series
+    let heatmapCtx = null;
+    let cvdCtx = null;
+    // cvdSeries[i] = cumulative sum of sign(close-open) * volume up to event i.
+    // Computed once when the session loads so playback never desyncs.
+    let cvdSeries = [];
+
+    function chartTime(ev) {
+        return Math.floor(new Date(ev.timestamp).getTime() / 1000);
+    }
+
+    function addChartSeries(legacyMethod, seriesType, options) {
+        if (!chart) return null;
+        if (typeof chart[legacyMethod] === 'function') {
+            return chart[legacyMethod](options);
+        }
+        if (typeof chart.addSeries === 'function' && LightweightCharts[seriesType]) {
+            return chart.addSeries(LightweightCharts[seriesType], options);
+        }
+        return null;
+    }
+
+    function emaData(events, period) {
+        const multiplier = 2 / (period + 1);
+        let ema = null;
+        return events.map(ev => {
+            const close = ev.close != null ? ev.close : ev.price;
+            ema = ema === null ? close : (close * multiplier) + (ema * (1 - multiplier));
+            return { time: chartTime(ev), value: ema };
+        });
+    }
+
+    function volumeData(events) {
+        return events.map(ev => {
+            const open = ev.open != null ? ev.open : ev.price;
+            const close = ev.close != null ? ev.close : ev.price;
+            return {
+                time: chartTime(ev),
+                value: ev.volume || 0,
+                color: close >= open ? 'rgba(45,212,191,0.34)' : 'rgba(251,113,133,0.34)',
+            };
+        });
+    }
+
+    // Initialize Lightweight-Charts
+    function initChart() {
+        const container = document.getElementById('tv-chart-container');
+        if (!container || typeof LightweightCharts === 'undefined') {
+            isChartCreated = false;
+            return;
+        }
+
+        const candleOptions = {
+            upColor: '#35d39a',
+            downColor: '#ff6b6b',
+            borderVisible: false,
+            wickUpColor: '#35d39a',
+            wickDownColor: '#ff6b6b',
+        };
+
+        try {
+            chart = LightweightCharts.createChart(container, {
+                layout: {
+                    background: { color: '#08111f' },
+                    textColor: '#9aabc2',
+                },
+                grid: {
+                    vertLines: { color: 'rgba(255,255,255,0.05)' },
+                    horzLines: { color: 'rgba(255,255,255,0.05)' },
+                },
+                timeScale: {
+                    timeVisible: true,
+                    secondsVisible: true,
+                },
+            });
+
+            candleSeries = addChartSeries('addCandlestickSeries', 'CandlestickSeries', candleOptions);
+            if (!candleSeries) {
+                throw new Error('Unsupported Lightweight Charts candlestick API');
+            }
+            emaFastSeries = addChartSeries('addLineSeries', 'LineSeries', {
+                color: '#fbbf24',
+                lineWidth: 2,
+                priceLineVisible: false,
+                lastValueVisible: false,
+            });
+            emaSlowSeries = addChartSeries('addLineSeries', 'LineSeries', {
+                color: '#60a5fa',
+                lineWidth: 2,
+                priceLineVisible: false,
+                lastValueVisible: false,
+            });
+            volumeSeries = addChartSeries('addHistogramSeries', 'HistogramSeries', {
+                priceFormat: { type: 'volume' },
+                priceScaleId: 'volume',
+                priceLineVisible: false,
+                lastValueVisible: false,
+            });
+            if (chart.priceScale) {
+                chart.priceScale('right')?.applyOptions({ scaleMargins: { top: 0.06, bottom: 0.28 } });
+                chart.priceScale('volume')?.applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } });
+            }
+            isChartCreated = true;
+        } catch (e) {
+            console.warn('Candlestick chart disabled; replay data still loads.', e);
+            chart = null;
+            candleSeries = null;
+            volumeSeries = null;
+            emaFastSeries = null;
+            emaSlowSeries = null;
+            isChartCreated = false;
+            container.innerHTML = (
+                '<div style="height:100%; display:flex; align-items:center; justify-content:center; ' +
+                'color:var(--muted); font-size:12px;">Chart unavailable. Replay data is still loaded below.</div>'
+            );
+        }
+    }
+
+    // Canvas heatmaps setup
+    function setupCanvases() {
+        const hCanvas = document.getElementById('heatmap-canvas');
+        if (hCanvas) {
+            hCanvas.width = hCanvas.parentElement.clientWidth * window.devicePixelRatio;
+            hCanvas.height = hCanvas.parentElement.clientHeight * window.devicePixelRatio;
+            heatmapCtx = hCanvas.getContext('2d');
+            heatmapCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        const cCanvas = document.getElementById('cvd-canvas');
+        if (cCanvas) {
+            cCanvas.width = cCanvas.parentElement.clientWidth * window.devicePixelRatio;
+            cCanvas.height = cCanvas.parentElement.clientHeight * window.devicePixelRatio;
+            cvdCtx = cCanvas.getContext('2d');
+            cvdCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+    }
+
+    async function loadState(scenarioName = null) {
+        if (isLoading) return;
+        isLoading = true;
+        setStatus(
+            scenarioName
+                ? `Building ${scenarioName} session... first build can take ~30s while parquet files decode.`
+                : 'Loading simulator session...',
+            { kind: 'info' },
+        );
+        document.getElementById('heatmap-placeholder').style.display = 'flex';
+        document.getElementById('heatmap-placeholder').textContent = 'Loading depth ladder...';
+        const url = '/api/simulator/state/';
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) {
+                throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+            }
+            simData = await resp.json();
+            if (simData.error) throw new Error(simData.error);
+            if (!simData.events || simData.events.length === 0) {
+                throw new Error('Simulator session has 0 events. Run `python manage.py prepare_simulator --force`.');
+            }
+
+            // Pre-compute the signed-volume CVD proxy once. Each tick adds
+            // sign(close-open) * volume so the series is deterministic and
+            // matches whatever the user scrubs to.
+            cvdSeries = [];
+            let runningCvd = 0;
+            for (const ev of simData.events) {
+                const open = (ev.open != null) ? ev.open : ev.close;
+                const close = (ev.close != null) ? ev.close : ev.price;
+                const vol = ev.volume || 0;
+                const sign = close > open ? 1 : (close < open ? -1 : 0);
+                runningCvd += sign * vol;
+                cvdSeries.push(runningCvd);
+            }
+
+            // Reset the candle series with the full real OHLC dataset.
+            if (isChartCreated && chart && candleSeries) {
+                candleSeries.setData(simData.events.map(ev => ({
+                    time: chartTime(ev),
+                    open: ev.open != null ? ev.open : ev.price,
+                    high: ev.high != null ? ev.high : ev.price,
+                    low: ev.low != null ? ev.low : ev.price,
+                    close: ev.close != null ? ev.close : ev.price,
+                })));
+                if (emaFastSeries) emaFastSeries.setData(emaData(simData.events, 20));
+                if (emaSlowSeries) emaSlowSeries.setData(emaData(simData.events, 50));
+                if (volumeSeries) volumeSeries.setData(volumeData(simData.events));
+                chart.timeScale().fitContent();
+            }
+
+            currentIdx = 0;
+            isPlaying = false;
+            updatePlayButtonUI();
+
+            const scrubber = document.getElementById('replay-scrubber');
+            scrubber.max = Math.max(0, simData.events.length - 1);
+            scrubber.value = 0;
+
+            document.getElementById('event-counter').textContent =
+                `0 / ${simData.events.length}`;
+            document.getElementById('scrubber-end-val').textContent =
+                simData.events.length > 0
+                    ? new Date(simData.events[simData.events.length - 1].timestamp).toUTCString().slice(17, 22) + ' UTC'
+                    : 'END';
+
+            document.getElementById('trade-tape').innerHTML = '';
+            document.getElementById('agent-tape').innerHTML = '';
+
+            renderTick(0, true);
+            syncScenarioMeta();
+            syncReplayControls();
+            setStatus(
+                `Loaded ${simData.events.length} ticks - scenario "${simData.scenario_name}" - ${simData.session_id}`,
+                { kind: 'ok' },
+            );
+            setTimeout(() => setStatus(null), 4000);
+        } catch (e) {
+            console.error("Failed to load state", e);
+            setStatus(
+                `Could not load simulator state: ${e.message}`,
+                { kind: 'error', showRetry: true },
+            );
+        } finally {
+            isLoading = false;
+        }
+    }
+
+    function formatUtc(iso) {
+        const d = new Date(iso);
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ` +
+               `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+    }
+
+    function syncScenarioMeta() {
+        if (!simData) return;
+        const sel = document.getElementById('scenario-selector');
+        if (sel && simData.scenario_name) sel.value = simData.scenario_name;
+        const desc = document.getElementById('scenario-description');
+        if (desc && simData.scenarios) {
+            const meta = simData.scenarios.find(s => s.name === sel.value);
+            desc.textContent = meta ? meta.description : '';
+        }
+    }
+
+    function syncReplayControls() {
+        if (!simData) return;
+        const coverage = simData.market_coverage || {};
+        const dates = coverage.aligned_dates || [];
+        const dateSelect = document.getElementById('date-selector');
+        const limitSelect = document.getElementById('limit-selector');
+        const coverageRange = document.getElementById('coverage-range');
+        const coverageNote = document.getElementById('coverage-note');
+
+        if (dateSelect && dates.length) {
+            const current = simData.session_date || coverage.available_end || dates[dates.length - 1];
+            dateSelect.innerHTML = dates
+                .slice()
+                .reverse()
+                .map(d => `<option value="${d}">${d}</option>`)
+                .join('');
+            dateSelect.value = current;
+        }
+        if (limitSelect && simData.event_count) {
+            const options = [...limitSelect.options].map(o => o.value);
+            const value = String(simData.event_count);
+            limitSelect.value = options.includes(value) ? value : '1440';
+        }
+        if (coverageRange) {
+            coverageRange.textContent =
+                coverage.available_start && coverage.available_end
+                    ? `${coverage.available_start} to ${coverage.available_end}`
+                    : '-';
+        }
+        if (coverageNote) {
+            coverageNote.textContent =
+                coverage.available_start && coverage.available_end
+                    ? `Local lake has ${coverage.aligned_date_count} aligned BTCUSDT days from ${coverage.available_start} through ${coverage.available_end}. The active replay loads ${simData.event_count} one-minute ticks for ${simData.session_date}.`
+                    : 'No aligned kline + bookDepth coverage found in the local lake.';
+        }
+    }
+
+    // Render a single replay tick at `index`. When `rebuild` is true the
+    // chart/tape are wiped first (used on session load and reset).
+    function renderTick(index, rebuild = false) {
+        if (!simData || index < 0 || index >= simData.events.length) return;
+        const event = simData.events[index];
+        const movingForward = index > currentIdx;
+        currentIdx = index;
+
+        const open = event.open != null ? event.open : event.price;
+        const close = event.close != null ? event.close : event.price;
+        const high = event.high != null ? event.high : Math.max(open, close);
+        const low = event.low != null ? event.low : Math.min(open, close);
+
+        // Top bar reflects the actual cursor (price, derived spread, UTC clock).
+        document.getElementById('top-price').textContent =
+            close != null ? `$${close.toFixed(2)}` : '-';
+        const spread = event.spread || 0;
+        document.getElementById('top-spread').textContent =
+            spread > 0 ? `$${spread.toFixed(0)}` : 'n/a';
+        document.getElementById('top-volume').textContent =
+            (event.volume != null) ? event.volume.toFixed(2) : '-';
+        document.getElementById('top-time').textContent = formatUtc(event.timestamp);
+        document.getElementById('event-counter').textContent =
+            `${index + 1} / ${simData.events.length}`;
+        document.getElementById('replay-scrubber').value = index;
+
+        // Move the chart's visible range; data was already loaded in full at
+        // session start so this is O(1) per tick.
+        if (isChartCreated && chart && candleSeries) {
+            chart.timeScale().setVisibleLogicalRange({
+                from: Math.max(0, index - 40),
+                to: index + 5,
+            });
+        }
+
+        // ---------------- Aggregated depth ladder (real Binance) ----------------
+        const domBody = document.getElementById('dom-body');
+        const ladder = event.depth_levels || [];
+        const asks = ladder.filter(l => l.percentage > 0).sort((a, b) => b.percentage - a.percentage);
+        const bids = ladder.filter(l => l.percentage < 0).sort((a, b) => b.percentage - a.percentage);
+        const allDepths = ladder.map(l => l.depth);
+        const maxDepth = allDepths.length ? Math.max(...allDepths) : 1;
+
+        let domHtml = '';
+        if (ladder.length === 0) {
+            domHtml = `<tr><td colspan="5" style="color:var(--muted); text-align:center; padding:8px;">No depth snapshot for this minute.</td></tr>`;
+        } else {
+            asks.forEach(a => {
+                const price = close * (1 + a.percentage / 100);
+                const ratio = Math.min(100, (a.depth / maxDepth) * 100);
+                domHtml += `
+                    <tr>
+                        <td class="dom-ask">ASK</td>
+                        <td>+${a.percentage.toFixed(1)}%</td>
+                        <td>${price.toFixed(2)}</td>
+                        <td style="color:var(--red);">${a.depth.toFixed(2)}</td>
+                        <td><div class="dom-size-bar" style="width:${ratio}%; background:var(--red); float:right;"></div></td>
+                    </tr>`;
+            });
+            domHtml += `
+                <tr style="background:rgba(255,255,255,0.05); font-weight:bold;">
+                    <td colspan="2" style="text-align:left; color:var(--muted); font-size:9px;">+/-1% BAND SPREAD</td>
+                    <td colspan="3">$${spread > 0 ? spread.toFixed(2) : 'n/a'}</td>
+                </tr>`;
+            bids.forEach(b => {
+                const price = close * (1 + b.percentage / 100);
+                const ratio = Math.min(100, (b.depth / maxDepth) * 100);
+                domHtml += `
+                    <tr>
+                        <td class="dom-bid">BID</td>
+                        <td>${b.percentage.toFixed(1)}%</td>
+                        <td>${price.toFixed(2)}</td>
+                        <td style="color:var(--green);">${b.depth.toFixed(2)}</td>
+                        <td><div class="dom-size-bar" style="width:${ratio}%; background:var(--green); float:right;"></div></td>
+                    </tr>`;
+            });
+        }
+        domBody.innerHTML = domHtml;
+
+        drawHeatmap(asks, bids, maxDepth);
+
+        // ---------------- Kline trade tape (real volume) ----------------
+        if (rebuild) document.getElementById('trade-tape').innerHTML = '';
+        const tradeTape = document.getElementById('trade-tape');
+        if (movingForward || rebuild) {
+            const tradeColor = close >= open ? 'var(--green)' : 'var(--red)';
+            const arrow = close >= open ? 'UP' : 'DOWN';
+            const row = document.createElement('div');
+            row.className = 'tape-row';
+            row.style.color = tradeColor;
+            row.innerHTML = `
+                <span>${arrow} ${formatUtc(event.timestamp).slice(11)} - ${(event.volume || 0).toFixed(3)} BTC</span>
+                <span>$${close.toFixed(2)}</span>`;
+            tradeTape.prepend(row);
+            if (tradeTape.children.length > 30) tradeTape.lastChild.remove();
+        }
+
+        // ---------------- Simulated agent orders ----------------
+        if (rebuild) document.getElementById('agent-tape').innerHTML = '';
+        const agentTape = document.getElementById('agent-tape');
+        if (movingForward || rebuild) {
+            const currTs = new Date(event.timestamp).getTime();
+            const activeOrders = simData.agent_orders.filter(
+                o => new Date(o.timestamp).getTime() === currTs);
+            activeOrders.forEach(o => {
+                const oRow = document.createElement('div');
+                oRow.className = 'tape-row';
+                oRow.innerHTML = `
+                    <span>${o.agent_id} - ${o.strategy} - [${o.side}]</span>
+                    <span style="font-weight:bold;">${o.quantity.toFixed(4)} @ $${o.price.toFixed(2)}</span>`;
+                agentTape.prepend(oRow);
+                if (agentTape.children.length > 30) agentTape.lastChild.remove();
+            });
+        }
+
+        // ---------------- Feature evidence (drives the risk score) ----------------
+        const featureSnap = simData.feature_snapshots.find(
+            f => new Date(f.timestamp).getTime() === new Date(event.timestamp).getTime());
+        const featureBody = document.getElementById('feature-body');
+        if (featureSnap) {
+            const niceNames = {
+                w1000_agentic_burst_rate_per_second: 'Burst rate / s',
+                w1000_order_cancel_rate: 'Cancel rate',
+                w5000_order_sell_ratio: 'Sell ratio',
+                w1000_agentic_min_interarrival_ms: 'Min interarrival (ms)',
+                w60000_market_price_drift: 'Price drift (60s)',
+                w5000_order_quantity_sum: 'Order qty sum (5s)',
+                w5000_order_price_range: 'Price range (5s)',
+            };
+            const rows = Object.entries(niceNames)
+                .filter(([key]) => featureSnap.features[key] !== undefined)
+                .map(([key, label]) => `
+                    <tr>
+                        <td style="text-align:left; color:var(--muted);">${label}</td>
+                        <td style="color:var(--blue); font-weight:bold;">${Number(featureSnap.features[key]).toFixed(2)}</td>
+                    </tr>`)
+                .join('');
+            featureBody.innerHTML = rows || '<tr><td colspan="2">-</td></tr>';
+        } else {
+            featureBody.innerHTML = '<tr><td colspan="2">No features at this tick.</td></tr>';
+        }
+
+        // ---------------- Risk gauge ----------------
+        const pred = simData.predictions.find(
+            p => new Date(p.timestamp).getTime() === new Date(event.timestamp).getTime());
+        if (pred) {
+            const scoreEl = document.getElementById('risk-score');
+            const labelEl = document.getElementById('risk-label');
+            const explanationEl = document.getElementById('risk-explanation');
+            const modelNameEl = document.getElementById('risk-model-name');
+
+            scoreEl.textContent = pred.risk_score.toFixed(2);
+            labelEl.textContent = pred.risk_label;
+            explanationEl.textContent = pred.explanation;
+            modelNameEl.textContent = pred.model_name;
+
+            // Gauge colors mapping
+            if (pred.risk_score >= 0.75) {
+                scoreEl.style.color = 'var(--red)';
+                labelEl.style.background = 'var(--red-bg)';
+                labelEl.style.color = 'var(--red)';
+            } else if (pred.risk_score >= 0.45) {
+                scoreEl.style.color = 'var(--amber)';
+                labelEl.style.background = 'var(--amber-bg)';
+                labelEl.style.color = 'var(--amber)';
+            } else {
+                scoreEl.style.color = 'var(--green)';
+                labelEl.style.background = 'var(--green-bg)';
+                labelEl.style.color = 'var(--green)';
+            }
+        }
+
+        // Draw CVD flow chart panel
+        drawCVD(index);
+
+        // Update Explainability Trace logs
+        const trace = simData.decision_traces.find(t => new Date(t.timestamp).getTime() === new Date(event.timestamp).getTime());
+        if (trace) {
+            document.getElementById('audit-observation').innerHTML = `<span class="muted">Observation:</span> ${trace.observation}`;
+            document.getElementById('audit-interpretation').innerHTML = `<span class="muted">Interpretation:</span> ${trace.model_interpretation}`;
+            
+            const ctrlEl = document.getElementById('audit-control');
+            ctrlEl.innerHTML = `<span class="muted">Recommended:</span> ${trace.recommended_control}`;
+            
+            if (trace.policy_decision === 'block') {
+                ctrlEl.style.borderLeftColor = 'var(--red)';
+                ctrlEl.style.color = 'var(--red)';
+            } else if (trace.policy_decision === 'alert') {
+                ctrlEl.style.borderLeftColor = 'var(--amber)';
+                ctrlEl.style.color = 'var(--amber)';
+            } else {
+                ctrlEl.style.borderLeftColor = 'var(--blue)';
+                ctrlEl.style.color = 'var(--ink)';
+            }
+        }
+    }
+
+    function drawHeatmap(asks, bids, maxDepth) {
+        if (!heatmapCtx) return;
+        const placeholder = document.getElementById('heatmap-placeholder');
+        if (asks.length === 0 && bids.length === 0) {
+            placeholder.textContent = 'No aggregated depth snapshot for this minute.';
+            placeholder.style.display = 'flex';
+            return;
+        }
+        placeholder.style.display = 'none';
+
+        const width = document.getElementById('heatmap-canvas').parentElement.clientWidth;
+        const height = document.getElementById('heatmap-canvas').parentElement.clientHeight;
+        heatmapCtx.clearRect(0, 0, width, height);
+
+        // Centre mid line (visual anchor between bids/asks).
+        heatmapCtx.strokeStyle = 'rgba(100, 166, 255, 0.25)';
+        heatmapCtx.lineWidth = 1.5;
+        heatmapCtx.beginPath();
+        heatmapCtx.moveTo(0, height / 2);
+        heatmapCtx.lineTo(width, height / 2);
+        heatmapCtx.stroke();
+
+        const drawSide = (levels, anchor, direction, baseColor) => {
+            const rowHeight = Math.max(8, Math.floor((height / 2 - 4) / Math.max(levels.length, 1)));
+            levels.forEach((lvl, i) => {
+                // Intensity reflects the actual depth recorded at that level
+                // relative to the deepest level in this snapshot (0-1).
+                const intensity = Math.min(0.95, 0.15 + 0.8 * (lvl.depth / maxDepth));
+                const y = anchor + direction * (i + 1) * rowHeight;
+                heatmapCtx.fillStyle = `rgba(${baseColor}, ${intensity})`;
+                heatmapCtx.fillRect(0, direction > 0 ? y : y, width, rowHeight - 2);
+                heatmapCtx.fillStyle = 'rgba(255,255,255,0.85)';
+                heatmapCtx.font = '9px monospace';
+                heatmapCtx.fillText(
+                    `${lvl.percentage > 0 ? '+' : ''}${lvl.percentage.toFixed(1)}%  ` +
+                    `${lvl.depth.toFixed(1)} BTC  $${(lvl.notional / 1e6).toFixed(1)}M`,
+                    8, (direction > 0 ? y : y) + rowHeight - 5);
+            });
+        };
+
+        // Asks above mid, bids below - directly proportional to real depth.
+        drawSide(asks, height / 2, -1, '255, 107, 107');
+        drawSide(bids, height / 2, 1, '53, 211, 154');
+    }
+
+    function drawCVD(index) {
+        if (!cvdCtx || !simData) return;
+        const canvas = document.getElementById('cvd-canvas');
+        const width = canvas.parentElement.clientWidth;
+        const height = canvas.parentElement.clientHeight;
+        cvdCtx.clearRect(0, 0, width, height);
+
+        // Window the cumulative series so the line keeps moving as the
+        // cursor advances rather than zooming out forever.
+        const windowSize = 60;
+        const start = Math.max(0, index - windowSize + 1);
+        const slice = cvdSeries.slice(start, index + 1);
+        if (slice.length === 0) return;
+
+        const minV = Math.min(...slice);
+        const maxV = Math.max(...slice);
+        const range = (maxV - minV) || 1;
+        const zeroY = height - ((0 - minV) / range) * (height - 20) - 10;
+
+        cvdCtx.strokeStyle = 'rgba(255,255,255,0.06)';
+        cvdCtx.beginPath();
+        cvdCtx.moveTo(0, zeroY);
+        cvdCtx.lineTo(width, zeroY);
+        cvdCtx.stroke();
+
+        const stepX = width / Math.max(slice.length - 1, 1);
+        cvdCtx.strokeStyle = slice[slice.length - 1] >= (slice[0] || 0) ? '#35d39a' : '#ff6b6b';
+        cvdCtx.lineWidth = 1.6;
+        cvdCtx.beginPath();
+        slice.forEach((v, i) => {
+            const x = i * stepX;
+            const y = height - ((v - minV) / range) * (height - 20) - 10;
+            if (i === 0) cvdCtx.moveTo(x, y);
+            else cvdCtx.lineTo(x, y);
+        });
+        cvdCtx.stroke();
+
+        cvdCtx.fillStyle = 'rgba(154,171,194,0.7)';
+        cvdCtx.font = '9px monospace';
+        cvdCtx.fillText(
+            `Signed-vol last ${slice.length}m: ${slice[slice.length - 1].toFixed(2)} BTC`,
+            6, 12);
+    }
+
+    function togglePlay() {
+        if (isPlaying) {
+            pauseReplay();
+        } else {
+            playReplay();
+        }
+    }
+
+    function playReplay() {
+        if (!simData || !simData.events || simData.events.length === 0) {
+            setStatus(
+                'Cannot start playback: no events loaded. Click Retry to reload the session.',
+                { kind: 'warn', showRetry: true },
+            );
+            return;
+        }
+        isPlaying = true;
+        updatePlayButtonUI();
+
+        const speedSel = document.getElementById('speed-selector');
+        const speedFactor = parseInt(speedSel.value, 10) || 10;
+        const intervalMs = Math.max(50, 1000 / speedFactor);
+
+        playInterval = setInterval(() => {
+            if (currentIdx < simData.events.length - 1) {
+                renderTick(currentIdx + 1);
+            } else {
+                pauseReplay();
+                setStatus(`Replay complete (${simData.events.length} ticks). Press Reset to scrub back.`, { kind: 'ok' });
+                setTimeout(() => setStatus(null), 4000);
+            }
+        }, intervalMs);
+    }
+
+    function pauseReplay() {
+        isPlaying = false;
+        updatePlayButtonUI();
+        if (playInterval) {
+            clearInterval(playInterval);
+            playInterval = null;
+        }
+    }
+
+    function updatePlayButtonUI() {
+        const btn = document.getElementById('btn-play');
+        const icon = document.getElementById('play-icon');
+        const txt = document.getElementById('play-text');
+        if (isPlaying) {
+            icon.textContent = '||';
+            txt.textContent = 'PAUSE';
+            btn.classList.add('active');
+        } else {
+            icon.textContent = '>';
+            txt.textContent = 'PLAY';
+            btn.classList.remove('active');
+        }
+    }
+
+    async function buildReplaySession() {
+        pauseReplay();
+        const scenarioName = document.getElementById('scenario-selector').value;
+        const replayDate = document.getElementById('date-selector').value;
+        const limit = parseInt(document.getElementById('limit-selector').value, 10) || 1440;
+        const speed = parseInt(document.getElementById('speed-selector').value, 10);
+        setStatus(
+            `Building ${limit} minute replay for ${replayDate} (${scenarioName})...`,
+            { kind: 'info' },
+        );
+        try {
+            const resp = await fetch('/api/simulator/control/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    scenario: scenarioName,
+                    date: replayDate,
+                    speed: speed,
+                    limit: limit,
+                })
+            });
+            const payload = await resp.json();
+            if (!resp.ok || payload.status === 'error') {
+                throw new Error(payload.message || `HTTP ${resp.status}`);
+            }
+            await loadState();
+        } catch (e) {
+            console.error("Failed to update scenario", e);
+            setStatus(`Could not rebuild replay: ${e.message}`, { kind: 'error', showRetry: true });
+        }
+    }
+
+    // Trigger Scenario Change
+    async function selectScenario() {
+        await buildReplaySession();
+    }
+
+    // Bind Event Listeners
+    window.addEventListener('load', () => {
+        try {
+            initChart();
+        } catch (e) {
+            console.warn('Chart startup failed; continuing without candlesticks.', e);
+        }
+        setupCanvases();
+        loadState();
+
+        document.getElementById('btn-play').addEventListener('click', togglePlay);
+        
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            pauseReplay();
+            renderTick(0, true);
+        });
+
+        document.getElementById('replay-scrubber').addEventListener('input', (e) => {
+            pauseReplay();
+            renderTick(parseInt(e.target.value, 10));
+        });
+
+        document.getElementById('scenario-selector').addEventListener('change', (e) => {
+            selectScenario(e.target.value);
+        });
+
+        document.getElementById('btn-build').addEventListener('click', buildReplaySession);
+
+        document.getElementById('status-retry').addEventListener('click', () => {
+            loadState();
+        });
+
+        document.getElementById('speed-selector').addEventListener('change', () => {
+            if (isPlaying) {
+                pauseReplay();
+                playReplay();
+            }
+        });
+    });
+
+    window.addEventListener('resize', setupCanvases);
+</script>
+{% endblock %}

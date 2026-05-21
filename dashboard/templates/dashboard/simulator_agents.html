@@ -1,0 +1,85 @@
+{% extends "dashboard/demo_base.html" %}
+
+{% block title %}Simulated Trading Agents - MarketImmune{% endblock %}
+
+{% block content %}
+<div class="header" style="margin-bottom:34px;">
+    <span class="eyebrow">Interactive Agents</span>
+    <h2>Simulated Order Book Agents</h2>
+    <p class="lede">Discover how different autonomous agent personalities overlay order placement sequences on replayed BTC exchange depth.</p>
+</div>
+
+<div class="grid two">
+    <div class="panel pad">
+        <h3 style="color:var(--red); margin-bottom:8px;">spoofing_layering</h3>
+        <span class="pill critical" style="margin-bottom:12px;">Hostile / Unsafe</span>
+        <p style="font-size:13px; color:var(--muted); line-height:1.5;">
+            Creates massive synthetic sell walls 3 levels above spread to shift the LOB bid/ask ratio and pressure prices downward, rapidly cancelling before filled.
+        </p>
+        <div style="margin-top:14px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; font-size:11px;">
+            <span>Cancel-to-fill Ratio: <b>> 98%</b></span>
+            <span>Est. Burst Rate: <b>~ 18 / sec</b></span>
+        </div>
+    </div>
+
+    <div class="panel pad">
+        <h3 style="color:var(--red); margin-bottom:8px;">quote_stuffing</h3>
+        <span class="pill critical" style="margin-bottom:12px;">Hostile / Unsafe</span>
+        <p style="font-size:13px; color:var(--muted); line-height:1.5;">
+            Floods the L3 trade server connections with tiny limit orders (under 0.001 BTC) and deletes them under 5ms, intending to saturate and spike processing latency.
+        </p>
+        <div style="margin-top:14px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; font-size:11px;">
+            <span>Cancel-to-fill Ratio: <b>> 99%</b></span>
+            <span>Est. Burst Rate: <b>~ 45 / sec</b></span>
+        </div>
+    </div>
+
+    <div class="panel pad">
+        <h3 style="color:var(--red); margin-bottom:8px;">momentum_ignition</h3>
+        <span class="pill critical" style="margin-bottom:12px;">Hostile / Unsafe</span>
+        <p style="font-size:13px; color:var(--muted); line-height:1.5;">
+            Places aggressive successive market-sweeping buy orders of large block quantities (8-10 BTC) to create fake upward momentum, hoping to force retail/feedback engines to chase.
+        </p>
+        <div style="margin-top:14px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; font-size:11px;">
+            <span>Cancel-to-fill Ratio: <b>&lt; 15%</b></span>
+            <span>Est. Burst Rate: <b>~ 14 / sec</b></span>
+        </div>
+    </div>
+
+    <div class="panel pad">
+        <h3 style="color:var(--green); margin-bottom:8px;">passive_market_maker</h3>
+        <span class="pill normal" style="margin-bottom:12px;">Benign / Passive</span>
+        <p style="font-size:13px; color:var(--muted); line-height:1.5;">
+            Quotes buy/sell limits symmetric to the spread. Rebalances frequently to earn spreads without significant price direction directional pressure or high-cancel bursts.
+        </p>
+        <div style="margin-top:14px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; font-size:11px;">
+            <span>Cancel-to-fill Ratio: <b>~ 15%</b></span>
+            <span>Est. Burst Rate: <b>~ 3.5 / sec</b></span>
+        </div>
+    </div>
+
+    <div class="panel pad">
+        <h3 style="color:var(--green); margin-bottom:8px;">twap_execution</h3>
+        <span class="pill normal" style="margin-bottom:12px;">Benign / Execution</span>
+        <p style="font-size:13px; color:var(--muted); line-height:1.5;">
+            Executes a large block allocation slice-by-slice at static interarrival windows (e.g., 1000ms), minimizing footprint and impact on historical kline close.
+        </p>
+        <div style="margin-top:14px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; font-size:11px;">
+            <span>Cancel-to-fill Ratio: <b>&lt; 5%</b></span>
+            <span>Est. Burst Rate: <b>~ 1.0 / sec</b></span>
+        </div>
+    </div>
+
+    <div class="panel pad">
+        <h3 style="color:var(--green); margin-bottom:8px;">inventory_rebalancer</h3>
+        <span class="pill normal" style="margin-bottom:12px;">Benign / Rebalancer</span>
+        <p style="font-size:13px; color:var(--muted); line-height:1.5;">
+            Fills execution gaps to neutralize risk offsets based on inventory skews, ensuring portfolio neutrality during volatile trading periods.
+        </p>
+        <div style="margin-top:14px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; font-size:11px;">
+            <span>Cancel-to-fill Ratio: <b>~ 10%</b></span>
+            <span>Est. Burst Rate: <b>~ 2.0 / sec</b></span>
+        </div>
+    </div>
+</div>
+{% endblock %}

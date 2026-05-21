@@ -1,18 +1,16 @@
 {% extends "dashboard/demo_base.html" %}
 {% block title %}Alert Center - MarketImmune{% endblock %}
 {% block content %}
-<section>
-    <div class="eyebrow">Alert Center</div>
-    <h2>Review risk alerts with linked model predictions.</h2>
-    <p class="lede">Alerts are generated when the demo risk score crosses the warning threshold, then stored with severity and a linked prediction for review.</p>
-    <div class="actions">
-        <span class="pill info">Demo risk model output</span>
-        <span class="pill info">Stored in local SQLite</span>
-        <span class="pill info">Synthetic agent scenario</span>
+<section class="page-header">
+    <div>
+        <div class="eyebrow">Risk center</div>
+        <h2>Risk alerts</h2>
+        <p class="lede">Stored alerts with the linked model prediction and score.</p>
     </div>
+    <a class="button primary" href="/dashboard/agentic/v2/">Open Immune Loop V2</a>
 </section>
 
-<section class="section grid four">
+<section class="grid four">
     <div class="stat panel"><strong>{{ total_alerts }}</strong><span>total alerts</span></div>
     <div class="stat panel" style="border-left-color:var(--red);"><strong>{{ high_alerts }}</strong><span>high severity</span></div>
     <div class="stat panel" style="border-left-color:var(--amber);"><strong>{{ medium_alerts }}</strong><span>medium severity</span></div>

@@ -47,13 +47,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [5/5] Loading benchmark data...
+echo [5/7] Loading benchmark data...
 python manage.py load_metrics
 if errorlevel 1 (
     echo ERROR: Failed to load metrics
     pause
     exit /b 1
 )
+
+echo [6/7] Training ML risk head + writing benchmark report...
+python scripts\train_risk_head.py
+
+echo [7/7] Pre-warming simulator session with ML head...
+python manage.py prepare_simulator --force
 
 echo.
 echo ============================================================

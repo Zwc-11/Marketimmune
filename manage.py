@@ -5,6 +5,16 @@ import sys
 
 
 def main() -> None:
+    # Auto-load .env so ANTHROPIC_API_KEY / MARKETIMMUNE_USE_LLM /
+    # CLAUDE_MODEL are available to every `manage.py` subcommand and
+    # to the runserver process. `.env` is gitignored.
+    try:
+        from dotenv import load_dotenv  # noqa: WPS433 — optional dep.
+
+        load_dotenv(override=False)
+    except ImportError:
+        pass
+
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "dashboard_project.settings")
     try:
         from django.core.management import execute_from_command_line

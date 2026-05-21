@@ -1,0 +1,160 @@
+{% extends "dashboard/demo_base.html" %}
+
+{% block title %}Risk Model · Predictions & Alerts - MarketImmune{% endblock %}
+
+{% block content %}
+<div class="header" style="margin-bottom:24px;">
+    <span class="eyebrow">Risk Center</span>
+    <h2>Gradient-Boosting Risk Head</h2>
+    <p class="lede">
+        Calibrated probability output trained on engineered order-flow features.
+        All numbers below come from a held-out test split persisted at
+        <code>reports/risk_head_benchmark.json</code>; the latency row is
+        measured live against the joblib artifact in
+        <code>data/models/risk_head.joblib</code>.
+    </p>
+</div>
+
+{% if report %}
+<!-- Headline KPI cards. Each metric is real, not a hard-coded string. -->
+<div class="grid four" style="margin-bottom:22px;">
+    <div class="stat panel pad">
+        <strong>{{ report.pr_auc|floatformat:3 }}</strong>
+        <span>PR-AUC (held-out test)</span>
+    </div>
+    <div class="stat panel pad" style="border-left-color:var(--green);">
+        <strong>{{ report.roc_auc|floatformat:3 }}</strong>
+        <span>ROC-AUC</span>
+    </div>
+    <div class="stat panel pad" style="border-left-color:var(--amber);">
+        <strong>{{ report.f1|floatformat:3 }}</strong>
+        <span>F1 @ 0.5 threshold</span>
+    </div>
+    <div class="stat panel pad" style="border-left-color:var(--violet);">
+        <strong id="latency-p95">…</strong>
+        <span>Inference p95 (ms, live)</span>
+    </div>
+</div>
+
+<div class="grid aside" style="margin-bottom:22px;">
+    <div class="panel pad">
+        <h3 style="margin-bottom:12px;">Held-out benchmark report</h3>
+        <table style="font-family:'SFMono-Regular', Consolas, monospace; font-size:12px;">
+            <tbody>
+                <tr><td style="color:var(--muted);">Model</td><td>{{ report.model_name }}</td></tr>
+                <tr><td style="color:var(--muted);">Train rows</td><td>{{ report.n_train }}</td></tr>
+                <tr><td style="color:var(--muted);">Test rows</td><td>{{ report.n_test }}</td></tr>
+                <tr><td style="color:var(--muted);">Accuracy</td><td>{{ report.accuracy|floatformat:3 }}</td></tr>
+                <tr><td style="color:var(--muted);">Precision @ top-50</td><td>{{ report.precision_at_50|floatformat:3 }}</td></tr>
+                <tr><td style="color:var(--muted);">Seed</td><td>{{ report.seed }}</td></tr>
+                <tr><td style="color:var(--muted);">Samples per scenario</td><td>{{ report.samples_per_scenario }}</td></tr>
+                <tr><td style="color:var(--muted);">Contamination</td><td>{{ report.contamination }}</td></tr>
+            </tbody>
+        </table>
+        <p style="font-size:11px; color:var(--muted); margin-top:10px;">
+            Reproduce: <code>python scripts/train_risk_head.py</code>.
+        </p>
+    </div>
+
+    <div class="panel pad">
+        <h3 style="margin-bottom:12px;">Inference latency (live)</h3>
+        <table style="font-family:'SFMono-Regular', Consolas, monospace; font-size:12px;" id="latency-table">
+            <tbody>
+                <tr><td style="color:var(--muted);">Samples</td><td id="latency-samples">…</td></tr>
+                <tr><td style="color:var(--muted);">p50</td><td id="latency-p50">…</td></tr>
+                <tr><td style="color:var(--muted);">p95</td><td id="latency-p95-row">…</td></tr>
+                <tr><td style="color:var(--muted);">p99</td><td id="latency-p99">…</td></tr>
+                <tr><td style="color:var(--muted);">Mean</td><td id="latency-mean">…</td></tr>
+            </tbody>
+        </table>
+        <p style="font-size:11px; color:var(--muted); margin-top:10px;">
+            Measured in this browser tab via
+            <code>GET /api/risk-head/health/?samples=500</code>.
+        </p>
+    </div>
+</div>
+
+{% if ranked_importances %}
+<div class="panel pad" style="margin-bottom:22px;">
+    <h3 style="margin-bottom:12px;">Global feature importance</h3>
+    {% for name, importance in ranked_importances %}
+    <div style="display:flex; align-items:center; gap:10px; margin:8px 0;">
+        <div style="flex:1; font-family:'SFMono-Regular', Consolas, monospace; font-size:11px;">{{ name }}</div>
+        <div class="bar" style="flex:2;"><span style="--value: {% widthratio importance 1 100 %}%;"></span></div>
+        <div style="width:60px; text-align:right; font-family:'SFMono-Regular', Consolas, monospace; font-size:11px; color:var(--blue);">{{ importance|floatformat:3 }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="panel pad" style="margin-bottom:22px;">
+    <h3 style="color:var(--amber); margin-bottom:8px;">No trained model yet</h3>
+    <p style="font-size:13px;">
+        The Risk page is wired to read <code>reports/risk_head_benchmark.json</code>.
+        Produce it with:
+    </p>
+    <pre style="background:rgba(0,0,0,0.3); padding:10px; border-radius:6px; font-size:12px;">python scripts/train_risk_head.py</pre>
+</div>
+{% endif %}
+
+<div class="panel pad">
+    <h3 style="margin-bottom:12px;">Active alarm log</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Severity</th>
+                    <th>Alarm Message</th>
+                    <th>Source</th>
+                    <th>Fired Value</th>
+                </tr>
+            </thead>
+            <tbody class="mono" style="font-size:12px;">
+                {% for alert in alerts %}
+                <tr>
+                    <td>{{ alert.timestamp|date:"Y-m-d H:i:s" }}Z</td>
+                    <td>
+                        {% if alert.severity == 'CRITICAL' %}
+                        <span class="pill critical">CRITICAL</span>
+                        {% else %}
+                        <span class="pill watch">WARNING</span>
+                        {% endif %}
+                    </td>
+                    <td style="color:var(--ink); font-family:sans-serif; font-size:13px;">{{ alert.message }}</td>
+                    <td>{{ alert.metric_name|default:"-" }}</td>
+                    <td style="font-weight:bold; color:var(--amber);">{{ alert.metric_value|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="empty">No alerts recorded. Run an hostile scenario in the Cockpit.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+(async function loadLatency() {
+    try {
+        const resp = await fetch('/api/risk-head/health/?samples=500');
+        const data = await resp.json();
+        if (!data.available) {
+            return;
+        }
+        const fmt = v => (v != null ? `${v.toFixed(3)} ms` : '—');
+        document.getElementById('latency-samples').textContent = data.samples;
+        document.getElementById('latency-p50').textContent = fmt(data.p50_ms);
+        const p95 = fmt(data.p95_ms);
+        document.getElementById('latency-p95-row').textContent = p95;
+        document.getElementById('latency-p95').textContent = p95;
+        document.getElementById('latency-p99').textContent = fmt(data.p99_ms);
+        document.getElementById('latency-mean').textContent = fmt(data.mean_ms);
+    } catch (err) {
+        console.error('Latency health check failed', err);
+    }
+})();
+</script>
+{% endblock %}
