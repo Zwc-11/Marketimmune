@@ -1,117 +1,145 @@
-# MarketImmune Core V1
+# MarketImmune
 
-MarketImmune is a working AI market-safety benchmark and demo platform for identifying harmful
-or unsafe autonomous trading-agent behavior in crypto exchange microstructure.
+> **An end-to-end AI market-safety platform** — a six-agent autonomous loop that red-teams adversarial trading behavior, detects it with a trained ML model, writes LLM-powered investigation narratives, and decides policy actions in real time. Built on real Binance data with a full Django + React/TypeScript dashboard.
 
-The project combines:
+---
 
-- Real Binance USD-M Futures public market background data.
-- Synthetic, labeled agent order-lifecycle events for controlled evaluation.
-- Deterministic replay and scenario generation.
-- Feature extraction and rule-based safety baselines.
-- A benchmark suite and temporal-model baselines for early-warning and harm estimation tasks.
+## What This Project Does
 
-It does not perform live trading, identify private users/accounts, or claim alpha/prediction
-edge for deployment.
+Modern crypto exchanges face a new class of threat: **autonomous trading agents** that execute harmful strategies — momentum ignition, spoofing, layering, feedback sweeps — faster than any human compliance team can track. MarketImmune is a working prototype of a system that fights back.
 
-## What We Accomplished
+It is **not a trading bot**. It is a **market-safety research platform** that:
 
-This repository now contains implemented and validated work through phases 1-9.
+1. **Generates** adversarial agent scenarios via a red-team LLM (Claude)
+2. **Simulates** them against real Binance USD-M Futures market microstructure
+3. **Detects** harmful behavior with a trained Gradient-Boosting risk model (PR-AUC **0.989**)
+4. **Investigates** each case automatically, producing a full analyst narrative via a narrative engine
+5. **Decides** a control action (block / flag / monitor) with a policy agent
+6. **Remembers** novel patterns to improve future detection — a persistent immune memory
 
-- Phase 1-3 foundation: package quality gates, schemas, event IDs, Parquet/lake/manifests, and CI.
-- Phase 4 replay engine: deterministic, invariant-checked replay with generated replay reports.
-- Phase 5 scenario and labeling system: benign and risky agent families, deterministic synthetic scenarios,
-  and label/manifests.
-- Phase 6 feature and policy baseline: multi-window feature store and RuleEngine baseline reports.
-- Phase 7 AegisBench v0: train/validation/test splits, task metrics, JSON/Markdown reports, and leaderboard CSV.
-- Phase 8 Order-MTPP baseline: variable-length temporal model pipeline with benchmarked latency and quality.
-- Phase 9 Order-S2P2 baseline: neural Hawkes (CT-LSTM style) implementation with OOD metrics and comparison artifacts.
+The entire loop runs in a single button press, persists every artifact to Django ORM, and is visible in a real-time React dashboard.
 
-## Current Evidence And Reports
+---
 
-Project proof and metrics are included in the repository:
+## Screenshots
 
-- `reports/phase_1_3_proof.md`
-- `reports/phase4_6_proof.md`
-- `reports/phase7_9_proof.md`
-- `reports/phase4_6_metrics.json`
-- `reports/phase7_9_metrics.json`
-- Phase outputs under `reports/phase4` through `reports/phase9`
+### Immune Loop V2 — Full Pipeline Dashboard
+![Immune Loop V2](screenshots/immune-loop-v2.png)
+*Eight autonomous agents — RedTeam, Simulator, Sentinel, Investigator, Policy, Memory, Trainer, Judge — run end-to-end in one click. The dashboard shows per-agent latency, judge promotion verdict (4/5 criteria), the latest red-team proposal with evasion strategy, and a live immune memory shelf.*
+
+---
+
+### Investigation Case — CRITICAL Momentum Ignition
+![Investigation Case](screenshots/investigation-case.png)
+*The Investigator agent builds a full evidence case file: ML score 0.99, matched rule overlays (`large_layered_quantity`, `stop_run_or_feedback_sweep`), and a structured analyst narrative that explains the suspected behavior, strongest signals, and what additional evidence would raise confidence. Policy verdict: `BLOCK_SIMULATED_AGENT` at confidence 0.99.*
+
+---
+
+### Risk Center — Gradient-Boosting Risk Head
+![Risk Center](screenshots/risk-center.png)
+*A calibrated Gradient-Boosting classifier trained on engineered order-flow features. Held-out test metrics: **PR-AUC 0.989 · ROC-AUC 0.988 · F1 0.944 · inference p95 < 0.6 ms**. Top feature: `w1000_agentic_min_interarrival_ms` (importance 0.425), confirming burst timing as the primary detection signal.*
+
+---
+
+### Decision Audit Traces — Full Explainability Log
+![Decision Audit Traces](screenshots/audit-traces.png)
+*Every control decision is logged with the raw observation, top-feature ML interpretation, matched rule overlays, and the exact recommended action. Fully reproducible and auditable — designed to satisfy a compliance review.*
+
+---
+
+### Classic Loop — Generate → Simulate → Detect → Investigate → Decide → Remember
+![Classic Loop](screenshots/classic-loop.png)
+*The six-stage pipeline visualized. All state is persisted across seven Django ORM tables (`ImmuneLoopRun`, `AgentRunRecord`, `InvestigationCaseRecord`, `PolicyDecisionRecord`, `ImmuneMemoryEntry`, `ScenarioProposalRecord`, `AgentDecisionTraceRecord`). Shown: 5 sentinel alerts, 5 investigation cases, 1 new memory, aggregate posture `block_simulated_agent`.*
+
+---
+
+## Architecture
+
+```
+Real Binance kline + bookDepth data
+          │
+          ▼
+  ┌──────────────────────────────────────────────────────┐
+  │                  Agentic Immune Loop                 │
+  │                                                      │
+  │  RedTeam ──► Simulator ──► Sentinel ──► Investigator │
+  │                                │              │      │
+  │                           (ML + Rules)   (LLM Narrative) │
+  │                                │              │      │
+  │                          Policy ◄─────────────┘      │
+  │                             │                        │
+  │                    Memory ◄─┘   Trainer   Judge      │
+  └──────────────────────────────────────────────────────┘
+          │
+          ▼
+   Django REST API  ◄──►  React / TypeScript Dashboard
+```
+
+**Stack:**
+- **Backend:** Python 3.12, Django 5, Django REST Framework, SQLite
+- **ML:** scikit-learn (Gradient Boosting), PyTorch (CT-LSTM / Neural Hawkes), joblib artifacts
+- **Agentic:** Anthropic Claude (red-team + narrative engine), custom multi-agent loop
+- **Frontend:** React 18, TypeScript, Vite
+- **Data:** Binance USD-M Futures public kline + book-depth, Parquet lake, deterministic scenario generator
+- **Quality:** Ruff, mypy, pytest, GitHub Actions CI
+
+---
+
+## Key Metrics
+
+| Metric | Value |
+|--------|-------|
+| Risk Head PR-AUC (held-out test) | **0.989** |
+| Risk Head ROC-AUC | **0.988** |
+| Risk Head F1 @ 0.5 threshold | **0.944** |
+| Inference latency p95 | **< 0.6 ms** |
+| Training rows | 3,600 |
+| Test rows | 1,200 |
+| Precision @ top-50 | **1.000** |
+
+---
+
+## Project Phases
+
+| Phase | What Was Built |
+|-------|---------------|
+| 1–3 | Package scaffold, schemas, event IDs, Parquet lake, CI pipeline |
+| 4 | Deterministic replay engine with invariant checks |
+| 5 | Scenario + labeling system — benign and risky agent families |
+| 6 | Multi-window feature store + rule-engine baseline |
+| 7 | AegisBench v0 — train/val/test splits, leaderboard CSV |
+| 8 | Order-MTPP temporal model baseline |
+| 9 | Order-S2P2 neural Hawkes (CT-LSTM) with OOD metrics |
+| 10+ | Full agentic loop, React frontend, risk head, simulator cockpit |
+
+---
 
 ## Quickstart
 
-```powershell
+```bash
 python -m pip install -e ".[dev]"
-.\make.ps1 ci
-```
-
-On systems with GNU Make:
-
-```bash
-make install
-make ci
-```
-
-Additional phase runners:
-
-```powershell
-.\make.ps1 phase46
-.\make.ps1 phase79
-```
-
-## Demo Website
-
-Run the demo-first dashboard:
-
-```bash
 python manage.py migrate
-python manage.py load_metrics
 python manage.py runserver
 ```
 
-Open:
+Then open `http://127.0.0.1:8000/` and click **Run a new loop**.
 
-- `http://127.0.0.1:8000/demo/` for the plain-English project homepage.
-- `http://127.0.0.1:8000/dashboard/live/` for simulated trades, live ML risk predictions, alerts, and reasoning traces.
-- `http://127.0.0.1:8000/dashboard/data/` for stored market events, synthetic agent events, features, predictions, and alerts.
-- `http://127.0.0.1:8000/dashboard/model/` for the active model, latest prediction, feature importance, and artifact path.
-- `http://127.0.0.1:8000/dashboard/alerts/` for stored risk alerts and linked predictions.
-- `http://127.0.0.1:8000/dashboard/training/` for model training history and artifact paths.
-- `http://127.0.0.1:8000/dashboard/agents/` for structured agent reasoning traces.
-- `http://127.0.0.1:8000/dashboard/benchmark/` for phase 7-9 benchmark metrics and leaderboard.
-
-Optional background simulator:
-
+To retrain the risk head:
 ```bash
-python manage.py run_live_demo
+python scripts/train_risk_head.py
 ```
 
-The live page also writes one fresh simulated row set every second while it is open.
+To run the full CI suite:
+```bash
+ruff check .
+pytest
+```
 
-## Demo Tour
+---
 
-Screenshot placeholders to capture before sharing:
+## Scope
 
-1. Homepage: `/demo/`
-   - Placeholder: `docs/screenshots/homepage.png`
-   - Shows the product headline, provenance labels, Simulate/Detect/Explain cards, and product diagram.
-2. Live cockpit: `/dashboard/live/`
-   - Placeholder: `docs/screenshots/live-cockpit.png`
-   - Shows simulated live stream, scenario name, market regime, event ID, prediction ID, risk gauge, trade feed, alert stream, and decision audit trail.
-3. Data storage page: `/dashboard/data/`
-   - Placeholder: `docs/screenshots/data-storage.png`
-   - Shows local SQLite row counts, latest inserted timestamp, and tabbed stored rows.
-4. Training/model page: `/dashboard/training/` and `/dashboard/model/`
-   - Placeholder: `docs/screenshots/training-model.png`
-   - Shows model metrics, training command, dataset source, split method, metric source, artifact timestamp, and report path.
-5. Decision audit trail and alerts: `/dashboard/agents/` and `/dashboard/alerts/`
-   - Placeholder: `docs/screenshots/audit-alerts.png`
-   - Shows observation, feature evidence, model interpretation, policy decision, recommended control, confidence, linked event ID, linked prediction ID, and alert severity.
-
-## Scope Rules
-
-- No API keys are required.
-- No real orders are sent.
-- Tests use local fixtures and do not require internet.
-- Synthetic agent behavior is labeled as synthetic.
-- Benchmark and model metrics must be generated from actual outputs, not entered manually.
+- No API keys required for core functionality (LLM features need an Anthropic key in `.env`)
+- No real orders are sent — all agent activity is simulated
+- All benchmark metrics are generated from actual model outputs, never entered manually
+- Real market data is public Binance kline/depth data only
