@@ -6,8 +6,15 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+node_modules/
 data/
 reports/
+docs/
 .coverage
 db.sqlite3
 db.sqlite3-*
+
+# Secrets — never commit. Use .env.example as the template instead.
+.env
+.env.*
+!.env.example

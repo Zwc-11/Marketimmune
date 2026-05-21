@@ -1,0 +1,66 @@
+{% extends "dashboard/demo_base.html" %}
+
+{% block title %}Historical BTC Replays - MarketImmune{% endblock %}
+
+{% block content %}
+<div class="header" style="margin-bottom:34px;">
+    <span class="eyebrow">Simulation Runs</span>
+    <h2>Historical Replay Sessions</h2>
+    <p class="lede">Manage database replay sessions. Launch deterministically backed scenario overlays on actual BTCUSDT microstructure records.</p>
+</div>
+
+<div class="grid aside">
+    <!-- Sessions Table list -->
+    <div class="panel pad">
+        <h3 style="margin-bottom:16px;">Replay Session Registry</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Run ID</th>
+                        <th>Symbol</th>
+                        <th>Scenario Name</th>
+                        <th>Started At</th>
+                        <th>Multiplier</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in sessions %}
+                    <tr>
+                        <td class="mono" style="color:var(--blue);">{{ session.run_id }}</td>
+                        <td>{{ session.symbol }}</td>
+                        <td style="font-weight:bold;">{{ session.scenario_name }}</td>
+                        <td class="mono" style="font-size:12px;">{{ session.started_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>{{ session.speed }}x</td>
+                        <td>
+                            {% if session.status == 'completed' %}
+                            <span class="pill normal">COMPLETED</span>
+                            {% else %}
+                            <span class="pill watch">RUNNING</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="empty">No simulator runs currently stored in database. Visit the Cockpit layout to launch.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Right Side helper info panel -->
+    <div class="panel pad" style="background:rgba(255,255,255,0.02);">
+        <h3 style="margin-bottom:12px; color:var(--green);">Deterministic Replays</h3>
+        <p style="font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:14px;">
+            Every replay runner consumes raw L2 kline depth parquets tick-by-tick and advances the EventCursor pointer to achieve fully predictable states.
+        </p>
+        <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:12px;">
+            <label style="font-size:10px; text-transform:uppercase; font-weight:bold; color:var(--muted); display:block; margin-bottom:4px;">Data Provenance</label>
+            <span class="badge-prov">Historical BTC records</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

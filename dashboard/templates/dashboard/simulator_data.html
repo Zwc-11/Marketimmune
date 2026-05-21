@@ -1,0 +1,66 @@
+{% extends "dashboard/demo_base.html" %}
+
+{% block title %}Data Provenance & Registry - MarketImmune{% endblock %}
+
+{% block content %}
+<div class="header" style="margin-bottom:34px;">
+    <span class="eyebrow">Data Provenance</span>
+    <h2>Storage Provenance & Schema Map</h2>
+    <p class="lede">Explore total active rows and database records stored locally across historical datasets and simulation outputs.</p>
+</div>
+
+<!-- Counts display cards -->
+<div class="grid four" style="margin-bottom:28px;">
+    <div class="stat panel pad">
+        <strong>{{ counts.sessions }}</strong>
+        <span>Replay Sessions</span>
+    </div>
+    <div class="stat panel pad" style="border-left-color:var(--green);">
+        <strong>{{ counts.events }}</strong>
+        <span>Replay Events</span>
+    </div>
+    <div class="stat panel pad" style="border-left-color:var(--violet);">
+        <strong>{{ counts.orders }}</strong>
+        <span>Overlay Agent Orders</span>
+    </div>
+    <div class="stat panel pad" style="border-left-color:var(--red);">
+        <strong>{{ counts.alerts }}</strong>
+        <span>Risk Alerts</span>
+    </div>
+</div>
+
+<div class="grid aside">
+    <div class="panel pad">
+        <h3 style="margin-bottom:12px;">Stored Tables Architecture</h3>
+        <p style="font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:18px;">
+            MarketImmune decouples public market data streams from agentic actions to guarantee perfect isolation. Simulated orders do not influence primary raw quotes.
+        </p>
+        
+        <div style="display:grid; gap:12px;">
+            <div style="background:rgba(255,255,255,0.02); padding:10px; border-radius:6px; font-size:12px; display:flex; justify-content:space-between;">
+                <strong>ReplaySession</strong>
+                <span class="mono" style="color:var(--muted);">django_db_table_name_match</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.02); padding:10px; border-radius:6px; font-size:12px; display:flex; justify-content:space-between;">
+                <strong>ReplayEvent</strong>
+                <span class="mono" style="color:var(--muted);">public_quotes_storage</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.02); padding:10px; border-radius:6px; font-size:12px; display:flex; justify-content:space-between;">
+                <strong>SimulatedAgentOrder</strong>
+                <span class="mono" style="color:var(--muted);">agentic_order_overlay</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.02); padding:10px; border-radius:6px; font-size:12px; display:flex; justify-content:space-between;">
+                <strong>DecisionAuditTrace</strong>
+                <span class="mono" style="color:var(--muted);">full_compliance_log</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel pad">
+        <h3 style="margin-bottom:10px; color:var(--blue);">Parquet Sources</h3>
+        <p style="font-size:13px; color:var(--muted); line-height:1.5;">
+            Primary market feed reads directly from Apache Parquet files stored in <code>data/lake/binance_usdm/</code>. No synthetic price drifting is used.
+        </p>
+    </div>
+</div>
+{% endblock %}
