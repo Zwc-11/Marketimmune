@@ -141,5 +141,5 @@ class RiskSentinelAgent(Agent):
                 "total_above_threshold": len(candidate_alerts),
                 "scanned": len(plan.ticks),
             },
-            "artifacts": {"alerts": top},  # type: ignore[dict-item]
+            "artifacts": {"alerts": top},
         }

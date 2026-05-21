@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import pyarrow.parquet as pq
 
@@ -36,7 +37,7 @@ class KlineRecord:
     close: float
     volume: float
     trade_count: int
-    raw: dict
+    raw: dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +56,7 @@ class DepthSnapshot:
     timestamp: datetime
     levels: tuple[DepthLevel, ...]
 
-    def as_dicts(self) -> list[dict]:
+    def as_dicts(self) -> list[dict[str, Any]]:
         """API-friendly representation."""
         return [
             {"percentage": lvl.percentage, "depth": lvl.depth, "notional": lvl.notional}
@@ -139,7 +140,7 @@ class DepthRepository:
             return []
         rows = _load_parquet(str(path))
         # Group by timestamp first, then build a compact, sorted tuple per snap.
-        grouped: dict[str, list[dict]] = {}
+        grouped: dict[str, list[dict[str, Any]]] = {}
         for r in rows:
             grouped.setdefault(r["timestamp"], []).append(r)
         snaps: list[DepthSnapshot] = []
@@ -179,7 +180,7 @@ class DepthRepository:
 
 
 @lru_cache(maxsize=4)
-def _load_parquet(path: str) -> list[dict]:
+def _load_parquet(path: str) -> list[dict[str, Any]]:
     """Read a parquet file once and cache the materialised list of rows.
 
     We intentionally use a string key (the path) so the cache survives

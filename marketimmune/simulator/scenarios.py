@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 # -- Output value object --------------------------------------------------
 
@@ -82,7 +82,7 @@ class ScenarioRegistry:
         return sorted(cls._scenarios)
 
     @classmethod
-    def catalog(cls) -> list[dict]:
+    def catalog(cls) -> list[dict[str, Any]]:
         """Inspectable list used by the UI and `prepare_simulator` command."""
         return [
             {

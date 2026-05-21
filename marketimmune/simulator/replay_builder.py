@@ -17,6 +17,7 @@ This separation means we can:
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -199,7 +200,7 @@ class ReplayBuilder:
         klines: list[KlineRecord],
         depths: list[DepthSnapshot],
         scenario: AgentScenario,
-    ):
+    ) -> Iterator[ReplayTick]:
         for idx, kline in enumerate(klines):
             depth_snap = self.depth_repo.nearest(depths, kline.timestamp)
             quote = derive_quote_from_depth(kline.close, depth_snap)

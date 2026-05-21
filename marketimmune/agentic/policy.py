@@ -162,5 +162,5 @@ class PolicyAgent(Agent):
                 "aggregate_posture": posture,
                 "posture_reason": posture_reason,
             },
-            "artifacts": {"decisions": decisions},  # type: ignore[dict-item]
+            "artifacts": {"decisions": decisions},
         }

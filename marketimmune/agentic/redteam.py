@@ -234,8 +234,8 @@ class RedTeamScenarioAgent(Agent):
     def _build_rationale(
         self,
         *,
-        base: dict,
-        cover: dict | None,
+        base: dict[str, Any],
+        cover: dict[str, Any] | None,
         mutated_keys: list[str],
         difficulty: str,
         deterministic: str,

@@ -108,7 +108,7 @@ class BenchmarkJudgeAgent(Agent):
             )
             return {
                 "output": {"verdict": None, "skipped": True},
-                "artifacts": {"verdict": None},  # type: ignore[dict-item]
+                "artifacts": {"verdict": None},
             }
         if not job.success:
             verdict = JudgeVerdict(
@@ -130,7 +130,7 @@ class BenchmarkJudgeAgent(Agent):
             )
             return {
                 "output": {"verdict": verdict.to_dict()},
-                "artifacts": {"verdict": verdict},  # type: ignore[dict-item]
+                "artifacts": {"verdict": verdict},
             }
 
         incumbent = self._load_incumbent()
@@ -178,7 +178,7 @@ class BenchmarkJudgeAgent(Agent):
         )
         return {
             "output": {"verdict": verdict.to_dict()},
-            "artifacts": {"verdict": verdict},  # type: ignore[dict-item]
+            "artifacts": {"verdict": verdict},
         }
 
     # ---- helpers --------------------------------------------------
@@ -187,7 +187,7 @@ class BenchmarkJudgeAgent(Agent):
         if not self.incumbent_report.exists():
             return {}
         try:
-            return json.loads(self.incumbent_report.read_text(encoding="utf-8"))
+            return dict(json.loads(self.incumbent_report.read_text(encoding="utf-8")))
         except Exception:  # noqa: BLE001
             return {}
 
@@ -270,10 +270,10 @@ class BenchmarkJudgeAgent(Agent):
         inc_in: float | None,
         inc_hold: float | None,
     ) -> tuple[bool, str]:
-        if any(v is None or _is_nan(v) for v in (cand_in, cand_hold)):
+        if cand_in is None or cand_hold is None or _is_nan(cand_in) or _is_nan(cand_hold):
             return True, "overfit: missing held-out data; passing"
         cand_gap = cand_in - cand_hold
-        if any(v is None or _is_nan(v) for v in (inc_in, inc_hold)):
+        if inc_in is None or inc_hold is None or _is_nan(inc_in) or _is_nan(inc_hold):
             return True, f"overfit: incumbent gap unknown; candidate gap={cand_gap:.3f}"
         inc_gap = inc_in - inc_hold
         passed = cand_gap <= inc_gap + self.max_overfit_regression
@@ -285,6 +285,6 @@ class BenchmarkJudgeAgent(Agent):
 
 def _is_nan(value: Any) -> bool:
     try:
-        return value != value  # NaN is the only float with this property
+        return bool(value != value)  # NaN is the only float with this property
     except TypeError:
         return False

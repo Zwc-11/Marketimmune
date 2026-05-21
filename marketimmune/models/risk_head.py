@@ -24,16 +24,17 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
-import joblib
+import joblib  # type: ignore[import-untyped]
 import numpy as np
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.metrics import (
+from sklearn.ensemble import GradientBoostingClassifier  # type: ignore[import-untyped]
+from sklearn.metrics import (  # type: ignore[import-untyped]
     average_precision_score,
     f1_score,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split  # type: ignore[import-untyped]
 
 # The 10 engineered features the simulator emits at every tick. The
 # *order matters* — we store it on the model and assert at load time.
@@ -93,7 +94,7 @@ class BenchmarkReport:
     n_test: int
     model_name: str
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "pr_auc": self.pr_auc,
             "roc_auc": self.roc_auc,

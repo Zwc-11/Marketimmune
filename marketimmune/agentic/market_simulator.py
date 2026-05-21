@@ -39,7 +39,7 @@ class _ProposalScenarioAdapter(AgentScenario):
     def __init__(self, proposal: ScenarioProposal):
         self._proposal = proposal
 
-    def step(self, idx, close, /):  # type: ignore[override]
+    def step(self, idx: int, close: float, /) -> ScenarioOutput:
         return ScenarioOutput(
             features=dict(self._proposal.features),
             side=self._proposal.side,  # type: ignore[arg-type]
@@ -74,7 +74,7 @@ class MarketSimulatorAgent(Agent):
         self,
         *,
         goal: str,
-        proposal: dict | ScenarioProposal | None = None,
+        proposal: dict[str, Any] | ScenarioProposal | None = None,
         scenario_name: str | None = None,
         limit: int = 60,
         **_: Any,
@@ -101,6 +101,7 @@ class MarketSimulatorAgent(Agent):
                 scenario=adapter,
             )
         else:
+            assert scenario_name is not None  # guaranteed by the guard above
             scenario_label = scenario_name
             plan = self._build(ReplayConfig(scenario_name=scenario_name, limit=limit))
 
@@ -133,7 +134,7 @@ class MarketSimulatorAgent(Agent):
                 # Pass the plan itself through `artifacts` so the
                 # orchestrator can pipe ticks into the next agent.
             },
-            "artifacts": {"plan": plan},  # type: ignore[dict-item]
+            "artifacts": {"plan": plan},
         }
 
     def _build(

@@ -176,7 +176,7 @@ class InvestigatorAgent(Agent):
             )
         return {
             "output": {"cases": [c.to_dict() for c in cases]},
-            "artifacts": {"cases": cases},  # type: ignore[dict-item]
+            "artifacts": {"cases": cases},
         }
 
     # ---- LLM augmentation ----------------------------------------

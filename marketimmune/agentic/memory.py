@@ -169,5 +169,5 @@ class ImmuneMemoryAgent(Agent):
                 "recurrences": recurrences,
                 "memory_total_after": len(existing) + len(new_memories),
             },
-            "artifacts": {"new_memories": new_memories},  # type: ignore[dict-item]
+            "artifacts": {"new_memories": new_memories},
         }
