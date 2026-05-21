@@ -48,7 +48,9 @@ def derive_quote_from_depth(
     if snapshot is None or mid <= 0:
         bid = mid * (1.0 - fallback_band / 100.0) if mid > 0 else mid
         ask = mid * (1.0 + fallback_band / 100.0) if mid > 0 else mid
-        return DerivedQuote(bid=bid, ask=ask, spread=max(ask - bid, 0.0), band_percent=fallback_band)
+        return DerivedQuote(
+            bid=bid, ask=ask, spread=max(ask - bid, 0.0), band_percent=fallback_band
+        )
 
     bid_pct = max(
         (lvl.percentage for lvl in snapshot.levels if lvl.percentage < 0),

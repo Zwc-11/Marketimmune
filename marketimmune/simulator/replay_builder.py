@@ -33,7 +33,6 @@ from marketimmune.simulator.data_loader import (
 from marketimmune.simulator.pricing import DerivedQuote, derive_quote_from_depth
 from marketimmune.simulator.scenarios import AgentScenario, ScenarioRegistry
 
-
 # -- Output value objects ------------------------------------------------
 
 
@@ -115,7 +114,7 @@ class ReplayBuilder:
         lake_root: Path | str,
         *,
         model_path: Path | str | None = None,
-    ) -> "ReplayBuilder":
+    ) -> ReplayBuilder:
         """Wire default parquet repos and optionally load a trained ML head.
 
         If `model_path` is provided and exists on disk, the ML risk head

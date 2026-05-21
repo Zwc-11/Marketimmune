@@ -227,7 +227,7 @@ class Command(BaseCommand):
         # Audit traces reference the prediction PKs, so we create them
         # after the predictions exist.
         traces = []
-        for t, pred in zip(plan.ticks, predictions):
+        for t, pred in zip(plan.ticks, predictions, strict=False):
             traces.append(DecisionAuditTrace(
                 session=session,
                 timestamp=t.timestamp,

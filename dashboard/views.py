@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from dashboard.demo_data import create_demo_tick, ensure_demo_seed
 from dashboard.models import (
     BenchmarkMetrics,
+    DecisionAuditTrace,
     DemoAgentEvent,
     DemoAgentTrace,
     DemoAlert,
@@ -19,18 +20,18 @@ from dashboard.models import (
     DemoMarketEvent,
     DemoPrediction,
     DemoTrainingRun,
+    ImmuneLoopRun,
+    ImmuneMemoryEntry,
     ModelMetric,
+    ModelPrediction,
+    ModelPromotionDecision,
     ProjectStats,
-    TaskMetric,
-    ReplaySession,
     ReplayEvent,
-    ReplayCursor,
+    ReplaySession,
+    RiskAlert,
     SimulatedAgentOrder,
     SimulatedAgentTrade,
-    FeatureSnapshot,
-    ModelPrediction,
-    RiskAlert,
-    DecisionAuditTrace,
+    TaskMetric,
 )
 from dashboard.serializers import (
     BenchmarkMetricsSerializer,
@@ -44,11 +45,6 @@ from dashboard.serializers import (
     ModelMetricSerializer,
     ProjectStatsSerializer,
     TaskMetricSerializer,
-)
-from dashboard.models import (
-    ImmuneLoopRun,
-    ImmuneMemoryEntry,
-    ModelPromotionDecision,
 )
 from dashboard.services import AgenticService, SimulatorService
 from marketimmune.simulator import ReplayConfig, ScenarioRegistry
@@ -579,16 +575,16 @@ def agentic_loop_state(request):
         ),
         "recent_loops": [
             {
-                "loop_id": l.loop_id,
-                "started_at": l.started_at.isoformat(),
-                "duration_ms": l.duration_ms,
-                "aggregate_posture": l.aggregate_posture,
-                "alert_count": l.alert_count,
-                "case_count": l.case_count,
-                "new_memory_count": l.new_memory_count,
-                "proposal_name": l.proposal_name,
+                "loop_id": lr.loop_id,
+                "started_at": lr.started_at.isoformat(),
+                "duration_ms": lr.duration_ms,
+                "aggregate_posture": lr.aggregate_posture,
+                "alert_count": lr.alert_count,
+                "case_count": lr.case_count,
+                "new_memory_count": lr.new_memory_count,
+                "proposal_name": lr.proposal_name,
             }
-            for l in recent_loops
+            for lr in recent_loops
         ],
     }
     if loop:
@@ -666,6 +662,7 @@ def agentic_llm_status(request):
     id, and the on/off flag — enough for the UI to show a badge.
     """
     import os
+
     from marketimmune.agentic import build_default_llm
 
     flag = (os.environ.get("MARKETIMMUNE_USE_LLM") or "").strip().lower()
@@ -734,7 +731,9 @@ def risk_head_health(request):
     reports `available: false` so the UI can show a "train me" banner.
     """
     import time
+
     import numpy as np
+
     from marketimmune.models import FEATURE_ORDER, RiskScorer
 
     model_path = Path(settings.BASE_DIR) / "data" / "models" / "risk_head.joblib"

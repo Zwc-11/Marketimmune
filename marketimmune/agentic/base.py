@@ -28,10 +28,10 @@ from __future__ import annotations
 import abc
 import time
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Mapping, Protocol
-
+from datetime import UTC, datetime
+from typing import Any, Protocol
 
 # ---------------------------------------------------------------------------
 # LLM client protocol
@@ -91,7 +91,7 @@ def _new_id(prefix: str) -> str:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 @dataclass(frozen=True, slots=True)

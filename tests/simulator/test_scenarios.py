@@ -6,7 +6,6 @@ import pytest
 
 from marketimmune.simulator import AgentScenario, ScenarioOutput, ScenarioRegistry
 
-
 EXPECTED_NAMES = {
     "spoofing_layering",
     "quote_stuffing",

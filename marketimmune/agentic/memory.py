@@ -15,9 +15,10 @@ orchestrator's job (Django models in ``dashboard.models``).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
 
 from marketimmune.agentic.base import Agent
 from marketimmune.agentic.investigator import InvestigationCase
@@ -111,7 +112,7 @@ class ImmuneMemoryAgent(Agent):
         for case in cases:
             sig = _signature(case)
             novelty = _novelty(sig, existing + new_memories)
-            policy = decision_by_case.get(case.case_id)
+            decision_by_case.get(case.case_id)
             self.record_tool_call(
                 "ImmuneMemory.lookup",
                 arguments={"behavior": case.suspected_behavior},
@@ -147,7 +148,7 @@ class ImmuneMemoryAgent(Agent):
                 failed_detector=failed_detector,
                 recommended_detector=best_detector,
                 example_case_id=case.case_id,
-                created_at=datetime.now(timezone.utc).isoformat(),
+                created_at=datetime.now(UTC).isoformat(),
                 novelty_score=novelty,
                 times_seen=1,
             ))

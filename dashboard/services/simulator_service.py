@@ -15,7 +15,6 @@ Encapsulates two responsibilities:
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +23,6 @@ from django.core.management import call_command
 from dashboard.models import ReplaySession
 from marketimmune.simulator import ReplayConfig, ScenarioRegistry
 from marketimmune.simulator.data_loader import DepthRepository, KlineRepository
-
 
 LAKE_ROOT = Path("data/lake/binance_usdm")
 

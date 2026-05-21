@@ -45,6 +45,9 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
+[tool.ruff.lint.per-file-ignores]
+"dashboard/migrations/*.py" = ["E501", "I001"]
+
 [tool.mypy]
 python_version = "3.12"
 packages = ["marketimmune", "aegisbench"]

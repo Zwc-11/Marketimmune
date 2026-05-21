@@ -9,8 +9,9 @@ attaches the model explanation, and emits a structured case file the
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 from marketimmune.agentic.base import Agent
 from marketimmune.agentic.sentinel import SentinelAlert

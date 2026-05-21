@@ -10,8 +10,9 @@ stream is also exposed as ``ticks`` so downstream agents can iterate.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from marketimmune.agentic.base import Agent
 from marketimmune.agentic.redteam import ScenarioProposal
