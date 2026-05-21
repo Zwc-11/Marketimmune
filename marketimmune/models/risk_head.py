@@ -21,9 +21,9 @@ Design notes
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 import joblib
 import numpy as np
@@ -31,11 +31,9 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import (
     average_precision_score,
     f1_score,
-    precision_recall_curve,
     roc_auc_score,
 )
 from sklearn.model_selection import train_test_split
-
 
 # The 10 engineered features the simulator emits at every tick. The
 # *order matters* — we store it on the model and assert at load time.
@@ -121,11 +119,11 @@ class RiskScorer:
         self,
         estimator: GradientBoostingClassifier,
         feature_order: Sequence[str] = FEATURE_ORDER,
-        policy: RiskDecisionPolicy = RiskDecisionPolicy(),
+        policy: RiskDecisionPolicy | None = None,
     ):
         self._estimator = estimator
         self._feature_order = tuple(feature_order)
-        self._policy = policy
+        self._policy = policy if policy is not None else RiskDecisionPolicy()
 
     # ---- inference -------------------------------------------------
 
@@ -178,7 +176,7 @@ class RiskScorer:
         test_size: float = 0.25,
         scenario_names: Sequence[str] | None = None,
         held_out_scenarios: Sequence[str] | None = None,
-    ) -> tuple["RiskScorer", BenchmarkReport]:
+    ) -> tuple[RiskScorer, BenchmarkReport]:
         """Train a calibrated gradient-boosting risk head.
 
         Two split modes:
@@ -268,7 +266,7 @@ class RiskScorer:
         )
 
     @classmethod
-    def load(cls, path: Path | str) -> "RiskScorer":
+    def load(cls, path: Path | str) -> RiskScorer:
         bundle = joblib.load(Path(path))
         policy_args = bundle.get("policy") or {}
         return cls(
@@ -285,7 +283,9 @@ class RiskScorer:
 
     @property
     def feature_importances(self) -> dict[str, float]:
-        return dict(zip(self._feature_order, self._estimator.feature_importances_.tolist()))
+        return dict(
+            zip(self._feature_order, self._estimator.feature_importances_.tolist(), strict=False)
+        )
 
 
 def write_report(report: BenchmarkReport, path: Path | str) -> None:

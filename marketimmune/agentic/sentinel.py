@@ -15,8 +15,9 @@ Two scoring paths cooperate:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 from marketimmune.agentic.base import Agent
 from marketimmune.simulator.replay_builder import ReplayPlan, ReplayTick

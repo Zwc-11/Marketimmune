@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
 
 # Anthropic is an optional runtime dependency — the agentic loop runs
 # fine without it. Import lazily so a missing wheel doesn't break the
@@ -45,7 +44,6 @@ except ImportError:  # pragma: no cover
     load_dotenv = None  # type: ignore[assignment]
 
 from marketimmune.agentic.base import LLMClient, NullLLMClient
-
 
 _LOG = logging.getLogger(__name__)
 

@@ -24,15 +24,15 @@ keeps the agent stateless and easy to test without a DB.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import tempfile
 import time
 import uuid
-from dataclasses import dataclass, field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from marketimmune.agentic.base import Agent
 from marketimmune.agentic.memory import ImmuneMemory

@@ -11,8 +11,8 @@ it easy to swap a deterministic agent for an LLM-driven one later.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Sequence
 
 from marketimmune.agentic.base import AgentRun, LLMClient
 from marketimmune.agentic.investigator import InvestigationCase, InvestigatorAgent
@@ -58,7 +58,7 @@ class ImmuneLoop:
     enable_self_improvement: bool = True
 
     @classmethod
-    def with_llm(cls, llm: LLMClient) -> "ImmuneLoop":
+    def with_llm(cls, llm: LLMClient) -> ImmuneLoop:
         """Convenience constructor that wires the same LLM into every agent."""
         return cls(
             redteam=RedTeamScenarioAgent(llm=llm),

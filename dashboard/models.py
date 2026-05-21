@@ -297,7 +297,9 @@ class ReplayCursor(models.Model):
 
 class SimulatedAgentOrder(models.Model):
     """Contains simulated agent order overlay information."""
-    session = models.ForeignKey(ReplaySession, on_delete=models.CASCADE, related_name='agent_orders')
+    session = models.ForeignKey(
+        ReplaySession, on_delete=models.CASCADE, related_name='agent_orders'
+    )
     event_id = models.CharField(max_length=100)
     order_id = models.CharField(max_length=100)
     agent_id = models.CharField(max_length=100)
@@ -318,7 +320,9 @@ class SimulatedAgentOrder(models.Model):
 
 class SimulatedAgentTrade(models.Model):
     """Contains simulated agent fills / completed trade markers."""
-    session = models.ForeignKey(ReplaySession, on_delete=models.CASCADE, related_name='agent_trades')
+    session = models.ForeignKey(
+        ReplaySession, on_delete=models.CASCADE, related_name='agent_trades'
+    )
     trade_id = models.CharField(max_length=100)
     order_id = models.CharField(max_length=100)
     agent_id = models.CharField(max_length=100)
@@ -336,7 +340,9 @@ class SimulatedAgentTrade(models.Model):
 
 class FeatureSnapshot(models.Model):
     """Multi-window multi-modal features evaluated for each replay state."""
-    session = models.ForeignKey(ReplaySession, on_delete=models.CASCADE, related_name='feature_snapshots')
+    session = models.ForeignKey(
+        ReplaySession, on_delete=models.CASCADE, related_name='feature_snapshots'
+    )
     timestamp = models.DateTimeField()
     features = models.JSONField(default=dict)
 
@@ -382,7 +388,9 @@ class RiskAlert(models.Model):
 
 class DecisionAuditTrace(models.Model):
     """Full decision explanations mapping labels/features to policy control action."""
-    session = models.ForeignKey(ReplaySession, on_delete=models.CASCADE, related_name='decision_traces')
+    session = models.ForeignKey(
+        ReplaySession, on_delete=models.CASCADE, related_name='decision_traces'
+    )
     timestamp = models.DateTimeField()
     observation = models.TextField()
     feature_evidence = models.JSONField(default=dict)
@@ -450,7 +458,9 @@ class AgentRunRecord(models.Model):
 class AgentToolCallRecord(models.Model):
     """Persisted ToolCall produced by an agent."""
 
-    agent_run = models.ForeignKey(AgentRunRecord, on_delete=models.CASCADE, related_name='tool_calls')
+    agent_run = models.ForeignKey(
+        AgentRunRecord, on_delete=models.CASCADE, related_name='tool_calls'
+    )
     tool = models.CharField(max_length=160)
     arguments = models.JSONField(default=dict)
     duration_ms = models.FloatField(default=0.0)
@@ -464,7 +474,9 @@ class AgentToolCallRecord(models.Model):
 class AgentDecisionTraceRecord(models.Model):
     """Persisted DecisionTrace produced by an agent."""
 
-    agent_run = models.ForeignKey(AgentRunRecord, on_delete=models.CASCADE, related_name='decision_traces')
+    agent_run = models.ForeignKey(
+        AgentRunRecord, on_delete=models.CASCADE, related_name='decision_traces'
+    )
     goal = models.CharField(max_length=200)
     observation = models.TextField()
     decision = models.CharField(max_length=200)
@@ -520,7 +532,9 @@ class InvestigationCaseRecord(models.Model):
 class PolicyDecisionRecord(models.Model):
     """Persisted PolicyDecision emitted by the PolicyAgent."""
 
-    loop = models.ForeignKey(ImmuneLoopRun, on_delete=models.CASCADE, related_name='policy_decisions')
+    loop = models.ForeignKey(
+        ImmuneLoopRun, on_delete=models.CASCADE, related_name='policy_decisions'
+    )
     decision_id = models.CharField(max_length=120, unique=True)
     case_id = models.CharField(max_length=120)
     recommended_action = models.CharField(max_length=60)

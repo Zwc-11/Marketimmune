@@ -22,8 +22,8 @@ from marketimmune.simulator.config import ReplayConfig
 from marketimmune.simulator.data_loader import (
     DepthRepository,
     DepthSnapshot,
-    KlineRepository,
     KlineRecord,
+    KlineRepository,
 )
 from marketimmune.simulator.pricing import DerivedQuote, derive_quote_from_depth
 from marketimmune.simulator.replay_builder import ReplayBuilder, ReplayPlan, ReplayTick

@@ -20,7 +20,7 @@ from pathlib import Path
 
 import numpy as np
 
-from marketimmune.models import RiskScorer, build_dataset, write_report
+from marketimmune.models import RiskScorer, build_dataset
 
 
 def _parse_args() -> argparse.Namespace:

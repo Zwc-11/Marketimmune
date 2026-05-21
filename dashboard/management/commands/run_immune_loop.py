@@ -13,7 +13,9 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--difficulty", default="medium", choices=["easy", "medium", "hard"])
         parser.add_argument("--limit", type=int, default=60, help="Kline ticks to simulate.")
-        parser.add_argument("--repeat", type=int, default=1, help="How many loops to run back-to-back.")
+        parser.add_argument(
+            "--repeat", type=int, default=1, help="How many loops to run back-to-back."
+        )
 
     def handle(self, *args, **options):
         for i in range(options["repeat"]):

@@ -20,7 +20,6 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
-
 # -- Data classes ---------------------------------------------------------
 
 
@@ -59,8 +58,8 @@ class DepthSnapshot:
     def as_dicts(self) -> list[dict]:
         """API-friendly representation."""
         return [
-            {"percentage": l.percentage, "depth": l.depth, "notional": l.notional}
-            for l in self.levels
+            {"percentage": lvl.percentage, "depth": lvl.depth, "notional": lvl.notional}
+            for lvl in self.levels
         ]
 
 

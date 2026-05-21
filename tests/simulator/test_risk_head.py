@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
-
 from marketimmune.models import FEATURE_ORDER, RiskScorer, build_dataset
 
 
@@ -28,7 +26,7 @@ def test_train_predict_roundtrip(tmp_path: Path) -> None:
     reloaded = RiskScorer.load(artifact)
     assert reloaded.feature_order == scorer.feature_order
 
-    sample = dict(zip(FEATURE_ORDER, X[0].tolist()))
+    sample = dict(zip(FEATURE_ORDER, X[0].tolist(), strict=False))
     a = scorer.predict(sample)
     b = reloaded.predict(sample)
     assert a.label == b.label
@@ -38,7 +36,7 @@ def test_train_predict_roundtrip(tmp_path: Path) -> None:
 def test_predict_returns_top_features() -> None:
     X, y, _ = build_dataset(n_per_scenario=100, seed=7)
     scorer, _ = RiskScorer.train(X, y, seed=7)
-    sample = dict(zip(FEATURE_ORDER, X[0].tolist()))
+    sample = dict(zip(FEATURE_ORDER, X[0].tolist(), strict=False))
     pred = scorer.predict(sample)
     assert 0.0 <= pred.score <= 1.0
     assert pred.label in {"ALLOW", "ALERT", "BLOCK"}

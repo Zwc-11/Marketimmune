@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from django.db import transaction
@@ -99,11 +99,12 @@ class AgenticService:
         candidate-store, "promote" really means "rerun the training
         script with the regular paths so the incumbent is refreshed".
         """
+        import contextlib
         import subprocess
         import sys
         from pathlib import Path
 
-        try:
+        with contextlib.suppress(Exception):
             subprocess.run(
                 [sys.executable, str(Path("scripts/train_risk_head.py"))],
                 cwd=Path.cwd(),
@@ -111,8 +112,6 @@ class AgenticService:
                 capture_output=True,
                 timeout=120,
             )
-        except Exception:  # noqa: BLE001 — best-effort.
-            pass
 
     # ---- persistence -----------------------------------------------
 
@@ -297,14 +296,14 @@ def _now() -> datetime:
     timezone-aware so anything that consumes them in JSON gets ISO
     strings with a ``+00:00`` suffix.
     """
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _to_aware(dt: datetime) -> datetime:
     """Normalise to naive UTC for storage."""
     if dt.tzinfo is None:
         return dt
-    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt.astimezone(UTC).replace(tzinfo=None)
 
 
 def _parse_iso_or_now(value: str) -> datetime:

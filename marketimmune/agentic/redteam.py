@@ -17,12 +17,12 @@ in this layer. The orchestrator persists it through Django.
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field
-from typing import Any, Mapping
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
 
 from marketimmune.agentic.base import Agent
 from marketimmune.simulator.scenarios import ScenarioRegistry
-
 
 # Feature dimensions a real attacker would tune to evade the current
 # detector. Importance values come straight from the trained model
