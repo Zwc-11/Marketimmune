@@ -5,12 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from marketimmune.agentic.judge import BenchmarkJudgeAgent, JudgeVerdict, _is_nan
 
 from .conftest import _make_training_job
-
 
 # ---------------------------------------------------------------------------
 # _is_nan helper
@@ -18,7 +15,6 @@ from .conftest import _make_training_job
 
 
 def test_is_nan_with_float_nan() -> None:
-    import math
     assert _is_nan(float("nan")) is True
 
 
@@ -130,7 +126,6 @@ def test_judge_rejects_when_candidate_worse(tmp_path: Path) -> None:
 
 def test_judge_nan_metrics_pass_criterion(tmp_path: Path) -> None:
     """NaN values should be treated as 'no regression' per spec."""
-    import math
     incumbent_data = {"pr_auc": 0.80, "f1": 0.78}
     report_path = tmp_path / "inc.json"
     report_path.write_text(json.dumps(incumbent_data), encoding="utf-8")
@@ -196,7 +191,6 @@ def test_judge_overfit_check_with_full_data(tmp_path: Path) -> None:
     report_path = tmp_path / "inc.json"
     report_path.write_text(json.dumps(incumbent_data), encoding="utf-8")
 
-    from dataclasses import replace
     job = _make_training_job(success=True)
     # candidate: pr_auc=0.85, holdout=0.80 → gap=0.05; incumbent gap=0.05 → equal → pass
     agent = BenchmarkJudgeAgent(incumbent_report=report_path)

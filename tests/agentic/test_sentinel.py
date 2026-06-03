@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
-
 from marketimmune.agentic.sentinel import (
     RiskSentinelAgent,
-    SentinelAlert,
     _severity_for,
     _top_features_for,
 )
 
 from .conftest import _make_plan, _make_tick
-
 
 # ---------------------------------------------------------------------------
 # _severity_for helpers

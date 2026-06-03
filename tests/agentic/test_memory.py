@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from marketimmune.agentic.memory import (
     ImmuneMemory,
     ImmuneMemoryAgent,
@@ -12,7 +10,6 @@ from marketimmune.agentic.memory import (
 )
 
 from .conftest import _make_case, _make_memory
-
 
 # ---------------------------------------------------------------------------
 # _signature

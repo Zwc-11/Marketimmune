@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from marketimmune.agentic.investigator import (
     InvestigationCase,
     InvestigatorAgent,
@@ -12,7 +10,6 @@ from marketimmune.agentic.investigator import (
 )
 
 from .conftest import _make_alert, _make_plan, _make_tick
-
 
 # ---------------------------------------------------------------------------
 # _classify_behavior
