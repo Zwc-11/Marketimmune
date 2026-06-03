@@ -65,3 +65,24 @@ def test_inventory_rebalancer_alternates_side() -> None:
 def test_agent_scenario_abc_cannot_be_instantiated() -> None:
     with pytest.raises(TypeError):
         AgentScenario()  # type: ignore[abstract]
+
+
+def test_register_scenario_without_name_raises() -> None:
+    """ScenarioRegistry.register raises ValueError when the class has no name (line 68)."""
+    from marketimmune.simulator.scenarios import AgentScenario, ScenarioOutput
+
+    class _NoNameScenario(AgentScenario):
+        name = ""  # empty name — triggers the guard
+        family = "benign"
+        label = "No-name"
+        description = "Test"
+
+        def step(self, idx: int, close: float, /) -> ScenarioOutput:  # type: ignore[override]
+            return ScenarioOutput(  # type: ignore[call-arg]
+                features={}, side="BUY",
+                order_price_offset=0.0, order_quantity=1.0,
+                trade_quantity=0.0, trade_price_offset=0.0,
+            )
+
+    with pytest.raises(ValueError, match="name"):
+        ScenarioRegistry.register(_NoNameScenario)

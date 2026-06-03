@@ -58,7 +58,7 @@ class AnthropicLLMClient:
 
     name = "anthropic"
 
-    DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+    DEFAULT_MODEL = "claude-sonnet-4-20250514"
     DEFAULT_MAX_TOKENS = 4000
     DEFAULT_THINKING_BUDGET = 2000
     # Hard cap on the per-request `max_tokens` Anthropic accepts.

@@ -75,6 +75,11 @@ class SimulatorService:
         last_event = events.last()
         event_count = events.count()
         coverage = self.market_coverage(session.symbol)
+        duration_ms = (
+            (last_event.timestamp - first_event.timestamp).total_seconds() * 1000.0
+            if first_event and last_event and last_event != first_event
+            else 0.0
+        )
         return {
             "session_id": session.run_id,
             "scenario_name": session.scenario_name,
@@ -85,11 +90,13 @@ class SimulatorService:
             "session_start": first_event.timestamp.isoformat() if first_event else None,
             "session_end": last_event.timestamp.isoformat() if last_event else None,
             "session_date": first_event.timestamp.date().isoformat() if first_event else None,
+            "duration_ms": duration_ms,
             "market_coverage": coverage,
             "scenarios": ScenarioRegistry.catalog(),
             "events": [
                 {
                     "id": e.event_id,
+                    "event_type": e.event_type,
                     "timestamp": e.timestamp.isoformat(),
                     "price": e.price,
                     "open": e.open_price,
@@ -130,6 +137,7 @@ class SimulatorService:
                     "price": t.price,
                     "quantity": t.quantity,
                     "side": t.side,
+                    "notional": t.price * t.quantity,
                 }
                 for t in session.agent_trades.all().order_by("timestamp")
             ],
@@ -150,6 +158,7 @@ class SimulatorService:
             ],
             "alerts": [
                 {
+                    "id": a.id,
                     "timestamp": a.timestamp.isoformat(),
                     "severity": a.severity,
                     "message": a.message,
