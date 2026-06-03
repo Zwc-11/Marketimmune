@@ -1,0 +1,453 @@
+/* Motion primitives from https://transitions.dev (Apache 2.0, Jakub Antalik)
+   Import after design tokens in main.tsx */
+
+/* --- Card resize --- */
+.t-resize {
+    transition:
+        width var(--resize-dur) var(--resize-ease),
+        height var(--resize-dur) var(--resize-ease),
+        grid-template-columns var(--resize-dur) var(--resize-ease);
+    will-change: width, height;
+}
+
+/* --- Number pop-in --- */
+@keyframes t-digit-pop-in {
+    0% {
+        transform: translate(
+            calc(var(--digit-distance) * var(--digit-dir-x)),
+            calc(var(--digit-distance) * var(--digit-dir-y))
+        );
+        opacity: 0;
+        filter: blur(var(--digit-blur));
+    }
+    100% {
+        transform: translate(0, 0);
+        opacity: 1;
+        filter: blur(0);
+    }
+}
+
+.t-digit-group {
+    display: inline-flex;
+    align-items: baseline;
+}
+.t-digit {
+    display: inline-block;
+    will-change: transform, opacity, filter;
+}
+.t-digit-group.is-animating .t-digit {
+    animation: t-digit-pop-in var(--digit-dur) var(--digit-ease) both;
+}
+.t-digit-group.is-animating .t-digit[data-stagger='1'] {
+    animation-delay: var(--digit-stagger);
+}
+.t-digit-group.is-animating .t-digit[data-stagger='2'] {
+    animation-delay: calc(var(--digit-stagger) * 2);
+}
+
+/* --- Notification badge --- */
+@keyframes t-badge-slide-in {
+    from {
+        transform: translate(var(--badge-offset-x), var(--badge-offset-y));
+    }
+    to {
+        transform: translate(0, 0);
+    }
+}
+
+.t-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    pointer-events: none;
+    will-change: transform;
+}
+.t-badge[data-open='true'] {
+    animation: t-badge-slide-in var(--badge-slide-dur) var(--badge-slide-ease);
+}
+.t-badge-dot {
+    display: grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    background: var(--red);
+    color: #fff;
+    transform-origin: center;
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0);
+    transition:
+        transform var(--badge-pop-dur) var(--badge-pop-ease),
+        opacity var(--badge-fade-dur) var(--badge-pop-ease),
+        filter var(--badge-pop-dur) var(--badge-pop-ease);
+    will-change: transform, opacity, filter;
+}
+.t-badge[data-open='false'] .t-badge-dot {
+    transform: scale(0);
+    opacity: 0;
+    filter: blur(var(--badge-blur));
+    transition:
+        transform var(--badge-pop-close-dur) var(--badge-close-ease),
+        opacity var(--badge-fade-close-dur) var(--badge-close-ease),
+        filter var(--badge-pop-close-dur) var(--badge-close-ease);
+}
+
+/* --- Text states swap --- */
+.t-text-swap {
+    display: inline-block;
+    transform: translateY(0);
+    filter: blur(0);
+    opacity: 1;
+    transition:
+        transform var(--text-swap-dur) var(--text-swap-ease),
+        filter var(--text-swap-dur) var(--text-swap-ease),
+        opacity var(--text-swap-dur) var(--text-swap-ease);
+    will-change: transform, filter, opacity;
+}
+.t-text-swap.is-exit {
+    transform: translateY(calc(var(--text-swap-translate-y) * -1));
+    filter: blur(var(--text-swap-blur));
+    opacity: 0;
+}
+.t-text-swap.is-enter-start {
+    transform: translateY(var(--text-swap-translate-y));
+    filter: blur(var(--text-swap-blur));
+    opacity: 0;
+    transition: none;
+}
+
+/* --- Menu dropdown --- */
+.t-dropdown {
+    transform-origin: top right;
+    transform: scale(var(--dropdown-pre-scale));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        transform var(--dropdown-open-dur) var(--dropdown-ease),
+        opacity var(--dropdown-open-dur) var(--dropdown-ease);
+    will-change: transform, opacity;
+}
+.t-dropdown[data-origin='top-right'] {
+    transform-origin: top right;
+}
+.t-dropdown[data-origin='top-center'] {
+    transform-origin: top center;
+}
+.t-dropdown[data-origin='bottom-right'] {
+    transform-origin: bottom right;
+}
+.t-dropdown.is-open {
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+.t-dropdown.is-closing {
+    transform: scale(var(--dropdown-closing-scale));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        transform var(--dropdown-close-dur) var(--dropdown-ease),
+        opacity var(--dropdown-close-dur) var(--dropdown-ease);
+}
+
+/* --- Modal --- */
+.t-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    padding: var(--s6);
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(8px);
+}
+.t-modal {
+    transform-origin: center;
+    transform: scale(var(--modal-scale));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        transform var(--modal-open-dur) var(--modal-ease),
+        opacity var(--modal-open-dur) var(--modal-ease);
+    will-change: transform, opacity;
+    max-width: min(560px, 100%);
+    width: 100%;
+}
+.t-modal.is-open {
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+.t-modal.is-closing {
+    transform: scale(var(--modal-scale-close));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        transform var(--modal-close-dur) var(--modal-ease),
+        opacity var(--modal-close-dur) var(--modal-ease);
+}
+
+/* --- Panel reveal --- */
+.t-panel-slide {
+    transform: translateY(var(--panel-translate-y));
+    opacity: 0;
+    filter: blur(var(--panel-blur));
+    pointer-events: none;
+    transition:
+        transform var(--panel-close-dur) var(--panel-ease),
+        opacity var(--panel-close-dur) var(--panel-ease),
+        filter var(--panel-close-dur) var(--panel-ease);
+    will-change: transform, opacity, filter;
+}
+.t-panel-slide[data-open='true'] {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+    pointer-events: auto;
+    transition:
+        transform var(--panel-open-dur) var(--panel-ease),
+        opacity var(--panel-open-dur) var(--panel-ease),
+        filter var(--panel-open-dur) var(--panel-ease);
+}
+
+/* --- Route enter (inspired by page side-by-side) --- */
+@keyframes t-route-enter {
+    from {
+        opacity: 0;
+        transform: translateX(calc(var(--page-slide-distance) * var(--route-dir, 1)));
+        filter: blur(var(--page-blur));
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+        filter: blur(0);
+    }
+}
+
+.route-page {
+    animation: t-route-enter calc(var(--page-slide-dur) + var(--page-fade-dur)) var(--page-slide-ease) both;
+}
+
+/* --- Icon swap --- */
+.t-icon-swap {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+}
+.t-icon-swap .t-icon {
+    grid-area: 1 / 1;
+    display: grid;
+    place-items: center;
+    transition:
+        opacity var(--icon-swap-dur) var(--icon-swap-ease),
+        filter var(--icon-swap-dur) var(--icon-swap-ease),
+        transform var(--icon-swap-dur) var(--icon-swap-ease);
+    will-change: opacity, filter, transform;
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='a'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='b'] {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='b'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='a'] {
+    opacity: 0;
+    filter: blur(var(--icon-swap-blur));
+    transform: scale(var(--icon-swap-start-scale));
+}
+
+/* --- Texts reveal --- */
+@keyframes t-text-reveal {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+        filter: blur(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+.t-reveal > * {
+    animation: t-text-reveal 520ms var(--page-slide-ease) both;
+}
+.t-reveal > *:nth-child(2) {
+    animation-delay: 80ms;
+}
+.t-reveal > *:nth-child(3) {
+    animation-delay: 140ms;
+}
+
+/* --- Tabs sliding --- */
+.t-tabs {
+    position: relative;
+    display: inline-flex;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--glass-inset);
+}
+.t-tabs-indicator {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    border-radius: 999px;
+    background: var(--glass-highlight);
+    box-shadow: var(--glass-shadow-sm);
+    transition:
+        left var(--resize-dur) var(--resize-ease),
+        width var(--resize-dur) var(--resize-ease);
+    pointer-events: none;
+}
+.t-tabs button {
+    position: relative;
+    z-index: 1;
+    border: none;
+    background: transparent;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: var(--t-xs);
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.t-tabs button[aria-selected='true'] {
+    color: var(--ink);
+}
+
+/* --- Shimmer text --- */
+@keyframes t-shimmer {
+    0% {
+        background-position: 200% center;
+    }
+    100% {
+        background-position: -200% center;
+    }
+}
+
+.t-shimmer {
+    background: linear-gradient(
+        90deg,
+        var(--muted) 0%,
+        var(--ink) 45%,
+        var(--muted) 90%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: t-shimmer 2.4s linear infinite;
+}
+
+/* --- Skeleton loader --- */
+@keyframes t-skeleton-pulse {
+    0%,
+    100% {
+        opacity: 0.45;
+    }
+    50% {
+        opacity: 0.85;
+    }
+}
+
+.t-skeleton {
+    border-radius: var(--r-md);
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.25) 0%,
+        rgba(255, 255, 255, 0.55) 50%,
+        rgba(255, 255, 255, 0.25) 100%
+    );
+    background-size: 200% 100%;
+    animation: t-skeleton-pulse 1.4s ease-in-out infinite;
+}
+.t-skeleton-reveal {
+    animation: t-route-enter 400ms var(--page-slide-ease) both;
+}
+
+/* --- Error shake --- */
+@keyframes t-shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    20% {
+        transform: translateX(calc(var(--shake-distance) * -1));
+    }
+    40% {
+        transform: translateX(var(--shake-distance));
+    }
+    60% {
+        transform: translateX(calc(var(--shake-overshoot) * -1));
+    }
+    80% {
+        transform: translateX(var(--shake-overshoot));
+    }
+}
+
+.t-shake {
+    animation: t-shake calc(var(--shake-dur-a) + var(--shake-dur-b)) var(--shake-ease);
+}
+
+/* --- Tooltip --- */
+.t-tooltip-wrap {
+    position: relative;
+    display: inline-flex;
+}
+.t-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    padding: 6px 10px;
+    border-radius: var(--r-sm);
+    font-size: var(--t-xs);
+    white-space: nowrap;
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        opacity 120ms ease-out,
+        transform 180ms var(--page-slide-ease);
+}
+.t-tooltip-wrap:hover .t-tooltip,
+.t-tooltip-wrap:focus-within .t-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    transition-delay: 400ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .t-resize,
+    .t-digit-group .t-digit,
+    .t-badge,
+    .t-badge-dot,
+    .t-text-swap,
+    .t-dropdown,
+    .t-modal,
+    .t-panel-slide,
+    .route-page,
+    .t-icon-swap .t-icon,
+    .t-reveal > *,
+    .t-tabs-indicator,
+    .t-shimmer,
+    .t-skeleton {
+        animation: none !important;
+        transition: none !important;
+    }
+    .t-tooltip-wrap:hover .t-tooltip {
+        transition-delay: 0ms;
+    }
+}

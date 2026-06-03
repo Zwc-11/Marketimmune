@@ -3,12 +3,37 @@
 // is small and we want explicit, recruiter-readable typings.
 
 export interface AgentRunSummary {
+    run_id: string;
     agent_name: string;
     goal: string;
+    started_at: string;
+    finished_at: string;
     duration_ms: number;
     success: boolean;
+    error: string;
+    output: Record<string, unknown>;
+    linked_artifacts: Record<string, unknown>;
     tool_call_count: number;
     trace_count: number;
+    tool_calls: AgentToolCall[];
+    decision_traces: AgentDecisionTrace[];
+}
+
+export interface AgentToolCall {
+    tool: string;
+    arguments: Record<string, unknown>;
+    duration_ms: number;
+    result_summary: string;
+    occurred_at: string;
+}
+
+export interface AgentDecisionTrace {
+    goal: string;
+    observation: string;
+    decision: string;
+    confidence: number;
+    evidence: Record<string, unknown>;
+    occurred_at: string;
 }
 
 export interface ScenarioProposal {
@@ -24,9 +49,12 @@ export interface ScenarioProposal {
 
 export interface InvestigationCase {
     case_id: string;
+    alert_id: string;
     suspected_behavior: string;
     severity: 'critical' | 'high' | 'medium' | 'low';
     confidence: number;
+    observation: string;
+    timeline: Array<Record<string, unknown>>;
     matched_rules: string[];
     explanation: string;
     narrative: string;
@@ -34,6 +62,7 @@ export interface InvestigationCase {
     feature_evidence: Record<string, number>;
     model_evidence: Record<string, unknown>;
     recommended_next_step: string;
+    created_at: string;
 }
 
 export interface PolicyDecision {
@@ -43,16 +72,22 @@ export interface PolicyDecision {
     severity: string;
     rationale: string;
     confidence: number;
+    created_at: string;
 }
 
 export interface ImmuneMemory {
     memory_id: string;
     threat_name: string;
     description: string;
+    scenario_source: string;
     key_signals: string[];
     best_detector: string;
+    failed_detector: string;
+    recommended_detector: string;
+    example_case_id: string;
     novelty_score: number;
     times_seen: number;
+    created_at: string;
     last_seen_at: string;
 }
 
@@ -90,6 +125,7 @@ export interface LoopState {
         started_at: string;
         duration_ms: number;
         aggregate_posture: string;
+        proposal_name: string;
         alert_count: number;
         case_count: number;
         new_memory_count: number;
@@ -120,7 +156,9 @@ export interface SimulatorScenario {
 
 export interface SimulatorEvent {
     id: string;
+    event_type: string;
     timestamp: string;
+    symbol: string;
     price: number;
     open: number;
     high: number;
@@ -185,6 +223,27 @@ export interface SimulatorCoverage {
     default_limit: number;
 }
 
+export interface SimulatorAlert {
+    id: number;
+    timestamp: string;
+    severity: string;
+    message: string;
+    metric_name: string;
+    metric_value: number;
+}
+
+export interface SimulatorTrade {
+    id: string;
+    order_id: string;
+    agent_id: string;
+    timestamp: string;
+    price: number;
+    quantity: number;
+    side: string;
+    notional: number;
+    pnl?: number;
+}
+
 export interface SimulatorState {
     session_id: string;
     scenario_name: string;
@@ -195,27 +254,49 @@ export interface SimulatorState {
     session_start: string | null;
     session_end: string | null;
     session_date: string | null;
+    duration_ms: number;
     market_coverage: SimulatorCoverage;
     scenarios: SimulatorScenario[];
     events: SimulatorEvent[];
     agent_orders: SimulatorOrder[];
-    agent_trades: Array<{
-        id: string;
-        order_id: string;
-        agent_id: string;
-        timestamp: string;
-        price: number;
-        quantity: number;
-        side: string;
-    }>;
+    agent_trades: SimulatorTrade[];
     feature_snapshots: SimulatorFeatureSnapshot[];
     predictions: SimulatorPrediction[];
-    alerts: Array<{
-        timestamp: string;
-        severity: string;
-        message: string;
-        metric_name: string;
-        metric_value: number;
-    }>;
+    alerts: SimulatorAlert[];
     decision_traces: SimulatorDecisionTrace[];
+}
+
+export interface ModelMetric {
+    id: number;
+    model_name: string;
+    model_display: string;
+    task_name: string;
+    pr_auc: number;
+    auroc: number | null;
+    inference_latency_ms: number | null;
+    extra_metrics: Record<string, unknown>;
+    phase: number;
+    rank: number;
+}
+
+export interface BenchmarkMetric {
+    phase: number;
+    title: string;
+    data: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface TrainingRun {
+    id: number;
+    model_name: string;
+    dataset_version: string;
+    split_summary: string;
+    pr_auc: number;
+    f1: number;
+    precision: number;
+    recall: number;
+    lead_time_ms: number;
+    artifact_path: string;
+    created_at: string;
 }

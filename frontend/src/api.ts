@@ -1,4 +1,11 @@
-import type { LLMStatus, LoopState, SimulatorState } from './types';
+import type {
+    BenchmarkMetric,
+    LLMStatus,
+    LoopState,
+    ModelMetric,
+    SimulatorState,
+    TrainingRun,
+} from './types';
 
 // All requests are relative URLs so the same code works in:
 //   * `npm run dev` (Vite dev server proxies `/api/...` -> Django :8000)
@@ -9,6 +16,9 @@ const API = {
     runLoop: '/api/agentic/run/',
     simulatorState: '/api/simulator/state/',
     simulatorControl: '/api/simulator/control/',
+    modelMetrics: '/api/model-metrics/',
+    benchmarkMetrics: '/api/benchmark-metrics/',
+    trainingRuns: '/api/training-runs/',
 };
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -17,6 +27,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
         throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
     }
     return (await resp.json()) as T;
+}
+
+function unpackList<T>(payload: T[] | { results?: T[] }): T[] {
+    return Array.isArray(payload) ? payload : payload.results ?? [];
 }
 
 export async function fetchState(): Promise<LoopState> {
@@ -58,6 +72,20 @@ export interface SimulatorControlRequest {
 
 export async function fetchSimulatorState(): Promise<SimulatorState> {
     return request<SimulatorState>(API.simulatorState);
+}
+
+export async function fetchModelMetrics(): Promise<ModelMetric[]> {
+    return unpackList(await request<ModelMetric[] | { results?: ModelMetric[] }>(API.modelMetrics));
+}
+
+export async function fetchBenchmarkMetrics(): Promise<BenchmarkMetric[]> {
+    return unpackList(
+        await request<BenchmarkMetric[] | { results?: BenchmarkMetric[] }>(API.benchmarkMetrics),
+    );
+}
+
+export async function fetchTrainingRuns(): Promise<TrainingRun[]> {
+    return unpackList(await request<TrainingRun[] | { results?: TrainingRun[] }>(API.trainingRuns));
 }
 
 export async function startSimulatorReplay(payload: SimulatorControlRequest): Promise<void> {
