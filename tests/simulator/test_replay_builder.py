@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-import pytest
 
 from marketimmune.policy.rules import PolicyAction
 from marketimmune.simulator.data_loader import _load_parquet
@@ -65,7 +64,7 @@ def test_from_lake_with_existing_model_path(tmp_path: Path) -> None:
     _load_parquet.cache_clear()
 
     # Train a small model and save it.
-    from marketimmune.models import FEATURE_ORDER, RiskScorer, build_dataset
+    from marketimmune.models import RiskScorer, build_dataset
     X, y, _ = build_dataset(n_per_scenario=30, seed=7)
     scorer, _ = RiskScorer.train(X, y, seed=7)
     model_path = tmp_path / "model.joblib"
@@ -106,7 +105,7 @@ def test_build_ticks_ml_head_with_matched_rules(tmp_path: Path) -> None:
     _write_kline_parquet(tmp_path)
     _load_parquet.cache_clear()
 
-    from marketimmune.models import FEATURE_ORDER, RiskScorer, build_dataset
+    from marketimmune.models import RiskScorer, build_dataset
     X, y, _ = build_dataset(n_per_scenario=30, seed=7)
     scorer, _ = RiskScorer.train(X, y, seed=7)
     model_path = tmp_path / "model.joblib"
@@ -117,8 +116,8 @@ def test_build_ticks_ml_head_with_matched_rules(tmp_path: Path) -> None:
     plan = builder.build(config)
 
     # At least one tick should have matched rules (hostile scenario)
-    ticks_with_rules = [t for t in plan.ticks if t.matched_rules]
-    ticks_without_rules = [t for t in plan.ticks if not t.matched_rules]
+    [t for t in plan.ticks if t.matched_rules]
+    [t for t in plan.ticks if not t.matched_rules]
     # We don't assert specifics — just that the plan built successfully.
     assert len(plan.ticks) == 3
 
@@ -128,7 +127,7 @@ def test_build_ticks_ml_head_benign_scenario(tmp_path: Path) -> None:
     _write_kline_parquet(tmp_path)
     _load_parquet.cache_clear()
 
-    from marketimmune.models import FEATURE_ORDER, RiskScorer, build_dataset
+    from marketimmune.models import RiskScorer, build_dataset
     X, y, _ = build_dataset(n_per_scenario=30, seed=7)
     scorer, _ = RiskScorer.train(X, y, seed=7)
     model_path = tmp_path / "model.joblib"

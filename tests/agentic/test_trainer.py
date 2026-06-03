@@ -7,12 +7,9 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from marketimmune.agentic.trainer import ModelTrainerAgent, TrainingJob
 
 from .conftest import _make_memory
-
 
 # ---------------------------------------------------------------------------
 # Skip path (not enough memories)
@@ -206,8 +203,9 @@ def test_training_job_to_dict() -> None:
 
 
 def test_training_job_to_dict_no_holdout() -> None:
-    from .conftest import _make_training_job
     from dataclasses import replace
+
+    from .conftest import _make_training_job
     job = replace(_make_training_job(), holdout_metrics=None)
     d = job.to_dict()
     assert d["holdout_metrics"] is None

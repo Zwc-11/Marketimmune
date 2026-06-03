@@ -134,7 +134,6 @@ def test_train_wrong_feature_count_raises() -> None:
 
 def test_train_held_out_produces_nan_when_single_class() -> None:
     """When held-out set has only one class, PR-AUC falls back to NaN."""
-    import math
     X, y, names = build_dataset(n_per_scenario=50, seed=7)
     # Hold out ONE benign scenario only → test set is all-zero (benign), train has both classes
     scorer, report = RiskScorer.train(

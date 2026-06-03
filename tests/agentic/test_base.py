@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-import pytest
-
 from marketimmune.agentic.base import (
     Agent,
     AgentRun,
@@ -14,7 +12,6 @@ from marketimmune.agentic.base import (
     NullLLMClient,
     ToolCall,
 )
-
 
 # ---------------------------------------------------------------------------
 # NullLLMClient

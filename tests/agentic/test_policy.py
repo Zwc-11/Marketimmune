@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from marketimmune.agentic.policy import (
     PolicyAgent,
     PolicyDecision,
@@ -11,7 +9,6 @@ from marketimmune.agentic.policy import (
 )
 
 from .conftest import _make_case
-
 
 # ---------------------------------------------------------------------------
 # _action_for

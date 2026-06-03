@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-import pytest
 
 from marketimmune.simulator.data_loader import (
     DepthLevel,
@@ -20,7 +19,6 @@ from marketimmune.simulator.data_loader import (
     KlineRepository,
     _load_parquet,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers to write minimal parquet files

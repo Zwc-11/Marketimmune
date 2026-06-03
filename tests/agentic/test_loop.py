@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-import pytest
 
 from marketimmune.agentic.loop import ImmuneLoop, LoopResult
 from marketimmune.agentic.market_simulator import MarketSimulatorAgent
@@ -67,9 +65,10 @@ def test_loop_disables_self_improvement(tmp_path: Path) -> None:
 
 def test_loop_returns_early_on_redteam_failure() -> None:
     """When the RedTeam agent fails, the loop returns early with no proposal."""
-    from marketimmune.agentic.redteam import RedTeamScenarioAgent
     from collections.abc import Mapping
     from typing import Any
+
+    from marketimmune.agentic.redteam import RedTeamScenarioAgent
 
     class _FailRedTeam(RedTeamScenarioAgent):
         def _execute(self, **_: Any) -> Mapping[str, Any]:
@@ -86,9 +85,10 @@ def test_loop_returns_early_on_redteam_failure() -> None:
 
 def test_loop_returns_early_on_simulator_failure() -> None:
     """When the Simulator agent fails, the loop returns early after proposal."""
-    from marketimmune.agentic.market_simulator import MarketSimulatorAgent
     from collections.abc import Mapping
     from typing import Any
+
+    from marketimmune.agentic.market_simulator import MarketSimulatorAgent
 
     class _FailSimulator(MarketSimulatorAgent):
         def _execute(self, **_: Any) -> Mapping[str, Any]:

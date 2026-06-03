@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from marketimmune.agentic.redteam import RedTeamScenarioAgent, ScenarioProposal
 
-
 # ---------------------------------------------------------------------------
 # Basic deterministic proposal
 # ---------------------------------------------------------------------------

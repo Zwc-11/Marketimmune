@@ -6,16 +6,13 @@ can run without the full Binance lake.
 
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-import pytest
 
 from marketimmune.agentic.market_simulator import MarketSimulatorAgent
 from marketimmune.agentic.redteam import ScenarioProposal
-
 
 # ---------------------------------------------------------------------------
 # Helpers to write minimal parquet lake data
