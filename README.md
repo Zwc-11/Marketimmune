@@ -1,145 +1,184 @@
 # MarketImmune
 
-> **An end-to-end AI market-safety platform** — a six-agent autonomous loop that red-teams adversarial trading behavior, detects it with a trained ML model, writes LLM-powered investigation narratives, and decides policy actions in real time. Built on real Binance data with a full Django + React/TypeScript dashboard.
+**Agentic market-safety research platform for Hyperliquid perpetuals.**
+MarketImmune combines a live BTC-PERP terminal, an audited multi-agent immune
+loop, exchange data ingestion, markout labeling, and leakage-safe model
+evaluation into one research workspace.
 
----
+![MarketImmune live Hyperliquid dashboard](screenshots/marketimmune-live-dashboard.jpg)
 
-## What This Project Does
+![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-REST-0C4B33?logo=django&logoColor=white)
+![React](https://img.shields.io/badge/React-TypeScript-61DAFB?logo=react&logoColor=111)
+![Coverage](https://img.shields.io/badge/coverage-100%25-97fce4)
+![Market](https://img.shields.io/badge/market-Hyperliquid%20BTC--PERP-97fce4)
 
-Modern crypto exchanges face a new class of threat: **autonomous trading agents** that execute harmful strategies — momentum ignition, spoofing, layering, feedback sweeps — faster than any human compliance team can track. MarketImmune is a working prototype of a system that fights back.
+## What It Does
 
-It is **not a trading bot**. It is a **market-safety research platform** that:
+MarketImmune is a research prototype for detecting adverse selection and toxic
+order flow in crypto perpetual markets. It is built around an immune-loop model:
 
-1. **Generates** adversarial agent scenarios via a red-team LLM (Claude)
-2. **Simulates** them against real Binance USD-M Futures market microstructure
-3. **Detects** harmful behavior with a trained Gradient-Boosting risk model (PR-AUC **0.989**)
-4. **Investigates** each case automatically, producing a full analyst narrative via a narrative engine
-5. **Decides** a control action (block / flag / monitor) with a policy agent
-6. **Remembers** novel patterns to improve future detection — a persistent immune memory
+```text
+Generate -> Detect -> Investigate -> Decide -> Remember
+```
 
-The entire loop runs in a single button press, persists every artifact to Django ORM, and is visible in a real-time React dashboard.
+The system monitors live Hyperliquid market structure, runs agentic
+investigations, persists every decision to an audit trail, and provides the
+scaffolding for real markout-based model evaluation.
 
----
+## Current Status
 
-## Screenshots
+This is a research system, not a live trading system.
 
-### Immune Loop V2 — Full Pipeline Dashboard
-![Immune Loop V2](screenshots/immune-loop-v2.png)
-*Eight autonomous agents — RedTeam, Simulator, Sentinel, Investigator, Policy, Memory, Trainer, Judge — run end-to-end in one click. The dashboard shows per-agent latency, judge promotion verdict (4/5 criteria), the latest red-team proposal with evasion strategy, and a live immune memory shelf.*
+What is live today:
 
----
+- **Live Hyperliquid market dashboard** for BTC-PERP candles, order-book depth,
+  spread, funding, basis, open interest, and top-of-book imbalance.
+- **Django API surface** for `/api/hyperliquid/live/` and
+  `/api/hyperliquid/candles/`.
+- **Agentic immune loop** with structured traces and append-only audit records.
+- **Exchange ingestion groundwork** for Binance public data and Hyperliquid
+  public Info API samples.
+- **Markout labeling and evaluation primitives** for future real-data model
+  training.
+- **Leakage-aware evaluation tools** including purged/embargoed walk-forward
+  splits, calibration metrics, and promotion policy checks.
+- **Quality gates**: mypy clean, ruff clean, frontend typecheck/build clean, and
+  100% backend coverage.
 
-### Investigation Case — CRITICAL Momentum Ignition
-![Investigation Case](screenshots/investigation-case.png)
-*The Investigator agent builds a full evidence case file: ML score 0.99, matched rule overlays (`large_layered_quantity`, `stop_run_or_feedback_sweep`), and a structured analyst narrative that explains the suspected behavior, strongest signals, and what additional evidence would raise confidence. Policy verdict: `BLOCK_SIMULATED_AGENT` at confidence 0.99.*
+What is still preview:
 
----
+- Agent/model dashboard views still include labeled fixtures.
+- The current risk head trains on synthetic scenario data, not real
+  Hyperliquid fills.
+- The CatBoost markout model and measured bps lift require the historical
+  requester-pays backfill and training run.
 
-### Risk Center — Gradient-Boosting Risk Head
-![Risk Center](screenshots/risk-center.png)
-*A calibrated Gradient-Boosting classifier trained on engineered order-flow features. Held-out test metrics: **PR-AUC 0.989 · ROC-AUC 0.988 · F1 0.944 · inference p95 < 0.6 ms**. Top feature: `w1000_agentic_min_interarrival_ms` (importance 0.425), confirming burst timing as the primary detection signal.*
+For the exact implementation ledger, see
+[`AUDIT_AND_PLAN.md`](AUDIT_AND_PLAN.md).
 
----
+## Highlights
 
-### Decision Audit Traces — Full Explainability Log
-![Decision Audit Traces](screenshots/audit-traces.png)
-*Every control decision is logged with the raw observation, top-feature ML interpretation, matched rule overlays, and the exact recommended action. Fully reproducible and auditable — designed to satisfy a compliance review.*
-
----
-
-### Classic Loop — Generate → Simulate → Detect → Investigate → Decide → Remember
-![Classic Loop](screenshots/classic-loop.png)
-*The six-stage pipeline visualized. All state is persisted across seven Django ORM tables (`ImmuneLoopRun`, `AgentRunRecord`, `InvestigationCaseRecord`, `PolicyDecisionRecord`, `ImmuneMemoryEntry`, `ScenarioProposalRecord`, `AgentDecisionTraceRecord`). Shown: 5 sentinel alerts, 5 investigation cases, 1 new memory, aggregate posture `block_simulated_agent`.*
-
----
+- **Professional trading terminal UI**: dark Hyperliquid-inspired command
+  surface, live ticker strip, candle chart, depth view, and dense data panels.
+- **Auditable agents**: each stage emits structured `AgentRun`, `ToolCall`, and
+  `DecisionTrace` records.
+- **Real market-data path**: free Hyperliquid Info API support for current L2,
+  candles, mids, and asset context.
+- **Historical-data path**: parser and lakehouse scaffolding for Hyperliquid
+  requester-pays archive data.
+- **ML research stack**: gradient-boosting risk head today, CatBoost markout
+  evaluation path planned once real Gold rows exist.
+- **Honesty-first metrics**: no hard-coded market claims; resume-grade numbers
+  wait for measured real-data reports.
 
 ## Architecture
 
-```
-Real Binance kline + bookDepth data
-          │
-          ▼
-  ┌──────────────────────────────────────────────────────┐
-  │                  Agentic Immune Loop                 │
-  │                                                      │
-  │  RedTeam ──► Simulator ──► Sentinel ──► Investigator │
-  │                                │              │      │
-  │                           (ML + Rules)   (LLM Narrative) │
-  │                                │              │      │
-  │                          Policy ◄─────────────┘      │
-  │                             │                        │
-  │                    Memory ◄─┘   Trainer   Judge      │
-  └──────────────────────────────────────────────────────┘
-          │
-          ▼
-   Django REST API  ◄──►  React / TypeScript Dashboard
+```text
+marketimmune/         Python core: agents, ingestion, labels, models, replay
+dashboard/            Django REST API, ORM audit trail, static React host
+frontend/             React + TypeScript + Vite terminal UI
+aegisbench/           Benchmark tasks, splits, metrics, and reports
+scripts/              Training, backfill, live sample, and verification CLIs
+tests/                Unit, integration, parser, model, and dashboard tests
 ```
 
-**Stack:**
-- **Backend:** Python 3.12, Django 5, Django REST Framework, SQLite
-- **ML:** scikit-learn (Gradient Boosting), PyTorch (CT-LSTM / Neural Hawkes), joblib artifacts
-- **Agentic:** Anthropic Claude (red-team + narrative engine), custom multi-agent loop
-- **Frontend:** React 18, TypeScript, Vite
-- **Data:** Binance USD-M Futures public kline + book-depth, Parquet lake, deterministic scenario generator
-- **Quality:** Ruff, mypy, pytest, GitHub Actions CI
-
----
-
-## Key Metrics
-
-| Metric | Value |
-|--------|-------|
-| Risk Head PR-AUC (held-out test) | **0.989** |
-| Risk Head ROC-AUC | **0.988** |
-| Risk Head F1 @ 0.5 threshold | **0.944** |
-| Inference latency p95 | **< 0.6 ms** |
-| Training rows | 3,600 |
-| Test rows | 1,200 |
-| Precision @ top-50 | **1.000** |
-
----
-
-## Project Phases
-
-| Phase | What Was Built |
-|-------|---------------|
-| 1–3 | Package scaffold, schemas, event IDs, Parquet lake, CI pipeline |
-| 4 | Deterministic replay engine with invariant checks |
-| 5 | Scenario + labeling system — benign and risky agent families |
-| 6 | Multi-window feature store + rule-engine baseline |
-| 7 | AegisBench v0 — train/val/test splits, leaderboard CSV |
-| 8 | Order-MTPP temporal model baseline |
-| 9 | Order-S2P2 neural Hawkes (CT-LSTM) with OOD metrics |
-| 10+ | Full agentic loop, React frontend, risk head, simulator cockpit |
-
----
+Python core code has no Django dependency. Django owns persistence and API
+hydration. The React app can run static-first, then hydrate live slices when the
+Django API is reachable.
 
 ## Quickstart
 
-```bash
+Install backend dependencies and start Django:
+
+```powershell
 python -m pip install -e ".[dev]"
 python manage.py migrate
-python manage.py runserver
+python manage.py runserver 127.0.0.1:8000
 ```
 
-Then open `http://127.0.0.1:8000/` and click **Run a new loop**.
+Open the current single-origin app:
 
-To retrain the risk head:
-```bash
+```text
+http://127.0.0.1:8000/dashboard/live/#/live
+```
+
+Optional live-data settings in `.env`:
+
+```ini
+MARKETIMMUNE_HYPERLIQUID_COIN=BTC
+MARKETIMMUNE_HYPERLIQUID_BUDGET_MS=2000
+MARKETIMMUNE_HYPERLIQUID_CACHE_TTL_MS=5000
+MARKETIMMUNE_HYPERLIQUID_CANDLE_INTERVAL=1m
+MARKETIMMUNE_HYPERLIQUID_CANDLE_LOOKBACK_MINUTES=240
+MARKETIMMUNE_HYPERLIQUID_CANDLE_CACHE_TTL_MS=30000
+```
+
+For active frontend development:
+
+```powershell
+npm.cmd run setup:frontend
+npm.cmd run dev:frontend
+```
+
+Then open:
+
+```text
+http://127.0.0.1:5173/#/live
+```
+
+Do not use `npm run preview` for live API testing. Static preview does not proxy
+`/api`.
+
+## Useful Commands
+
+Run the full backend gate:
+
+```powershell
+python -m coverage run -m pytest
+python -m coverage report -m
+```
+
+Run lint/type/build checks:
+
+```powershell
+ruff check .
+mypy
+npm.cmd run typecheck
+npm.cmd run build
+python manage.py check
+python manage.py makemigrations --check --dry-run
+```
+
+Fetch a small free Hyperliquid public API sample:
+
+```powershell
+python scripts/fetch_hyperliquid_api_sample.py --coin BTC --interval 1m --lookback-minutes 60
+```
+
+Train the current synthetic-data risk head:
+
+```powershell
 python scripts/train_risk_head.py
 ```
 
-To run the full CI suite:
-```bash
-ruff check .
-pytest
-```
+## Roadmap
 
----
+The remaining high-value work is real-data execution:
 
-## Scope
+- Confirm the exact Hyperliquid `node_fills_by_block` archive schema.
+- Run the requester-pays historical backfill.
+- Assemble Bronze/Silver/Gold rows with point-in-time features and markout
+  labels.
+- Train CatBoost under purged/embargoed walk-forward CV.
+- Report measured markout lift in bps versus an OFI-only baseline.
+- Wire the trained model stream back into the live product loop.
 
-- No API keys required for core functionality (LLM features need an Anthropic key in `.env`)
-- No real orders are sent — all agent activity is simulated
-- All benchmark metrics are generated from actual model outputs, never entered manually
-- Real market data is public Binance kline/depth data only
+## Scope Notes
+
+- No real orders are sent.
+- No private key or exchange account is required for the live market dashboard.
+- DeepSeek is optional for richer agent reasoning; deterministic fallbacks work
+  without LLM access.
+- Do not cite market-performance claims until the real historical training run
+  produces a measured report.
