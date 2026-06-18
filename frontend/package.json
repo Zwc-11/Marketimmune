@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "React + TypeScript surface for the MarketImmune agentic immune loop.",
+  "description": "React + TypeScript terminal UI for MarketImmune live Hyperliquid monitoring and agentic audit workflows.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
+    "marketimmune-dashboard": "file:..",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.171.0"
