@@ -1,7 +1,7 @@
 {
   "name": "marketimmune-dashboard",
   "version": "1.0.0",
-  "description": "Agentic market-safety research platform for Hyperliquid perps with a live BTC-PERP dashboard, audited immune loop, and markout evaluation stack.",
+  "description": "Agentic market-safety research platform for crypto perps with a terminal dashboard, audited immune loop, and markout evaluation roadmap.",
   "private": true,
   "scripts": {
     "dev": "python manage.py runserver",
