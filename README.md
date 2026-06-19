@@ -5,7 +5,7 @@ MarketImmune combines a live BTC-PERP terminal, an audited multi-agent immune
 loop, exchange data ingestion, markout labeling, and leakage-safe model
 evaluation into one research workspace.
 
-![MarketImmune live Hyperliquid dashboard](screenshots/marketimmune-live-dashboard.jpg)
+![MarketImmune live Hyperliquid dashboard](screenshots/marketimmune-live-dashboard.svg)
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-REST-0C4B33?logo=django&logoColor=white)
@@ -92,7 +92,7 @@ Django API is reachable.
 Install backend dependencies and start Django:
 
 ```powershell
-python -m pip install -e ".[dev]"
+python -m pip install -e '.[dev]'
 python manage.py migrate
 python manage.py runserver 127.0.0.1:8000
 ```
