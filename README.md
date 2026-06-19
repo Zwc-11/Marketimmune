@@ -1,17 +1,17 @@
 # MarketImmune
 
-**Agentic market-safety research platform for Hyperliquid perpetuals.**
-MarketImmune combines a live BTC-PERP terminal, an audited multi-agent immune
-loop, exchange data ingestion, markout labeling, and leakage-safe model
-evaluation into one research workspace.
+**Agentic market-safety research platform for crypto perpetuals.**
+MarketImmune combines a terminal-style dashboard, an audited multi-agent immune
+loop, exchange-data ingestion groundwork, markout labeling primitives, and
+leakage-safe evaluation into one research workspace.
 
-![MarketImmune live Hyperliquid dashboard](screenshots/marketimmune-live-dashboard.svg)
+![MarketImmune terminal dashboard preview](screenshots/marketimmune-live-dashboard.svg)
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-REST-0C4B33?logo=django&logoColor=white)
 ![React](https://img.shields.io/badge/React-TypeScript-61DAFB?logo=react&logoColor=111)
-![Coverage](https://img.shields.io/badge/coverage-100%25-97fce4)
-![Market](https://img.shields.io/badge/market-Hyperliquid%20BTC--PERP-97fce4)
+![Coverage](https://img.shields.io/badge/coverage%20gate-95%25%2B-97fce4)
+![Market](https://img.shields.io/badge/market-crypto%20perps-97fce4)
 
 ## What It Does
 
@@ -22,40 +22,39 @@ order flow in crypto perpetual markets. It is built around an immune-loop model:
 Generate -> Detect -> Investigate -> Decide -> Remember
 ```
 
-The system monitors live Hyperliquid market structure, runs agentic
-investigations, persists every decision to an audit trail, and provides the
-scaffolding for real markout-based model evaluation.
+The system is designed for market-structure monitoring, agentic investigations,
+append-only decision audit trails, and real markout-based model evaluation.
 
 ## Current Status
 
 This is a research system, not a live trading system.
 
-What is live today:
+What is live today in this repository:
 
-- **Live Hyperliquid market dashboard** for BTC-PERP candles, order-book depth,
-  spread, funding, basis, open interest, and top-of-book imbalance.
-- **Django API surface** for `/api/hyperliquid/live/` and
-  `/api/hyperliquid/candles/`.
+- **React/Django market dashboard** with simulator, risk, model, memory, audit,
+  and agentic-loop screens.
+- **Django API surface** for `/api/live/tick/`, simulator state/control,
+  risk-head health, and agentic loop state/run endpoints.
 - **Agentic immune loop** with structured traces and append-only audit records.
-- **Exchange ingestion groundwork** for Binance public data and Hyperliquid
-  public Info API samples.
+- **Exchange ingestion groundwork** for public market-data files and replay
+  inputs.
 - **Markout labeling and evaluation primitives** for future real-data model
   training.
 - **Leakage-aware evaluation tools** including purged/embargoed walk-forward
   splits, calibration metrics, and promotion policy checks.
-- **Quality gates**: mypy clean, ruff clean, frontend typecheck/build clean, and
-  100% backend coverage.
+- **Quality gates**: ruff, mypy, pytest, and a 95%+ coverage gate in CI.
 
 What is still preview:
 
 - Agent/model dashboard views still include labeled fixtures.
-- The current risk head trains on synthetic scenario data, not real
-  Hyperliquid fills.
-- The CatBoost markout model and measured bps lift require the historical
-  requester-pays backfill and training run.
+- Hyperliquid-specific live endpoints are part of the v2 integration work and
+  should not be treated as merged API surface until they land in `dashboard/`.
+- The current risk head trains on synthetic scenario data, not real exchange
+  fills.
+- The CatBoost markout model and measured bps lift require historical exchange
+  backfill and a training run.
 
-For the exact implementation ledger, see
-[`AUDIT_AND_PLAN.md`](AUDIT_AND_PLAN.md).
+The remaining roadmap is summarized below so the README stays self-contained.
 
 ## Highlights
 
@@ -63,10 +62,8 @@ For the exact implementation ledger, see
   surface, live ticker strip, candle chart, depth view, and dense data panels.
 - **Auditable agents**: each stage emits structured `AgentRun`, `ToolCall`, and
   `DecisionTrace` records.
-- **Real market-data path**: free Hyperliquid Info API support for current L2,
-  candles, mids, and asset context.
-- **Historical-data path**: parser and lakehouse scaffolding for Hyperliquid
-  requester-pays archive data.
+- **Market-data path**: exchange ingestion and lakehouse scaffolding already
+  exist; Hyperliquid archive wiring is tracked in the roadmap.
 - **ML research stack**: gradient-boosting risk head today, CatBoost markout
   evaluation path planned once real Gold rows exist.
 - **Honesty-first metrics**: no hard-coded market claims; resume-grade numbers
@@ -79,7 +76,7 @@ marketimmune/         Python core: agents, ingestion, labels, models, replay
 dashboard/            Django REST API, ORM audit trail, static React host
 frontend/             React + TypeScript + Vite terminal UI
 aegisbench/           Benchmark tasks, splits, metrics, and reports
-scripts/              Training, backfill, live sample, and verification CLIs
+scripts/              Training, metrics, and verification CLIs
 tests/                Unit, integration, parser, model, and dashboard tests
 ```
 
@@ -103,16 +100,8 @@ Open the current single-origin app:
 http://127.0.0.1:8000/dashboard/live/#/live
 ```
 
-Optional live-data settings in `.env`:
-
-```ini
-MARKETIMMUNE_HYPERLIQUID_COIN=BTC
-MARKETIMMUNE_HYPERLIQUID_BUDGET_MS=2000
-MARKETIMMUNE_HYPERLIQUID_CACHE_TTL_MS=5000
-MARKETIMMUNE_HYPERLIQUID_CANDLE_INTERVAL=1m
-MARKETIMMUNE_HYPERLIQUID_CANDLE_LOOKBACK_MINUTES=240
-MARKETIMMUNE_HYPERLIQUID_CANDLE_CACHE_TTL_MS=30000
-```
+Current JSON endpoints include `/api/live/tick/`, `/api/simulator/state/`,
+`/api/simulator/control/`, `/api/risk-head/health/`, and `/api/agentic/state/`.
 
 For active frontend development:
 
@@ -150,12 +139,6 @@ python manage.py check
 python manage.py makemigrations --check --dry-run
 ```
 
-Fetch a small free Hyperliquid public API sample:
-
-```powershell
-python scripts/fetch_hyperliquid_api_sample.py --coin BTC --interval 1m --lookback-minutes 60
-```
-
 Train the current synthetic-data risk head:
 
 ```powershell
@@ -177,8 +160,8 @@ The remaining high-value work is real-data execution:
 ## Scope Notes
 
 - No real orders are sent.
-- No private key or exchange account is required for the live market dashboard.
-- DeepSeek is optional for richer agent reasoning; deterministic fallbacks work
-  without LLM access.
+- No private key or exchange account is required for the current dashboard.
+- LLM access is optional for richer agent reasoning; deterministic fallbacks
+  work without external model access.
 - Do not cite market-performance claims until the real historical training run
   produces a measured report.
