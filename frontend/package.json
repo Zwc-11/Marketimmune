@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "React + TypeScript terminal UI for MarketImmune live Hyperliquid monitoring and agentic audit workflows.",
+  "description": "React + TypeScript terminal UI for MarketImmune market monitoring and agentic audit workflows.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
