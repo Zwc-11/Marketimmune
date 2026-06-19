@@ -56,6 +56,14 @@ What is still preview:
 
 The remaining roadmap is summarized below so the README stays self-contained.
 
+## Screenshots
+
+The gallery below shows the core product surfaces: Command Center, Live Market,
+Toxicity Sentinel, Immune Loop, Investigation Case File, Model Center, and
+Audit Trail.
+
+![MarketImmune project screenshot gallery](screenshots/project/marketimmune-project-gallery.svg)
+
 ## Highlights
 
 - **Professional trading terminal UI**: dark Hyperliquid-inspired command
