@@ -83,6 +83,10 @@ disallow_untyped_calls = false
 module = ["boto3", "boto3.*", "lz4", "lz4.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["matplotlib", "matplotlib.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
