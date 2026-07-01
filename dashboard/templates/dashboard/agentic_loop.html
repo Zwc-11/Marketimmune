@@ -175,7 +175,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h3 style="margin:0;">Red-Team Proposal · {{ proposal.name }}</h3>
                 {% if proposal.features.rationale_source == 'llm' %}
-                <span class="pill info" style="font-size:9px;">Claude · extended thinking</span>
+                <span class="pill info" style="font-size:9px;">DeepSeek · reasoning</span>
                 {% else %}
                 <span class="pill" style="font-size:9px;">deterministic</span>
                 {% endif %}
@@ -208,7 +208,7 @@
                             color:var(--violet); margin-bottom:4px;">
                     Analyst narrative
                     {% if case.model_evidence.narrative_source == 'llm' %}
-                    <span class="pill info" style="font-size:9px; margin-left:6px;">Claude · extended thinking</span>
+                    <span class="pill info" style="font-size:9px; margin-left:6px;">DeepSeek · reasoning</span>
                     {% else %}
                     <span class="pill" style="font-size:9px; margin-left:6px;">deterministic</span>
                     {% endif %}

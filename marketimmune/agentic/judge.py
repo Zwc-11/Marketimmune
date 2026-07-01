@@ -3,6 +3,11 @@
 Voting rules
 ============
 
+When real v2 promotion metrics are present, the Judge delegates to
+``PromotionPolicy`` so leakage safety, markout lift, calibration, latency, and PR-AUC
+are evaluated in one place. If either side lacks those metrics, the Judge falls back to
+the legacy five-criterion benchmark vote below.
+
 Each criterion contributes one vote. Three or more "promote" votes →
 ``promote``; one or two "promote" votes → ``needs_more_data``; zero →
 ``reject``.
@@ -33,6 +38,11 @@ from typing import Any
 
 from marketimmune.agentic.base import Agent
 from marketimmune.agentic.trainer import TrainingJob
+from marketimmune.models.promotion import (
+    ModelMetrics,
+    PromotionPolicy,
+    PromotionVerdict,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +90,7 @@ class BenchmarkJudgeAgent(Agent):
         min_holdout_improvement: float = 0.01,
         max_latency_inflation: float = 0.30,
         max_overfit_regression: float = 0.05,
+        promotion_policy: PromotionPolicy | None = None,
         **kwargs: Any,
     ):
         super().__init__(**kwargs)
@@ -89,6 +100,7 @@ class BenchmarkJudgeAgent(Agent):
         self.min_holdout_improvement = min_holdout_improvement
         self.max_latency_inflation = max_latency_inflation
         self.max_overfit_regression = max_overfit_regression
+        self.promotion_policy = promotion_policy or PromotionPolicy()
 
     # ---- subclass contract ----------------------------------------
 
@@ -134,9 +146,17 @@ class BenchmarkJudgeAgent(Agent):
             }
 
         incumbent = self._load_incumbent()
+        policy_verdict = self._evaluate_promotion_policy(job, incumbent)
+        if policy_verdict is not None:
+            return self._emit_policy_verdict(
+                goal=goal,
+                job=job,
+                incumbent=incumbent,
+                policy_verdict=policy_verdict,
+            )
+
         criteria = self._evaluate_criteria(job, incumbent)
         promote_votes = sum(1 for c in criteria.values() if c["passed"])
-        reject_votes = len(criteria) - promote_votes
 
         if promote_votes >= 3:
             verdict_label = "promote"
@@ -144,6 +164,13 @@ class BenchmarkJudgeAgent(Agent):
             verdict_label = "needs_more_data"
         else:
             verdict_label = "reject"
+        criteria, verdict_label = _apply_baseline_gate(
+            criteria,
+            default_verdict=verdict_label,
+            candidate_metrics=job.metrics,
+        )
+        promote_votes = sum(1 for c in criteria.values() if c["passed"])
+        reject_votes = len(criteria) - promote_votes
 
         rationale_bits = [
             f"{name}: {('PASS' if c['passed'] else 'FAIL')} ({c['detail']})"
@@ -231,6 +258,72 @@ class BenchmarkJudgeAgent(Agent):
             "overfit_gap": {"passed": overfit_passed, "detail": overfit_detail},
         }
 
+    def _evaluate_promotion_policy(
+        self, job: TrainingJob, incumbent: Mapping[str, Any]
+    ) -> PromotionVerdict | None:
+        champion = _promotion_metrics_from_mapping(incumbent)
+        if champion is None:
+            return None
+        challenger = _promotion_metrics_from_mapping(job.metrics)
+        if challenger is None:
+            return None
+        return self.promotion_policy.evaluate(champion, challenger)
+
+    def _emit_policy_verdict(
+        self,
+        *,
+        goal: str,
+        job: TrainingJob,
+        incumbent: Mapping[str, Any],
+        policy_verdict: PromotionVerdict,
+    ) -> Mapping[str, Any]:
+        criteria = {
+            name: {"passed": criterion.passed, "detail": criterion.detail}
+            for name, criterion in policy_verdict.criteria.items()
+        }
+        criteria, verdict_label = _apply_baseline_gate(
+            criteria,
+            default_verdict=policy_verdict.verdict,
+            candidate_metrics=job.metrics,
+        )
+        passed = sum(1 for item in criteria.values() if item["passed"])
+        total = len(criteria)
+        rationale = (
+            f"PromotionPolicy verdict {verdict_label} "
+            f"({passed}/{total} criteria passed). "
+            + "; ".join(
+                f"{name}: {('PASS' if item['passed'] else 'FAIL')} ({item['detail']})"
+                for name, item in criteria.items()
+            )
+        )
+        verdict = JudgeVerdict(
+            decision_id=f"judge_{job.job_id}",
+            verdict=verdict_label,
+            candidate_model=job.candidate_model,
+            incumbent_model=job.incumbent_model,
+            promote_votes=passed,
+            reject_votes=total - passed,
+            rationale=rationale,
+            metrics={
+                "candidate": dict(job.metrics),
+                "candidate_holdout": dict(job.holdout_metrics or {}),
+                "incumbent": dict(incumbent),
+                "policy": "PromotionPolicy",
+            },
+            criteria=criteria,
+        )
+        self.record_trace(
+            goal=goal,
+            observation=rationale[:280],
+            decision=verdict_label,
+            confidence=min(0.95, 0.55 + 0.08 * passed),
+            evidence={"votes": f"{passed}/{total}"},
+        )
+        return {
+            "output": {"verdict": verdict.to_dict()},
+            "artifacts": {"verdict": verdict},
+        }
+
     @staticmethod
     def _compare(
         candidate: float | None, incumbent: float | None, *,
@@ -288,3 +381,75 @@ def _is_nan(value: Any) -> bool:
         return bool(value != value)  # NaN is the only float with this property
     except TypeError:
         return False
+
+
+def _promotion_metrics_from_mapping(metrics: Mapping[str, Any]) -> ModelMetrics | None:
+    try:
+        return ModelMetrics(
+            pr_auc=float(metrics["pr_auc"]),
+            markout_lift_bps=float(metrics["markout_lift_bps"]),
+            brier=float(metrics["brier"]),
+            latency_p95_ms=float(metrics["latency_p95_ms"]),
+            leakage_safe=metrics["leakage_safe"] is True,
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _apply_baseline_gate(
+    criteria: dict[str, dict[str, Any]],
+    *,
+    default_verdict: str,
+    candidate_metrics: Mapping[str, Any],
+) -> tuple[dict[str, dict[str, Any]], str]:
+    """Require candidate markout lift to beat any reported simple baseline."""
+    out = dict(criteria)
+    verdict = default_verdict
+    delta = _first_baseline_markout_delta(candidate_metrics)
+    if delta is not None:
+        passed = delta >= 0.0
+        out["baseline_markout_lift"] = {
+            "passed": passed,
+            "detail": f"candidate minus baseline = {delta:+.3f} bps",
+        }
+        if not passed:
+            verdict = "reject"
+    holdout_delta = _first_holdout_baseline_markout_delta(candidate_metrics)
+    if holdout_delta is not None:
+        passed = holdout_delta >= 0.0
+        out["holdout_baseline_markout_lift"] = {
+            "passed": passed,
+            "detail": f"holdout candidate minus baseline = {holdout_delta:+.3f} bps",
+        }
+        if not passed:
+            verdict = "reject"
+    if verdict == "reject":
+        return out, "reject"
+    has_baseline_gate = delta is not None or holdout_delta is not None
+    if has_baseline_gate and default_verdict == "promote":
+        return out, "promote"
+    return out, default_verdict
+
+
+def _first_baseline_markout_delta(metrics: Mapping[str, Any]) -> float | None:
+    comparison = metrics.get("baseline_comparison")
+    return _first_markout_delta(comparison)
+
+
+def _first_holdout_baseline_markout_delta(metrics: Mapping[str, Any]) -> float | None:
+    holdout = metrics.get("holdout_split")
+    if not isinstance(holdout, Mapping):
+        return None
+    return _first_markout_delta(holdout.get("baseline_comparison"))
+
+
+def _first_markout_delta(comparison: Any) -> float | None:
+    if not isinstance(comparison, Mapping):
+        return None
+    for value in comparison.values():
+        if isinstance(value, Mapping) and "markout_lift_bps" in value:
+            try:
+                return float(value["markout_lift_bps"])
+            except (TypeError, ValueError):
+                return None
+    return None

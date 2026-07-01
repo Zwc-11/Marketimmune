@@ -65,6 +65,8 @@ _BEHAVIOR_LABELS = {
 
 def _classify_behavior(matched_rules: Sequence[str], features: Mapping[str, float]) -> str:
     rules = set(matched_rules)
+    if "promoted_markout_threshold" in rules:
+        return "Adverse-selection markout risk"
     if {"one_sided_sell_pressure", "cancel_rate_spike"} <= rules:
         return _BEHAVIOR_LABELS["spoofing_layering"]
     if {"rapid_order_interarrival", "cancel_rate_spike"} <= rules:
@@ -106,14 +108,21 @@ class InvestigatorAgent(Agent):
         window: int = 3,
         **_: Any,
     ) -> Mapping[str, Any]:
-        if plan is None or alerts is None:
-            raise ValueError("InvestigatorAgent requires both `plan` and `alerts`.")
+        if alerts is None:
+            raise ValueError("InvestigatorAgent requires an `alerts` input.")
 
         cases: list[InvestigationCase] = []
-        ticks_by_id = {f"alert_{plan.run_id}_{t.idx}": t for t in plan.ticks}
+        if plan is None:
+            ticks_by_id = {}
+        else:
+            ticks_by_id = {f"alert_{plan.run_id}_{t.idx}": t for t in plan.ticks}
         for alert in alerts:
             tick = ticks_by_id.get(alert.alert_id)
             if tick is None:
+                direct_case = self._case_from_alert(goal=goal, alert=alert)
+                if direct_case is not None:
+                    cases.append(direct_case)
+                    continue
                 self.record_trace(
                     goal=goal,
                     observation=f"Alert {alert.alert_id} has no matching tick; skipping.",
@@ -122,6 +131,7 @@ class InvestigatorAgent(Agent):
                 )
                 continue
 
+            assert plan is not None
             window_ticks = self._collect_window(plan, tick.idx, window)
             self.record_tool_call(
                 "ReplayPlan.window",
@@ -181,6 +191,71 @@ class InvestigatorAgent(Agent):
 
     # ---- LLM augmentation ----------------------------------------
 
+    def _case_from_alert(
+        self,
+        *,
+        goal: str,
+        alert: SentinelAlert,
+    ) -> InvestigationCase | None:
+        if not alert.feature_evidence:
+            return None
+
+        features = dict(alert.feature_evidence)
+        behavior = _classify_behavior(alert.matched_rules, features)
+        severity = alert.severity
+        confidence = min(0.99, 0.4 + alert.risk_score * 0.6)
+        narrative, narrative_source = self._build_narrative(
+            behavior=behavior,
+            severity=severity,
+            confidence=confidence,
+            tick_obs=alert.explanation,
+            features=features,
+            matched_rules=alert.matched_rules,
+            risk_score=alert.risk_score,
+            goal=goal,
+        )
+        model_evidence = (
+            dict(alert.model_evidence)
+            if alert.model_evidence
+            else {
+                "model_name": alert.model_name,
+                "risk_score": alert.risk_score,
+                "risk_label": alert.risk_label,
+            }
+        )
+        case = InvestigationCase(
+            case_id=f"case_{alert.alert_id}",
+            alert_id=alert.alert_id,
+            suspected_behavior=behavior,
+            severity=severity,
+            confidence=confidence,
+            observation=alert.explanation,
+            feature_evidence=features,
+            model_evidence=model_evidence,
+            timeline=[{
+                "timestamp": alert.timestamp,
+                "risk_score": alert.risk_score,
+                "source": alert.source,
+                "action": alert.action or alert.risk_label,
+            }],
+            matched_rules=list(alert.matched_rules),
+            recommended_next_step=_next_step(severity),
+            explanation=alert.explanation,
+            narrative=narrative,
+            narrative_source=narrative_source,
+        )
+        self.record_trace(
+            goal=goal,
+            observation=(
+                f"Case {case.case_id} built from {alert.source} evidence for {behavior} "
+                f"(severity {severity}, conf {confidence:.2f})."
+            ),
+            decision="emit InvestigationCase",
+            confidence=confidence,
+            evidence={"behavior": behavior, "severity": severity, "source": alert.source},
+        )
+        return case
+
     def _build_narrative(
         self,
         *,
@@ -212,13 +287,12 @@ class InvestigatorAgent(Agent):
             f"  - {k}: {float(v):.3f}" for k, v in top
         )
         system = (
-            "You are a compliance analyst at a simulated exchange market-safety "
-            "lab. Write a concise (<=120 words) investigation note that: "
-            "(1) names the suspected behavior in plain English, "
-            "(2) cites the strongest 2-3 feature signals, "
-            "(3) explicitly distinguishes evidence from the rule engine vs the "
-            "ML head, and (4) says what additional evidence would raise "
-            "confidence. Do not invent numbers; only use what's in the prompt."
+            "You are writing a defensive market-surveillance case summary for an "
+            "internal compliance demo. Keep it concise (<=120 words). Name the "
+            "suspected behavior in plain English, cite the strongest 2-3 supplied "
+            "signals, distinguish rule-engine evidence from ML-head evidence, and "
+            "say what additional evidence would raise confidence. Use only the "
+            "numbers in the prompt and do not provide trading advice."
         )
         user = (
             f"Suspected behavior: {behavior}.\n"
@@ -232,7 +306,7 @@ class InvestigatorAgent(Agent):
             "llm.complete",
             arguments={"behavior": behavior, "provider": self.llm.name},
         )
-        text = self.llm.complete(system=system, user=user, max_tokens=300, temperature=0.3)
+        text = self.llm.complete(system=system, user=user, max_tokens=1200, temperature=0.3)
         if not text:
             self.record_trace(
                 goal=goal,

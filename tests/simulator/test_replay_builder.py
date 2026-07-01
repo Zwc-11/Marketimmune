@@ -196,6 +196,31 @@ def test_build_with_explicit_replay_date(tmp_path: Path) -> None:
     assert plan.depth_snapshot_count == 2
 
 
+def test_pick_aligned_date_skips_malformed_and_prefers_aligned_depth(
+    tmp_path: Path,
+) -> None:
+    kline_dir = tmp_path / "klines" / "BTCUSDT" / "1m"
+    depth_dir = tmp_path / "bookDepth" / "BTCUSDT"
+    kline_dir.mkdir(parents=True)
+    depth_dir.mkdir(parents=True)
+    (kline_dir / "ZZZ.parquet").touch()
+    (kline_dir / "BTCUSDT-klines-1m-2026-01-02.parquet").touch()
+    (kline_dir / "BTCUSDT-klines-1m-2026-01-01.parquet").touch()
+    (depth_dir / "BTCUSDT-bookDepth-2026-01-01.parquet").touch()
+
+    builder = ReplayBuilder.from_lake(tmp_path, model_path=None)
+    assert builder._pick_aligned_date("BTCUSDT") == "2026-01-01"
+
+
+def test_pick_aligned_date_falls_back_to_latest_kline(tmp_path: Path) -> None:
+    kline_dir = tmp_path / "klines" / "BTCUSDT" / "1m"
+    kline_dir.mkdir(parents=True)
+    (kline_dir / "BTCUSDT-klines-1m-2026-01-03.parquet").touch()
+
+    builder = ReplayBuilder.from_lake(tmp_path, model_path=None)
+    assert builder._pick_aligned_date("BTCUSDT") == "2026-01-03"
+
+
 def test_build_scenario_produces_alert_action(tmp_path: Path) -> None:
     """Use a benign scenario to exercise the ALERT/ALLOW paths in _build_ticks."""
     _write_kline_parquet(tmp_path)

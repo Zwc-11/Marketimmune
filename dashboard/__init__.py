@@ -1,0 +1,1 @@
+"""Django dashboard application package."""

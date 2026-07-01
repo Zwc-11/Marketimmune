@@ -1,114 +1,111 @@
 """LLM client implementations for the agentic loop.
 
-Currently ships one real provider — :class:`AnthropicLLMClient` — and
-relies on the :class:`NullLLMClient` from :mod:`marketimmune.agentic.base`
-for the deterministic-only mode.
+Ships one real provider — :class:`DeepSeekLLMClient` (DeepSeek V4, the default) —
+and relies on the :class:`NullLLMClient` from :mod:`marketimmune.agentic.base`
+for the deterministic-only mode. DeepSeek exposes an OpenAI-compatible API, so we
+call it over ``httpx`` (already a dependency) and add no vendor SDK. The active
+provider is chosen by ``MARKETIMMUNE_LLM_PROVIDER`` (default ``deepseek``),
+leaving room to register more providers later without touching the agents.
 
 Design rules
 ============
 
-1.  **No silent calls.** A client is only created when both
-    ``ANTHROPIC_API_KEY`` is present *and* ``MARKETIMMUNE_USE_LLM`` is
-    truthy. The agentic service uses :func:`build_default_llm` so the
-    operator's intent is always explicit.
+1.  **No silent calls.** A real client is only created when the selected
+    provider's API key is present *and* ``MARKETIMMUNE_USE_LLM`` is truthy.
+    The agentic service uses :func:`build_default_llm` so the operator's
+    intent is always explicit.
 
-2.  **Never raise into an agent.** A network error, rate limit, or
-    bad-prompt response must not crash the immune loop. The client
-    catches any ``Exception`` from the SDK and returns ``""`` — agents
-    are required to behave well on an empty string.
-
-3.  **Extended thinking is on by default.** Claude Sonnet 4.5+ supports
-    the ``thinking={"type": "enabled", "budget_tokens": N}`` parameter
-    which makes the model deliberate before answering. The agentic
-    loop is short (≤6 LLM calls per iteration), so spending a few
-    thousand thinking tokens per call is cheap and noticeably improves
-    the quality of red-team rationale and investigator narratives.
+2.  **Never raise into an agent.** A network error, rate limit, or bad
+    response must not crash the immune loop. The client catches any
+    exception and returns ``""`` — agents are required to behave well on an
+    empty string (they fall back to their deterministic path).
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import time
+from collections.abc import Callable, Mapping
+from typing import Any
 
-# Anthropic is an optional runtime dependency — the agentic loop runs
-# fine without it. Import lazily so a missing wheel doesn't break the
-# whole package.
-try:  # pragma: no cover — exercised only when the SDK is installed.
-    import anthropic
-except ImportError:  # pragma: no cover
-    anthropic = None  # type: ignore[assignment]
+import httpx
 
-try:  # `python-dotenv` is also optional; we never require it.
+try:  # `python-dotenv` is optional; we never require it.
     from dotenv import load_dotenv
 except ImportError:  # pragma: no cover
     load_dotenv = None  # type: ignore[assignment]
 
 from marketimmune.agentic.base import LLMClient, NullLLMClient
+from marketimmune.resilience import CircuitBreaker, with_retry
 
 _LOG = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Anthropic Claude
+# DeepSeek (OpenAI-compatible chat completions)
 # ---------------------------------------------------------------------------
 
 
-class AnthropicLLMClient:
-    """LLM client backed by Anthropic Claude with extended thinking."""
+class DeepSeekLLMClient:
+    """LLM client backed by DeepSeek's OpenAI-compatible chat API.
 
-    name = "anthropic"
+    Talks to ``{base_url}/chat/completions`` over ``httpx`` with a Bearer key.
+    The default model is ``deepseek-v4-pro`` (top reasoning/agentic tier);
+    set ``DEEPSEEK_MODEL=deepseek-v4-flash`` for cheaper, faster iteration.
+    """
 
-    DEFAULT_MODEL = "claude-sonnet-4-20250514"
+    name = "deepseek"
+
+    DEFAULT_BASE_URL = "https://api.deepseek.com"
+    DEFAULT_MODEL = "deepseek-v4-pro"
     DEFAULT_MAX_TOKENS = 4000
-    DEFAULT_THINKING_BUDGET = 2000
-    # Hard cap on the per-request `max_tokens` Anthropic accepts.
-    # The Sonnet family caps output at 64k tokens; we cap a bit below
-    # that to leave headroom and to keep latency bounded.
-    HARD_MAX_OUTPUT_TOKENS = 16000
+    DEFAULT_TIMEOUT_S = 60.0
+    DEFAULT_RETRY_ATTEMPTS = 2
+    # Output-token guard so a typo like DEEPSEEK_MAX_TOKENS=1000000 can't be
+    # passed straight through and rejected as a 400.
+    HARD_MAX_OUTPUT_TOKENS = 8192
 
     def __init__(
         self,
         *,
         api_key: str | None = None,
         model: str | None = None,
+        base_url: str | None = None,
         max_tokens: int | None = None,
-        thinking_budget: int | None = None,
-    ):
-        if anthropic is None:
-            raise RuntimeError(
-                "anthropic package is not installed; "
-                "`pip install anthropic>=0.40` first."
-            )
-        resolved_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+        timeout_s: float | None = None,
+        post: Callable[..., Any] | None = None,
+        circuit_breaker: CircuitBreaker | None = None,
+        retry_attempts: int = DEFAULT_RETRY_ATTEMPTS,
+        retry_sleep: Callable[[float], None] | None = None,
+    ) -> None:
+        resolved_key = api_key or os.environ.get("DEEPSEEK_API_KEY")
         if not resolved_key:
-            raise RuntimeError("ANTHROPIC_API_KEY is not set.")
-        self._client = anthropic.Anthropic(api_key=resolved_key)
-        self.model = model or os.environ.get("CLAUDE_MODEL", self.DEFAULT_MODEL)
-        # Capped here — a typo like `CLAUDE_MAX_TOKENS=1000000` would
-        # otherwise be passed straight through to the API and rejected
-        # as a 400 invalid_request_error.
+            raise RuntimeError("DEEPSEEK_API_KEY is not set.")
+        self._api_key = resolved_key
+        self.base_url = (
+            base_url or os.environ.get("DEEPSEEK_BASE_URL", self.DEFAULT_BASE_URL)
+        ).rstrip("/")
+        self.model = model or os.environ.get("DEEPSEEK_MODEL", self.DEFAULT_MODEL)
         raw_max = int(
-            max_tokens or os.environ.get("CLAUDE_MAX_TOKENS", str(self.DEFAULT_MAX_TOKENS))
+            max_tokens or os.environ.get("DEEPSEEK_MAX_TOKENS", str(self.DEFAULT_MAX_TOKENS))
         )
-        self.max_tokens = max(1024, min(raw_max, self.HARD_MAX_OUTPUT_TOKENS))
+        self.max_tokens = max(256, min(raw_max, self.HARD_MAX_OUTPUT_TOKENS))
         if self.max_tokens != raw_max:
             _LOG.info(
-                "CLAUDE_MAX_TOKENS %s capped to %s for API safety.",
+                "DEEPSEEK_MAX_TOKENS %s capped to %s for API safety.",
                 raw_max, self.max_tokens,
             )
-        self.thinking_budget = int(
-            thinking_budget
-            or os.environ.get("CLAUDE_THINKING_BUDGET", str(self.DEFAULT_THINKING_BUDGET))
+        self.timeout_s = float(
+            timeout_s or os.environ.get("DEEPSEEK_TIMEOUT_S", str(self.DEFAULT_TIMEOUT_S))
         )
-        if self.thinking_budget >= self.max_tokens:
-            # Auto-shrink rather than throwing — a misconfig should
-            # degrade, not crash the loop.
-            self.thinking_budget = max(1024, self.max_tokens - 1024)
-            _LOG.info(
-                "thinking_budget shrunk to %s for max_tokens=%s.",
-                self.thinking_budget,
-                self.max_tokens,
-            )
+        self._post = post or httpx.post
+        self._circuit_breaker = circuit_breaker or CircuitBreaker(
+            failure_threshold=3,
+            reset_timeout_s=30.0,
+        )
+        self.retry_attempts = retry_attempts
+        self._retry_sleep = retry_sleep or time.sleep
 
     # ---- LLMClient protocol ---------------------------------------
 
@@ -120,59 +117,88 @@ class AnthropicLLMClient:
         max_tokens: int = 256,
         temperature: float = 0.2,
     ) -> str:
-        """Run one Claude call with extended thinking enabled.
+        """Run one DeepSeek chat completion.
 
-        Any failure — network, auth, refusal, malformed response —
-        returns an empty string and is logged. Callers must already
-        have a deterministic fallback path; that is the contract.
+        Any failure — network, auth, rate limit, malformed response —
+        returns an empty string and is logged. Callers must already have a
+        deterministic fallback path; that is the contract.
         """
-        # Extended thinking requires temperature == 1.0 in the
-        # Anthropic API and an output budget strictly greater than the
-        # thinking budget; we honour both here regardless of what the
-        # caller passed for `temperature`.
-        # Output budget = caller's request + thinking, but never more
-        # than the hard cap we negotiated with the API.
-        effective_max = min(
-            self.max_tokens,
-            max(max_tokens + self.thinking_budget + 256, self.thinking_budget + 1024),
-        )
+        effective_max = max(256, min(max_tokens, self.max_tokens))
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "max_tokens": effective_max,
+            "temperature": temperature,
+            "stream": False,
+        }
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
         try:
-            response = self._client.messages.create(
-                model=self.model,
-                max_tokens=effective_max,
-                temperature=1.0,
-                system=system,
-                thinking={
-                    "type": "enabled",
-                    "budget_tokens": self.thinking_budget,
-                },
-                messages=[{"role": "user", "content": user}],
-            )
+            response = self._post_chat_completion(payload, headers)
+            data = response.json()
         except Exception as exc:  # noqa: BLE001 — boundary log + fallback.
-            # Surface the *real* Anthropic message: bad model id,
-            # invalid_request_error, rate limit, etc. The agent will
-            # fall back to its deterministic path, but a developer
-            # tailing the logs needs to see what went wrong.
+            # Surface the real reason (bad model id, 401, 429, timeout) so a
+            # developer tailing the logs can see it; the agent still falls
+            # back to its deterministic path.
             _LOG.warning(
-                "Anthropic call failed (model=%s, max_tokens=%s): %s",
-                self.model, effective_max, exc,
+                "DeepSeek call failed (model=%s, base=%s): %s",
+                self.model, self.base_url, exc,
             )
             return ""
 
-        text_parts: list[str] = []
-        for block in getattr(response, "content", []) or []:
-            block_type = getattr(block, "type", None)
-            if block_type == "text":
-                text_parts.append(getattr(block, "text", ""))
-            # "thinking" blocks are deliberately not surfaced to the
-            # agent — they are internal model reasoning that should
-            # not leak into the structured trace.
-        return "\n".join(p for p in text_parts if p).strip()
+        try:
+            choices = data.get("choices") or []
+            if not choices:
+                return ""
+            message = choices[0].get("message") or {}
+            # Reasoning-tier models also return `reasoning_content` (the
+            # model's scratchpad). We surface only the final `content`, never
+            # the reasoning, so it cannot leak into the structured trace.
+            content = message.get("content") or ""
+            return str(content).strip()
+        except (AttributeError, IndexError, KeyError, TypeError) as exc:
+            _LOG.warning("DeepSeek response parse failed: %s", exc)
+            return ""
+
+    def _post_chat_completion(
+        self,
+        payload: Mapping[str, Any],
+        headers: Mapping[str, str],
+    ) -> Any:
+        def send() -> Any:
+            response = self._post(
+                f"{self.base_url}/chat/completions",
+                json=payload,
+                headers=headers,
+                timeout=self.timeout_s,
+            )
+            response.raise_for_status()
+            return response
+
+        resilient_send = with_retry(
+            send,
+            attempts=self.retry_attempts,
+            sleep=self._retry_sleep,
+        )
+        return self._circuit_breaker.call(resilient_send)
 
 
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
+
+# Provider registry — add a new OpenAI-compatible or SDK-backed client here and
+# select it with MARKETIMMUNE_LLM_PROVIDER. The agents never see this choice.
+_PROVIDERS: dict[str, type[DeepSeekLLMClient]] = {
+    "deepseek": DeepSeekLLMClient,
+}
+
+DEFAULT_PROVIDER = "deepseek"
 
 
 def build_default_llm(*, load_env: bool = True) -> LLMClient:
@@ -181,16 +207,17 @@ def build_default_llm(*, load_env: bool = True) -> LLMClient:
     Decision matrix
     ---------------
 
-    +-----------------------------+-----------------------+------------------------+
-    | MARKETIMMUNE_USE_LLM        | ANTHROPIC_API_KEY     | Returned client        |
-    +=============================+=======================+========================+
-    | unset / 0 / false           | (any)                 | :class:`NullLLMClient` |
-    | 1 / true / yes              | unset                 | :class:`NullLLMClient` |
-    | 1 / true / yes              | set                   | :class:`AnthropicLLMClient` |
-    +-----------------------------+-----------------------+------------------------+
+    +----------------------+--------------------------+--------------------------+
+    | MARKETIMMUNE_USE_LLM | provider key present?     | Returned client          |
+    +======================+==========================+==========================+
+    | unset / 0 / false    | (any)                    | :class:`NullLLMClient`   |
+    | 1 / true / yes       | no (e.g. DEEPSEEK key)   | :class:`NullLLMClient`   |
+    | 1 / true / yes       | yes                      | provider client          |
+    +----------------------+--------------------------+--------------------------+
 
-    If the operator asked for the LLM but the SDK or key is missing,
-    we log a warning and fall back to deterministic — never raise.
+    The provider is ``MARKETIMMUNE_LLM_PROVIDER`` (default ``deepseek``). If the
+    operator asked for the LLM but the key/provider is missing or unknown, we
+    log a warning and fall back to deterministic — never raise.
     """
     if load_env and load_dotenv is not None:
         load_dotenv(override=False)
@@ -199,17 +226,22 @@ def build_default_llm(*, load_env: bool = True) -> LLMClient:
     use_llm = flag in {"1", "true", "yes", "on"}
     if not use_llm:
         return NullLLMClient()
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+
+    provider = (os.environ.get("MARKETIMMUNE_LLM_PROVIDER") or DEFAULT_PROVIDER).strip().lower()
+    client_cls = _PROVIDERS.get(provider)
+    if client_cls is None:
         _LOG.warning(
-            "MARKETIMMUNE_USE_LLM is on but ANTHROPIC_API_KEY is missing; "
-            "falling back to NullLLMClient."
+            "Unknown MARKETIMMUNE_LLM_PROVIDER %r; using NullLLMClient. Known: %s",
+            provider, sorted(_PROVIDERS),
         )
         return NullLLMClient()
     try:
-        return AnthropicLLMClient()
+        return client_cls()
     except Exception as exc:  # noqa: BLE001
-        _LOG.warning("Could not initialise AnthropicLLMClient (%s); using NullLLMClient.", exc)
+        _LOG.warning(
+            "Could not initialise %s LLM (%s); using NullLLMClient.", provider, exc
+        )
         return NullLLMClient()
 
 
-__all__ = ["AnthropicLLMClient", "build_default_llm"]
+__all__ = ["DeepSeekLLMClient", "build_default_llm"]

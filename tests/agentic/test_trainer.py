@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from marketimmune.agentic.trainer import ModelTrainerAgent, TrainingJob
+from marketimmune.agentic.trainer import (
+    HyperliquidTrainingSpec,
+    ModelTrainerAgent,
+    TrainingJob,
+    _artifact_paths,
+    _baseline_delta_bps,
+    _metric,
+)
 
 from .conftest import _make_memory
 
@@ -59,6 +67,135 @@ def test_trainer_triggers_on_force(tmp_path: Path) -> None:
     assert isinstance(job, TrainingJob)
     assert job.success is True
     assert job.triggered_by == "force_flag"
+
+
+def test_trainer_runs_hyperliquid_markout_candidate(tmp_path: Path) -> None:
+    report = {
+        "model_name": "catboost_markout_SOL_10s",
+        "pr_auc": 0.54,
+        "markout_lift_bps": 0.51,
+        "brier": 0.23,
+        "latency_p95_ms": 0.42,
+        "leakage_safe": True,
+        "baseline_comparison": {
+            "event_ofi": {"markout_lift_bps": 0.25}
+        },
+    }
+
+    def fake_run(command: tuple[str, ...], **_: object) -> MagicMock:
+        report_path = Path(command[command.index("--report") + 1])
+        model_path = Path(command[command.index("--model-out") + 1])
+        calibrator_path = Path(command[command.index("--calibrator-out") + 1])
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        model_path.parent.mkdir(parents=True, exist_ok=True)
+        calibrator_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(report), encoding="utf-8")
+        model_path.write_bytes(b"model")
+        calibrator_path.write_text(json.dumps({"method": "isotonic"}), encoding="utf-8")
+        proc = MagicMock(spec=subprocess.CompletedProcess)
+        proc.returncode = 0
+        proc.stderr = ""
+        return proc
+
+    with patch("marketimmune.agentic.trainer.subprocess.run", side_effect=fake_run) as mock_run:
+        agent = ModelTrainerAgent(
+            training_mode="hyperliquid_markout",
+            hyperliquid_spec=HyperliquidTrainingSpec(
+                coin="SOL",
+                date="20260601",
+                horizon="10s",
+                lake_root=tmp_path / "lake",
+                iterations=7,
+                max_rows=100,
+            ),
+            candidate_model_dir=tmp_path / "models",
+            candidate_report_dir=tmp_path / "reports",
+        )
+        run = agent.run(goal="train real-data candidate", new_memories=[], force=True)
+
+    assert run.success is True
+    job = run.linked_artifacts["job"]
+    assert isinstance(job, TrainingJob)
+    assert job.success is True
+    assert job.candidate_model == "CatBoostMarkout-SOL-10s-candidate"
+    assert job.dataset_version == "hyperliquid:SOL:20260601:10s"
+    assert job.metrics["markout_lift_bps"] == 0.51
+    assert "baseline delta +0.250 bps" in run.traces[-1].observation
+    assert Path(job.artifact_paths["report"]).exists()
+    assert Path(job.artifact_paths["model"]).exists()
+    assert Path(job.artifact_paths["calibrator"]).exists()
+    command = mock_run.call_args.args[0]
+    assert "scripts\\train_hyperliquid_markout.py" in command[1] or (
+        "scripts/train_hyperliquid_markout.py" in command[1]
+    )
+    assert "--calibration-fraction" in command
+    assert "--calibrator-out" in command
+    assert "--max-rows" in command
+
+
+def test_trainer_hyperliquid_command_accepts_panel_spec(tmp_path: Path) -> None:
+    spec = HyperliquidTrainingSpec(
+        coin="SOL",
+        date="20260601",
+        coins=("SOL", "BTC"),
+        dates=("20260601", "20260602"),
+        holdout_coins=("SOL",),
+        holdout_dates=("20260603",),
+        lake_root=tmp_path / "lake",
+    )
+    agent = ModelTrainerAgent(training_mode="hyperliquid_markout")
+
+    command = agent._hyperliquid_command(
+        spec=spec,
+        candidate_path=tmp_path / "candidate.cbm",
+        candidate_report=tmp_path / "candidate.json",
+        candidate_calibrator=tmp_path / "candidate.isotonic.json",
+    )
+
+    assert spec.dataset_version == "hyperliquid:SOL-BTC:20260601-20260602:10s"
+    assert spec.model_name == "CatBoostMarkout-SOL-BTC-10s-candidate"
+    assert command[command.index("--coins") + 1] == "SOL,BTC"
+    assert command[command.index("--dates") + 1] == "20260601,20260602"
+    assert command[command.index("--holdout-coins") + 1] == "SOL"
+    assert command[command.index("--holdout-dates") + 1] == "20260603"
+    assert "--coin" not in command
+    assert "--date" not in command
+
+
+def test_trainer_hyperliquid_timeout_returns_failed_job(tmp_path: Path) -> None:
+    with patch("marketimmune.agentic.trainer.subprocess.run") as mock_run:
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd=["python"], timeout=900)
+        agent = ModelTrainerAgent(
+            training_mode="hyperliquid_markout",
+            candidate_model_dir=tmp_path / "models",
+            candidate_report_dir=tmp_path / "reports",
+        )
+        run = agent.run(goal="train real-data candidate", force=True)
+
+    job = run.linked_artifacts["job"]
+    assert job is not None
+    assert job.success is False
+    assert "timeout" in job.error.lower()
+    assert "report" in job.artifact_paths
+    assert "calibrator" in job.artifact_paths
+
+
+def test_trainer_hyperliquid_subprocess_failure_returns_failed_job(tmp_path: Path) -> None:
+    proc = MagicMock(spec=subprocess.CompletedProcess)
+    proc.returncode = 2
+    proc.stderr = "catboost failed"
+    with patch("marketimmune.agentic.trainer.subprocess.run", return_value=proc):
+        agent = ModelTrainerAgent(
+            training_mode="hyperliquid_markout",
+            candidate_model_dir=tmp_path / "models",
+            candidate_report_dir=tmp_path / "reports",
+        )
+        run = agent.run(goal="train real-data candidate", force=True)
+
+    job = run.linked_artifacts["job"]
+    assert job is not None
+    assert job.success is False
+    assert "catboost failed" in job.error
 
 
 def test_trainer_triggers_on_enough_memories() -> None:
@@ -188,6 +325,29 @@ def test_parse_report_corrupt(tmp_path: Path) -> None:
     assert holdout is None
 
 
+def test_metric_returns_nan_for_missing_or_bad_value() -> None:
+    assert math.isnan(_metric({}, "pr_auc"))
+    assert math.isnan(_metric({"pr_auc": object()}, "pr_auc"))
+    assert _metric({"pr_auc": "0.5"}, "pr_auc") == 0.5
+
+
+def test_baseline_delta_bps_reads_first_reported_baseline() -> None:
+    assert _baseline_delta_bps({}) is None
+    assert _baseline_delta_bps({"baseline_comparison": {"x": {"other": 1.0}}}) is None
+    assert _baseline_delta_bps({
+        "baseline_comparison": {
+            "event_ofi": {"markout_lift_bps": "0.25"}
+        }
+    }) == 0.25
+
+
+def test_artifact_paths_without_optional_calibrator() -> None:
+    assert _artifact_paths(Path("model.cbm"), Path("report.json")) == {
+        "model": "model.cbm",
+        "report": "report.json",
+    }
+
+
 # ---------------------------------------------------------------------------
 # TrainingJob.to_dict
 # ---------------------------------------------------------------------------
@@ -200,6 +360,7 @@ def test_training_job_to_dict() -> None:
     assert d["success"] is True
     assert "holdout_metrics" in d
     assert d["holdout_metrics"]["pr_auc"] == 0.80
+    assert d["artifact_paths"] == {}
 
 
 def test_training_job_to_dict_no_holdout() -> None:

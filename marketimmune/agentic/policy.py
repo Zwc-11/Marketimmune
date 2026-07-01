@@ -142,7 +142,10 @@ class PolicyAgent(Agent):
                 "request_retraining": 2,
                 "no_action": 1,
             }
-            worst = max(decisions, key=lambda d: priorities.get(d.recommended_action, 0))
+            worst = max(
+                decisions,
+                key=lambda decision: priorities.get(decision.recommended_action, 0),
+            )
             posture = worst.recommended_action
             posture_reason = (
                 f"Driven by case {worst.case_id} with action {worst.recommended_action} "

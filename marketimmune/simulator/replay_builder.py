@@ -21,17 +21,19 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from marketimmune.models.risk_head import RiskScorer
 from marketimmune.policy.rules import PolicyAction, RuleEngine
 from marketimmune.simulator.config import ReplayConfig
-from marketimmune.simulator.data_loader import (
-    DepthRepository,
-    DepthSnapshot,
-    KlineRecord,
-    KlineRepository,
-)
+from marketimmune.simulator.data_loader import DepthSnapshot, KlineRecord
 from marketimmune.simulator.pricing import DerivedQuote, derive_quote_from_depth
+
+if TYPE_CHECKING:
+    # Annotations only (PEP 563): importing the ports at module load would cycle
+    # via simulator.__init__ -> replay_builder. The factory is imported lazily
+    # inside `from_lake` for the same reason.
+    from marketimmune.ports.market_data import DepthSource, KlineSource
 from marketimmune.simulator.scenarios import AgentScenario, ScenarioRegistry
 
 # -- Output value objects ------------------------------------------------
@@ -99,8 +101,8 @@ class ReplayBuilder:
     back to the rule engine only for the discrete policy decision.
     """
 
-    kline_repo: KlineRepository
-    depth_repo: DepthRepository
+    kline_repo: KlineSource
+    depth_repo: DepthSource
     rule_engine: RuleEngine = field(default_factory=RuleEngine)
     risk_score_by_action: dict[PolicyAction, float] = field(
         default_factory=lambda: dict(_RISK_SCORE_BY_ACTION)
@@ -115,24 +117,30 @@ class ReplayBuilder:
         lake_root: Path | str,
         *,
         model_path: Path | str | None = None,
+        source: str | None = None,
     ) -> ReplayBuilder:
-        """Wire default parquet repos and optionally load a trained ML head.
+        """Wire venue repos via the adapter factory and optionally load an ML head.
 
-        If `model_path` is provided and exists on disk, the ML risk head
-        replaces the rule engine as the displayed risk score. The rule
-        engine is still used to produce the discrete `policy_decision`
-        because the action thresholds it encodes are the system of
-        record for "block" vs "alert".
+        The `source` selects the market-data venue through
+        :func:`marketimmune.adapters.factory.market_data_sources` (default
+        `binance`, so existing callers are unchanged). If `model_path` is
+        provided and exists on disk, the ML risk head replaces the rule engine
+        as the displayed risk score; the rule engine still owns the discrete
+        `policy_decision` because its action thresholds are the system of record
+        for "block" vs "alert".
         """
+        from marketimmune.adapters.factory import market_data_sources
+
         root = Path(lake_root)
         scorer: RiskScorer | None = None
         if model_path is not None:
             path = Path(model_path)
             if path.exists():
                 scorer = RiskScorer.load(path)
+        kline_repo, depth_repo = market_data_sources(root, source=source)
         return cls(
-            kline_repo=KlineRepository(root),
-            depth_repo=DepthRepository(root),
+            kline_repo=kline_repo,
+            depth_repo=depth_repo,
             risk_scorer=scorer,
         )
 
@@ -204,12 +212,12 @@ class ReplayBuilder:
         for idx, kline in enumerate(klines):
             depth_snap = self.depth_repo.nearest(depths, kline.timestamp)
             quote = derive_quote_from_depth(kline.close, depth_snap)
-            so = scenario.step(idx, kline.close)
-            decision = self.rule_engine.decide(so.features)
+            scenario_output = scenario.step(idx, kline.close)
+            decision = self.rule_engine.decide(scenario_output.features)
             # ML head, when present, becomes the displayed score; the
             # rule engine still owns the discrete policy decision.
             if self.risk_scorer is not None:
-                prediction = self.risk_scorer.predict(so.features)
+                prediction = self.risk_scorer.predict(scenario_output.features)
                 risk_score = prediction.score
                 model_name = prediction.model_name
                 top = ", ".join(f"{k}={v:+.2f}" for k, v in prediction.top_features)
@@ -232,21 +240,23 @@ class ReplayBuilder:
                 )
             risk_label = decision.action.value.upper()
             recommended = _recommended_control_for(decision.action)
-            observation = _observation_for(so.features)
+            observation = _observation_for(scenario_output.features)
             yield ReplayTick(
                 idx=idx,
                 timestamp=kline.timestamp,
                 kline=kline,
                 depth=depth_snap,
                 quote=quote,
-                agent_side=so.side,
-                agent_order_price=kline.close + so.order_price_offset,
-                agent_order_quantity=so.order_quantity,
+                agent_side=scenario_output.side,
+                agent_order_price=kline.close + scenario_output.order_price_offset,
+                agent_order_quantity=scenario_output.order_quantity,
                 agent_trade_price=(
-                    kline.close + so.trade_price_offset if so.trade_quantity > 0 else 0.0
+                    kline.close + scenario_output.trade_price_offset
+                    if scenario_output.trade_quantity > 0
+                    else 0.0
                 ),
-                agent_trade_quantity=so.trade_quantity,
-                features=so.features,
+                agent_trade_quantity=scenario_output.trade_quantity,
+                features=scenario_output.features,
                 risk_score=risk_score,
                 risk_label=risk_label,
                 risk_explanation=explanation,

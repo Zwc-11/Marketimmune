@@ -13,6 +13,8 @@ here; the contract (numpy arrays in `FEATURE_ORDER`) is the same.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 from marketimmune.models.risk_head import FEATURE_ORDER
@@ -24,7 +26,7 @@ def build_dataset(
     noise_std: float = 0.55,
     contamination: float = 0.18,
     seed: int = 42,
-) -> tuple[np.ndarray, np.ndarray, list[str]]:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], list[str]]:
     """Build a realistic labelled dataset from the scenario registry.
 
     The naive approach — emit each scenario's template features with

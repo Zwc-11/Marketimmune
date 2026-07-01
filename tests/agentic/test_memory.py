@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from marketimmune.agentic.memory import (
+    DriftReport,
     ImmuneMemory,
     ImmuneMemoryAgent,
     _novelty,
@@ -60,6 +61,13 @@ def test_novelty_different_behavior_is_high() -> None:
     sig = _signature(new_case)
     nov = _novelty(sig, [mem])
     assert nov > 0.0
+
+
+def test_novelty_same_behavior_without_rule_overlap() -> None:
+    case = _make_case(matched_rules=[])
+    mem = _make_memory(threat_name=case.suspected_behavior, key_signals=())
+    nov = _novelty(_signature(case), [mem])
+    assert nov == 0.4
 
 
 # ---------------------------------------------------------------------------
@@ -149,3 +157,33 @@ def test_memory_no_matched_rules_uses_feature_fallback() -> None:
     mems = run.linked_artifacts["new_memories"]
     # Should still produce a memory (novel pattern)
     assert len(mems) >= 1
+
+
+def test_memory_reports_stable_drift_without_retrain() -> None:
+    agent = ImmuneMemoryAgent()
+    run = agent.run(
+        goal="remember",
+        cases=[],
+        drift_reference_scores=[float(i) for i in range(100)],
+        drift_current_scores=[float(i) for i in range(100)],
+    )
+    drift = run.linked_artifacts["drift_report"]
+    assert isinstance(drift, DriftReport)
+    assert drift.severity == "none"
+    assert run.output["retrain_recommended"] is False
+
+
+def test_memory_reports_significant_drift_with_retrain() -> None:
+    agent = ImmuneMemoryAgent()
+    run = agent.run(
+        goal="remember",
+        cases=[],
+        drift_reference_scores=[float(i) for i in range(100)],
+        drift_current_scores=[float(i) + 50.0 for i in range(100)],
+        drift_feature_name="toxicity_score",
+    )
+    drift = run.linked_artifacts["drift_report"]
+    assert isinstance(drift, DriftReport)
+    assert drift.feature_name == "toxicity_score"
+    assert drift.severity == "significant"
+    assert run.output["retrain_recommended"] is True

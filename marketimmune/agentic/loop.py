@@ -1,8 +1,10 @@
 """ImmuneLoop — orchestrates one full agentic cycle.
 
-Strings the five Day-1 agents into one explicit pipeline:
+Wires the 5 loop stages (Generate → Detect → Investigate → Decide →
+Remember) across 8 agent roles into one explicit pipeline:
 
     RedTeam → Simulator → Sentinel → Investigator → Policy → Memory
+            → Trainer → Judge   (Trainer + Judge = optional self-improvement)
 
 The orchestrator itself is data-only: it holds no business logic
 beyond wiring agent outputs into the next agent's inputs. That makes
@@ -18,11 +20,16 @@ from marketimmune.agentic.base import AgentRun, LLMClient
 from marketimmune.agentic.investigator import InvestigationCase, InvestigatorAgent
 from marketimmune.agentic.judge import BenchmarkJudgeAgent, JudgeVerdict
 from marketimmune.agentic.market_simulator import MarketSimulatorAgent
-from marketimmune.agentic.memory import ImmuneMemory, ImmuneMemoryAgent
+from marketimmune.agentic.memory import DriftReport, ImmuneMemory, ImmuneMemoryAgent
 from marketimmune.agentic.policy import PolicyAgent, PolicyDecision
 from marketimmune.agentic.redteam import RedTeamScenarioAgent, ScenarioProposal
 from marketimmune.agentic.sentinel import RiskSentinelAgent, SentinelAlert
-from marketimmune.agentic.trainer import ModelTrainerAgent, TrainingJob
+from marketimmune.agentic.trainer import (
+    HyperliquidTrainingSpec,
+    ModelTrainerAgent,
+    TrainingJob,
+)
+from marketimmune.models.hyperliquid_gold_scoring import GoldFillScore
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,11 +45,12 @@ class LoopResult:
     agent_runs: tuple[AgentRun, ...]
     training_job: TrainingJob | None = None
     judge_verdict: JudgeVerdict | None = None
+    drift_report: DriftReport | None = None
 
 
 @dataclass
 class ImmuneLoop:
-    """Strings the seven agents into one full agentic cycle."""
+    """Strings the 8 agent roles into one full agentic cycle (Trainer + Judge optional)."""
 
     redteam: RedTeamScenarioAgent = field(default_factory=RedTeamScenarioAgent)
     simulator: MarketSimulatorAgent = field(default_factory=MarketSimulatorAgent)
@@ -71,6 +79,36 @@ class ImmuneLoop:
             judge=BenchmarkJudgeAgent(llm=llm),
         )
 
+    @classmethod
+    def with_hyperliquid_training(
+        cls,
+        spec: HyperliquidTrainingSpec,
+        *,
+        llm: LLMClient | None = None,
+    ) -> ImmuneLoop:
+        """Build an immune loop whose Trainer launches real Hyperliquid CatBoost jobs."""
+        if llm is None:
+            return cls(
+                trainer=ModelTrainerAgent(
+                    training_mode="hyperliquid_markout",
+                    hyperliquid_spec=spec,
+                ),
+            )
+        return cls(
+            redteam=RedTeamScenarioAgent(llm=llm),
+            simulator=MarketSimulatorAgent(llm=llm),
+            sentinel=RiskSentinelAgent(llm=llm),
+            investigator=InvestigatorAgent(llm=llm),
+            policy=PolicyAgent(llm=llm),
+            memory=ImmuneMemoryAgent(llm=llm),
+            trainer=ModelTrainerAgent(
+                training_mode="hyperliquid_markout",
+                hyperliquid_spec=spec,
+                llm=llm,
+            ),
+            judge=BenchmarkJudgeAgent(llm=llm),
+        )
+
     def run(
         self,
         *,
@@ -79,6 +117,10 @@ class ImmuneLoop:
         existing_memories: Sequence[ImmuneMemory] = (),
         retrain_pending: bool = False,
         force_retrain: bool = False,
+        drift_reference_scores: Sequence[float] = (),
+        drift_current_scores: Sequence[float] = (),
+        drift_feature_name: str = "risk_score",
+        gold_fill_scores: Sequence[GoldFillScore] = (),
     ) -> LoopResult:
         runs: list[AgentRun] = []
 
@@ -119,6 +161,8 @@ class ImmuneLoop:
         sent_run = self.sentinel.run(
             goal="surface high-risk events",
             plan=plan,
+            gold_fill_scores=gold_fill_scores,
+            top_k=max(5, len(gold_fill_scores) + 5),
         )
         runs.append(sent_run)
         alerts: list[SentinelAlert] = (
@@ -154,10 +198,19 @@ class ImmuneLoop:
             decisions=decisions,
             existing_memories=list(existing_memories),
             scenario_source=proposal.name,
+            drift_reference_scores=drift_reference_scores,
+            drift_current_scores=drift_current_scores,
+            drift_feature_name=drift_feature_name,
         )
         runs.append(mem_run)
         new_memories: list[ImmuneMemory] = (
             mem_run.linked_artifacts.get("new_memories", []) if mem_run.success else []
+        )
+        drift_report: DriftReport | None = (
+            mem_run.linked_artifacts.get("drift_report") if mem_run.success else None
+        )
+        drift_retrain_pending = bool(
+            drift_report is not None and drift_report.retrain_recommended
         )
 
         # 7. Trainer (optional) — retrain when memory grew or pending.
@@ -167,7 +220,7 @@ class ImmuneLoop:
             train_run = self.trainer.run(
                 goal="decide whether to retrain",
                 new_memories=new_memories,
-                retrain_pending=retrain_pending,
+                retrain_pending=retrain_pending or drift_retrain_pending,
                 force=force_retrain,
             )
             runs.append(train_run)
@@ -196,4 +249,5 @@ class ImmuneLoop:
             agent_runs=tuple(runs),
             training_job=training_job,
             judge_verdict=verdict,
+            drift_report=drift_report,
         )

@@ -7,8 +7,8 @@ from marketimmune.features.agentic_features import agentic_features
 from marketimmune.features.market_features import market_features
 from marketimmune.features.order_features import order_features
 from marketimmune.features.windows import windows_for_events
-from marketimmune.replay.replay_runner import p95
 from marketimmune.schemas.events import AgentOrderEvent
+from marketimmune.stats import p95
 
 HORIZONS = [timedelta(seconds=1), timedelta(seconds=5), timedelta(seconds=60)]
 
