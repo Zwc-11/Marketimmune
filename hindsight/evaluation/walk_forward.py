@@ -59,12 +59,12 @@ def purged_walk_forward_folds(
         test_end = max(sample.end for sample in test_samples)
         purge_start = test_start - purge
         embargo_end = test_end + embargo
-        train_candidates = ordered[max(0, test_start_pos - train_window) : test_start_pos]
-        train_samples = [
+        eligible_train_samples = [
             sample
-            for sample in train_candidates
+            for sample in ordered[:test_start_pos]
             if sample.end < purge_start or sample.start > embargo_end
         ]
+        train_samples = eligible_train_samples[-train_window:]
         if not train_samples:
             raise ValueError("purge and embargo removed every training sample")
         folds.append(
