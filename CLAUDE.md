@@ -5,32 +5,53 @@ MarketImmune web app. Every screen, component, and future change must conform
 to it so the product stays visually consistent. If a change would violate
 something here, update this document first, then the code.
 
-> Design language: **Glassmorphism on a soft gradient mesh** (macOS Big Sur /
-> modern SaaS register) — frosted panels with `backdrop-filter`, translucent
-> borders, subtle depth shadows, and restrained accent color. Motion follows
-> [transitions.dev](https://transitions.dev) primitives in `src/styles/transitions.css`.
-> Navigation is grouped by function (Overview / Market / Operations /
-> Intelligence), not numbered sections. Clean and production-ready over decorative.
+> **Design language:** **Geist-based pro terminal** — Vercel's Geist system
+> (`https://vercel.com/design.md`) adapted to MarketImmune. Near-neutral
+> surfaces, 10-step intent scales, Geist Sans/Mono, tight radii (6/12/16px),
+> subtle tonal elevation, calm motion. **Light + dark**, switched via the
+> `data-theme` attribute on `<html>` (toggle in the top bar). MarketImmune keeps
+> its **mint accent** (`#97fce4`) as the primary/brand colour and **green/red**
+> as PnL/toxicity semantics. Full-bleed chrome, dense data tables, hairline
+> borders, no glass blur. Navigation is grouped by function (Overview / Market /
+> Operations / Intelligence), not numbered sections.
+
+**Reference mood:** Vercel-grade developer terminal — instrument ticker strip,
+monospace numerics, compact rows, high information density, equally at home in
+light or dark. Not a marketing landing page.
 
 ---
 
 ## 0. Architecture (so visuals stay decoupled from data)
 
-- **Pure static SPA.** React + TypeScript + Vite + Three.js. No Django, no
-  server at runtime. `npm run build` → `frontend/dist/` (deploy to any static
-  host). Routing is **hash-based** (`#/command`, `#/live`, …).
-- **Data** comes from a bundled, typed layer, not the network:
+- **Static-first hybrid SPA.** React + TypeScript + Vite + Three.js. The app
+  boots with **no backend** from a bundled, typed data layer and `npm run build`
+  → `frontend/dist/` (deployable to any static host). When a Django API is
+  reachable it **hydrates** the persisted slices from live data; offline is a
+  fully supported mode, not a degraded one. Routing is **hash-based**
+  (`#/command`, `#/live`, …).
+- **Data** comes from a bundled, typed layer first, the network second:
   - `src/data/seed.ts` — fixtures for every persisted entity (loop, agents +
-    tool traces, cases, decisions, 138 memories, promotion, metrics).
-  - `src/data/simEngine.ts` — deterministic live stream (market events,
-    predictions, alerts, features, orders, trades) ported from the old
-    `dashboard/demo_data.py` math.
+    tool traces, cases, decisions, memories, promotion, metrics).
+  - `src/data/simEngine.ts` — deterministic, seeded live stream (market events,
+    predictions, alerts, features, orders, trades + live toxicity) ported from
+    the old `dashboard/demo_data.py` math, rebased onto BTC-PERP / markout.
   - `src/data/provider.tsx` — `DataProvider` context + `useAppData()` /
-    `useLiveRisk()` hooks. Exposes the same `ProductData` shape the screens
-    already consumed, plus a simulated `runLoop()`.
+    `useLiveRisk()` hooks. Exposes the `ProductData` shape the screens consume
+    plus `runLoop()` / `refresh()` / `setScenario()`. **Hybrid:** the simulator
+    slice + live risk always come from the local engine; loop state, LLM status,
+    and metrics hydrate from Django (`src/api.ts`) when `/api` answers, else stay
+    on fixtures.
 - **Dynamic, not static:** the engine ticks every 1.5s (4s under reduced
   motion, paused when the tab is hidden) so charts, tickers, and the 3D hero
   feel live.
+- **Build/serve pipeline.** `vite build` emits to `frontend/dist/`. Django
+  optionally serves a copy from `dashboard/static/agentic/` (`AgenticReactView`);
+  if you want Django to serve the latest UI, copy `frontend/dist/*` →
+  `dashboard/static/agentic/` after building (the bundle there is otherwise a
+  stale snapshot). Pure static hosts deploy `frontend/dist/` directly.
+
+**Dev note:** Vite proxies `/api` → `:8000`. Proxy `ECONNREFUSED` logs are
+normal when Django is not running; fixtures keep the UI fully usable.
 
 ### Product vocabulary (v2)
 
@@ -43,156 +64,197 @@ perpetual swaps**, not simulated CEX spoofing. Keep UI copy on this vocabulary:
 - Scenarios: **replays of real historical toxic episodes** (e.g. the Oct-2025 cascade, the JELLY playbook), not fabricated adversaries.
 - Metrics are **honest and leakage-proof**: the headline is realized **markout lift (bps)** under a quoting policy; PR-AUC sits in an honest range (~0.76–0.84) under **purged/embargoed walk-forward** CV with isotonic calibration (Brier).
 - Models: CatBoost markout classifiers (champion/challenger), with an OFI-only baseline for lift.
+- Persistent **"Preview · simulated data"** badge until real Hyperliquid backfill is wired end-to-end.
 
 ---
 
-## 1. Color palette (glass on gradient)
+## 1. Color & surface (Geist, light + dark)
 
-Defined as CSS variables in `src/styles.css`. Never hard-code hex in
-components — use the token.
+Defined in `src/styles/tokens.css`: theme-agnostic tokens in `:root`, plus
+per-theme colour blocks (`:root`/`[data-theme="dark"]` and
+`[data-theme="light"]`). The no-flash init script in `index.html` sets
+`data-theme` before paint; the top-bar `ThemeToggle` flips it and persists to
+`localStorage` (`mi-theme`). **Never hard-code hex in components** — every colour
+reads a token so both themes follow automatically.
 
-| Token | Role |
+| Token | Role (Geist intent) |
 |---|---|
-| `--bg-0` … `--bg-2` | Page mesh base stops (cool blue / violet wash) |
-| `--glass-bg`, `--glass-bg-strong` | Frosted panel fill (rgba white + alpha) |
-| `--glass-border`, `--glass-highlight`, `--glass-inset` | Edge + inner highlight |
-| `--glass-blur`, `--glass-saturate` | `backdrop-filter` strength |
-| `--glass-shadow`, `--glass-shadow-sm` | Elevation (no neumorphic dual shadows) |
-| `--ink` … `--faint` | Text hierarchy on light glass |
-| `--green`, `--amber`, `--red`, `--cyan`, `--violet` | Semantic state + ML |
-| `--accent` | Primary actions (blue, not copper) |
+| `--bg-0` … `--bg-2` | Page field → recessed (dark `#000`→`#141414`, light `#fff`→`#f2f2f2`) |
+| `--panel`, `--panel-2`, `--panel-3` | Flat data-panel fills (raised / hover / nested) |
+| `--line`, `--line-2`, `--line-strong` | Hairline borders (default / hover / active), translucent |
+| `--chrome-bg`, `--chrome-border` | Sidebar / top bar |
+| `--ink`, `--ink-2`, `--muted`, `--faint` | Text ladder (Geist gray 1000 / · / 900 / 700) |
+| `--accent`, `--signal` | Mint **fill** — primary actions, brand stroke |
+| `--accent-ink` | Mint **text/links** — bright mint on dark, darkened teal (`#0f766e`) on light (AA) |
+| `--accent-contrast` | Label on a mint fill (near-black, both themes) |
+| `--accent-border`, `--ring` | Active-card border / focus ring |
+| `--green`, `--red` | Calm/long vs toxic/short (PnL semantics; darkened on light for AA) |
+| `--amber` | Preview badge, elevated warnings |
+| `--steel`, `--cyan`, `--violet` | Secondary metadata |
 
-**Tone rule:** semantic state drives color. Toxicity/severity: `green` (calm) →
-`amber` (elevated) → `red` (critical). Apply via `tone-{green|amber|red|…}`
-classes. **Glow** only on the single hero metric per screen and the brand mark.
+**Color strategy:** near-neutral field; **mint** for the single primary action
+and brand; **green/red** reserved for toxicity and markout direction; colour
+signals state, not decoration. Mint is a *fill* — for text/links (esp. on light)
+use `--accent-ink`. No gradient meshes, no frosted glass. Elevation is tonal
+first (`--shadow`, `--shadow-lg` stay subtle, per Geist).
 
-**Body background:** multi-stop radial mesh on `body` (blue / violet / mint).
-Panels use glass, not opaque beige.
+**Layout chrome:** full-bleed shell (no floating card canvas), market ticker
+strip under top bar (`MarketStrip` in `shell.tsx`), left nav rail.
 
 ---
 
 ## 2. Typography
 
-Fonts are loaded in `frontend/index.html`.
+Fonts are self-hosted through Fontsource imports in `frontend/src/main.tsx`.
 
-- **English display:** `Montserrat` (700/800 for hero & titles).
-- **English UI/body:** `Outfit` (400 body, 300 captions, 500 labels).
-- **Numerics/code:** `JetBrains Mono`, always `font-variant-numeric: tabular-nums`.
-- **Chinese:** `Source Han Sans SC` → `Noto Sans SC` (`--font-zh`, `.lang-zh` / `:lang(zh)`).
-- **Japanese:** `Kozuka Gothic Pr6N` → `Noto Sans JP` (`--font-jp`, `.lang-jp` / `:lang(ja)`).
-  Kozuka is Adobe-licensed and not web-embeddable; it is used only if the
-  visitor has it installed, otherwise Noto Sans JP. This is intentional and honest.
+| Role | Stack | Weight |
+|---|---|---|
+| UI / headings | Geist Sans | 600 |
+| Body | Geist Sans | 400–500 |
+| Labels / captions | Geist Sans | 400, `--muted` |
+| Micro metadata | Geist Sans | 400-500, `--t-2xs` |
+| Numerics / code / timestamps | Geist Mono | 500–600, `tabular-nums` |
+| Chinese (`.lang-zh`) | Noto Sans SC | Same ladder |
+| Japanese (`.lang-jp`) | Noto Sans JP | Same ladder |
 
-**Weight descends with hierarchy (bold → light):**
+Type scale: `--t-display`, `--t-h1` … `--t-2xs`, mapped onto the Geist ladder
+(heading / label / copy / button). Utilities: `.heading-xl|lg|md|sm`,
+`.copy-md|sm`, `.label-md`, `.label-mono`, `.eyebrow`, `.mono`, `.num`,
+`.trace-label`. Headings use zero tracking so compact panels and buttons do not
+drift on mobile.
 
-| Level | Font / weight |
-|---|---|
-| Hero / display | Montserrat 800 |
-| Page title (`h1` in `.page-header`) | Montserrat 700 |
-| Panel title (h3) | Montserrat/Outfit 600 |
-| Body | Outfit 400 |
-| Caption / secondary | Outfit 400, `--muted` |
-| Nav group label | Outfit 600, sentence case, `--muted` |
-
-Type scale tokens: `--t-display, --t-h1, --t-h2, --t-h3, --t-body, --t-sm,
---t-xs, --t-2xs`. Use the `.eyebrow`, `.mono`, `.num` helpers.
+**Rules (Geist voice):** **Title Case** for labels, buttons, titles and tabs;
+**sentence case** for body, helper text and toasts. Name actions verb + noun
+(`Run Immune Loop`), never a bare `Confirm`/`OK`; in-progress uses the ellipsis
+(`Running…`). `text-wrap: balance` on h1–h3; `pretty` on prose; body ~65–75ch.
 
 ---
 
-## 3. Grid system + layout shell
+## 3. Grid & alignment (two schemes + instrument tier)
 
-Built on a **12-column grid** (`.grid-12`, `.col-3/4/5/6/7/8/9/12`) and a
-**4px base / 8px rhythm** spacing scale (`--s1…--s16`).
+**Base rhythm:** 4px unit, spacing `--s1`…`--s16`, **12-column macro grid**
+(`.grid-12`, `.col-*`).
 
-**Layout shell:** floating **glass sidebar** (grouped nav) + **glass top bar**
-(menu icon swap, live clock, notification badge) + **main canvas** (scrollable
-content). No numbered nav, no `01 / 08` breadcrumbs, no scanline background.
+Every screen must use **at least two alignment schemes** so information and
+decoration sit on intentional axes:
 
-**Scheme A — Page header** (`.page-header`): `h1` + subtitle; optional actions
-on the right. Wrap copy in `<Reveal>` for staggered text reveal.
+### Scheme A — Macro grid (page composition)
 
-**Scheme B — Data grid** (`.grid-12`, tables, KPIs): tabular numerics;
-table headers sentence case.
+- **What:** shell columns, `.grid-12`, page headers, panel placement.
+- **Axes:** 12 equal columns + outer margin `--grid-margin` (matches shell padding).
+- **Use for:** Command Center hero column, side stacks, model benchmark splits.
+- **Classes:** `.grid-12`, `.col-*`, `.align-macro` (full-width snap to macro gutters).
+
+### Scheme B — Micro baseline (data density)
+
+- **What:** KPI rows, `.kv-list`, tables, metric captions, form labels.
+- **Axes:** shared left label margin `--grid-micro-offset`; numerics right-aligned
+  on `.num-cell` / `.metric-value` / table amount columns.
+- **Use for:** telemetry blocks, audit meta, investigation evidence tables.
+- **Classes:** `.align-micro`, `.kv-list`, `.num-cell`.
+
+### Scheme C — Instrument / decorative (hero & traces)
+
+- **What:** Three.js hero, orbital motifs, trace leader lines, footer status strips.
+- **Axes:** radial center of hero viewport; bottom **status baseline**
+  `--grid-instrument-baseline` for decorative ticks and legends.
+- **Use for:** ImmuneCore overlay readout, agent orchestrator rings, audit footer.
+- **Rule:** decoration aligns to C; **data** still reads on A/B. Never float
+  labels without a grid line or leader.
+
+**Layout shell:** fixed **left nav rail** + **top bar** + **market ticker strip**
+(`MarketStrip`) + full-bleed **main canvas** (`.app-main` on `--bg-0`). No floating
+card wrapper, no numbered nav.
+
+**Page header** (`.page-header`): `h1` + subtitle; optional actions right.
+Wrap copy in `<Reveal>` where motion is appropriate.
 
 ---
 
 ## 4. Components & motifs
 
-- **Panel** (`.data-panel`): glass surface + `backdrop-filter`, hairline border,
-  `--glass-shadow`. Add `.t-resize` for smooth height changes.
-- **MetricCard / MetricBlock / MiniMetric**: KPI tiles; live values use
-  `<AnimatedNumber>`; status strings use `<TextSwap>`.
-- **StatusBadge**: soft pill, tone-tinted background, sentence case.
-- **Buttons:** `.primary-action` (accent gradient), `.secondary-action` (glass),
-  `.outline-action` (ghost border). One primary per view.
-- **Tables:** light dividers, row hover, staggered `rowIn` entry.
-- **Brand mark:** geometric shield, accent stroke, soft glow allowed.
+- **Panel** (`.data-panel`): flat `--panel`, 1px `--line` border, **6px radius**
+  (`--r-sm`); 24px padding (16 compact, 32 hero). Menus/modals 12px (`--r-lg`),
+  fullscreen 16px (`--r-xl`). One radius family per view.
+- **MetricCard / MetricBlock / MiniMetric:** compact KPI tiles; numerics in mono;
+  live values → `<AnimatedNumber>`.
+- **StatusBadge:** flat pill, tone wash, mono labels for terminal readout.
+- **Buttons:** `.primary-action` (mint fill, `--accent-contrast` label),
+  `.secondary-action` (surface + hairline), `.outline-action` (ghost). **One
+  primary per view.** Focus shows the `--ring` outline.
+- **Theme toggle:** sun/moon `icon-button` in the top bar (`ThemeToggle`),
+  persists to `localStorage`.
+- **Tables:** uppercase headers, mono body cells, compact row height — density
+  survives (tables/ticker stay tight while cards breathe).
+- **Brand mark:** geometric shield, mint stroke.
 
 ---
 
 ## 5. Motion ([transitions.dev](https://transitions.dev))
 
-CSS primitives live in `src/styles/transitions.css` (imported from `main.tsx`).
-React helpers in `src/components/motion/`:
+CSS primitives in `src/styles/transitions.css`; React helpers in
+`src/components/motion/`. Tuned to **Geist motion** — short, physical, never
+decorative. Base easing `cubic-bezier(0.175, 0.885, 0.32, 1.1)` (token `--ease`);
+~150ms state changes, 200ms popovers, 300ms overlays; motion blur and bounce
+removed. Live-data motion (`AnimatedNumber`) is kept because it signals real
+change, not decoration.
 
-| Primitive | CSS / component | Typical use |
-|---|---|---|
-| Card resize | `.t-resize` | Panels, route page wrapper |
-| Number pop-in | `.t-digit-*`, `AnimatedNumber` | Live toxicity, KPIs |
-| Notification badge | `.t-badge` | Top-bar alerts |
-| Text swap | `.t-text-swap`, `TextSwap` | Status labels |
-| Menu icon swap | `.t-icon-swap` | Sidebar toggle |
-| Panel reveal | `.t-panel-slide` | Audit trace expand |
-| Route enter | `.route-page`, `--route-dir` | Hash navigation |
-| Text reveal | `.t-reveal`, `Reveal` | Page headers, tab panels |
-| Sliding tabs | `SlidingTabs` | Agent detail |
-| Shimmer | `ShimmerText` | Hero emphasis (Command Center) |
-| Skeleton | `SkeletonBlock`, `LoadingState` | Initial load |
+| Primitive | Typical use |
+|---|---|
+| Card resize | `.t-resize` — panels, route wrapper |
+| Number pop-in | `AnimatedNumber` — live toxicity, KPIs (functional — kept) |
+| Text swap | `TextSwap` — status labels |
+| Route enter | `.route-page` — hash navigation |
+| Panel reveal | `.t-panel-slide` — audit trace expand |
+| Shimmer | opacity pulse only — **no gradient text** |
 
-- Engine tick 1.5s drives live numbers; pair with `AnimatedNumber` / `TextSwap`.
-- **Always** respect `prefers-reduced-motion` (global guard in `transitions.css`;
-  engine slows to 4s).
-- Easing: transitions.dev token curves; 120–600ms. Subtle, never bouncy.
+Engine tick 1.5s drives live numbers. Always respect `prefers-reduced-motion`.
 
 ---
 
-## 6. Three.js (the "WOW", used with restraint)
+## 6. Three.js (instrument hero, used with restraint)
 
 - Stack: `three` + `@react-three/fiber` + `@react-three/drei`.
-- **Signature piece:** `src/components/three/ImmuneCore.tsx` — wireframe icosahedron
-  with orbiting agent nodes; pulses with **live toxicity** from `useLiveRisk()`.
-  Colors tuned for the light glass theme.
-- **Guardrails:** cap `dpr` at 1.5; pause when offscreen/hidden or reduced motion;
-  `.three-fallback` static CSS. One hero per screen, maximum.
+- **Signature:** `ImmuneCore.tsx` — wireframe geometry that pulses green→amber→red
+  with `useLiveRisk()` toxicity. Colours read live from theme tokens
+  (`--green`/`--amber`/`--red`/`--accent-ink`) via `useThemePalette()`, so the
+  hero re-tints on the light/dark toggle.
+- **Guardrails:** cap `dpr` at 1.5; pause when hidden / reduced motion; one hero
+  per screen maximum; align overlay readout to Scheme C center.
 
 ---
 
-## 7. Consistency checklist (run before calling any UI change done)
+## 7. Consistency checklist
 
-- [ ] Colors come from glass tokens; semantic tone matches state.
-- [ ] Type uses Montserrat/Outfit/Mono; numerics tabular.
-- [ ] CJK strings carry `.lang-zh` / `.lang-jp` (or `lang` attr).
-- [ ] Layout uses `.grid-12` + spacing scale.
-- [ ] Each screen uses `.page-header` when it needs a toolbar.
-- [ ] Panels are glass (`.data-panel`); one `.primary-action` per view.
-- [ ] Live metrics use motion helpers where values change on engine tick.
-- [ ] Sidebar uses grouped nav (`NAV_GROUPS`), not numbered lists.
-- [ ] All relevant fixture fields are surfaced.
-- [ ] Motion respects `prefers-reduced-motion`; Three.js has fallback + pause.
-- [ ] `npm run typecheck` and `npm run build` pass.
+- [ ] Colours from tokens (both themes follow); mint used sparingly; toxicity uses semantic tones.
+- [ ] **Light and dark both pass** — surfaces, text and mint hold WCAG AA (4.5:1 body).
+- [ ] Type ladder: heavier weights only on larger sizes; CJK stacks on `.lang-*`.
+- [ ] Screen uses Scheme A (macro) **and** Scheme B (micro) alignment.
+- [ ] Decorative / hero elements align to Scheme C when present.
+- [ ] Radii 6/12/16, one family per view; panels opaque; chrome matte; no glass.
+- [ ] One `.primary-action` per view; **Title Case** labels, verb + noun.
+- [ ] Live metrics use motion helpers; reduced motion respected.
+- [ ] Preview honesty badge visible while data is simulated.
+- [ ] `npm run typecheck` and `npm run build` pass from repo root.
 
 ---
 
 ## 8. Commands
 
+From repo root (delegates to `frontend/`):
+
 ```bash
-cd frontend
-npm install      # one-time
-npm run dev      # http://localhost:5173
+npm run setup:frontend   # one-time
+npm run dev:frontend     # http://localhost:5173
 npm run typecheck
-npm run build    # -> frontend/dist (static, deployable anywhere)
-npm run preview
+npm run build            # -> frontend/dist
 ```
 
-Deploy `frontend/dist/` to GitHub Pages, Vercel, or Netlify. No environment
-variables, no backend.
+Backend (separate terminal):
+
+```bash
+python manage.py runserver   # http://127.0.0.1:8000 — enables API hydration
+```
+
+Deploy `frontend/dist/` to any static host. Copy to `dashboard/static/agentic/`
+when serving via Django.
