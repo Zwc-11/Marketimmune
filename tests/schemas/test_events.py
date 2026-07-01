@@ -10,6 +10,9 @@ from marketimmune.schemas.events import (
     AggTradeEvent,
     BookDepthEvent,
     BookTickerEvent,
+    EventSource,
+    EventType,
+    HyperliquidFillEvent,
     KlineEvent,
     OrderAction,
     Side,
@@ -179,3 +182,42 @@ def test_agent_remaining_quantity_cannot_exceed_quantity() -> None:
 def test_parse_event_round_trip() -> None:
     event = agg_trade()
     assert parse_event(event.model_dump(mode="json")).event_id == event.event_id
+
+
+def test_hyperliquid_fill_round_trip() -> None:
+    event = HyperliquidFillEvent(
+        symbol="BTC-PERP",
+        timestamp=NOW,
+        sequence=0,
+        trade_id=123,
+        price=65000,
+        quantity=0.25,
+        side=Side.BUY,
+        crossed=True,
+        maker_side=-1,
+        fee=0.12,
+        fee_token="USDC",
+    )
+
+    parsed = parse_event(event.model_dump(mode="json"))
+
+    assert parsed.event_type == EventType.HYPERLIQUID_FILL.value
+    assert parsed.source == EventSource.HYPERLIQUID_PUBLIC.value
+    assert parsed.event_id == event.event_id
+
+
+def test_hyperliquid_fill_rejects_bad_maker_side() -> None:
+    with pytest.raises(ValidationError):
+        HyperliquidFillEvent(
+            symbol="BTC-PERP",
+            timestamp=NOW,
+            sequence=0,
+            trade_id=None,
+            price=65000,
+            quantity=0.25,
+            side=Side.BUY,
+            crossed=None,
+            maker_side=0,
+            fee=None,
+            fee_token=None,
+        )

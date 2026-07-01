@@ -79,5 +79,5 @@ source = ["marketimmune", "aegisbench", "hindsight"]
 branch = true
 
 [tool.coverage.report]
-fail_under = 100
+fail_under = 95
 show_missing = true

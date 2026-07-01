@@ -13,12 +13,14 @@ SCHEMA_VERSION = "1.0.0"
 
 class EventSource(StrEnum):
     BINANCE_PUBLIC = "binance_public"
+    HYPERLIQUID_PUBLIC = "hyperliquid_public"
     SYNTHETIC_AGENT = "synthetic_agent"
 
 
 class EventType(StrEnum):
     AGG_TRADE = "agg_trade"
     TRADE = "trade"
+    HYPERLIQUID_FILL = "hyperliquid_fill"
     BOOK_DEPTH = "book_depth"
     BOOK_TICKER = "book_ticker"
     KLINE = "kline"
@@ -109,6 +111,26 @@ class TradeEvent(BaseEvent):
     side: Side
 
 
+class HyperliquidFillEvent(BaseEvent):
+    event_type: Literal[EventType.HYPERLIQUID_FILL] = EventType.HYPERLIQUID_FILL
+    source: Literal[EventSource.HYPERLIQUID_PUBLIC] = EventSource.HYPERLIQUID_PUBLIC
+    exchange: Literal["hyperliquid"] = "hyperliquid"
+    trade_id: int | None = Field(ge=0)
+    price: float = Field(gt=0)
+    quantity: float = Field(gt=0)
+    side: Side
+    crossed: bool | None
+    maker_side: int
+    fee: float | None = Field(ge=0)
+    fee_token: str | None
+
+    @model_validator(mode="after")
+    def maker_side_is_signed(self) -> HyperliquidFillEvent:
+        if self.maker_side not in {-1, 1}:
+            raise ValueError("maker_side must be -1 or 1")
+        return self
+
+
 class BookTickerEvent(BaseEvent):
     event_type: Literal[EventType.BOOK_TICKER] = EventType.BOOK_TICKER
     source: Literal[EventSource.BINANCE_PUBLIC] = EventSource.BINANCE_PUBLIC
@@ -178,6 +200,7 @@ class AgentOrderEvent(BaseEvent):
 CanonicalEvent = (
     AggTradeEvent
     | TradeEvent
+    | HyperliquidFillEvent
     | BookDepthEvent
     | BookTickerEvent
     | KlineEvent
@@ -187,6 +210,7 @@ CanonicalEvent = (
 EVENT_MODEL_BY_TYPE: dict[str, type[CanonicalEvent]] = {
     EventType.AGG_TRADE.value: AggTradeEvent,
     EventType.TRADE.value: TradeEvent,
+    EventType.HYPERLIQUID_FILL.value: HyperliquidFillEvent,
     EventType.BOOK_DEPTH.value: BookDepthEvent,
     EventType.BOOK_TICKER.value: BookTickerEvent,
     EventType.KLINE.value: KlineEvent,
