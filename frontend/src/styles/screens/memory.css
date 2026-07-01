@@ -1,0 +1,117 @@
+/* --- Memory Library --- */
+.memory-layout {
+    display: grid;
+    grid-template-columns: 268px 1fr;
+    gap: var(--s4);
+    align-items: start;
+}
+.memory-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: sticky;
+    top: calc(var(--topbar-h) + var(--s4));
+}
+.memory-filter > strong {
+    font-size: var(--t-2xs);
+    letter-spacing: 0;
+    color: var(--muted);
+    margin: var(--s2) 0;
+}
+.memory-filter hr {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: var(--s3) 0;
+    width: 100%;
+}
+.memory-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+}
+.memory-count {
+    font-family: var(--font-mono);
+    font-size: var(--t-xs);
+    color: var(--muted);
+}
+.memory-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--s4);
+}
+.memory-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    animation: fadeUp 0.4s var(--ease) both;
+    animation-delay: var(--delay, 0ms);
+}
+.memory-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--s3);
+}
+.memory-card-head h3 {
+    font-size: var(--t-h3);
+}
+.memory-card > span {
+    font-size: var(--t-2xs);
+    letter-spacing: 0;
+    color: var(--muted);
+}
+.tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.tag-row span {
+    font-size: var(--t-2xs);
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--line-2);
+    color: var(--ink-2);
+    background: var(--panel-2);
+}
+.memory-card .kv-list strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-ui);
+    font-weight: 500;
+}
+.memory-card .kv-list .icon { width: 13px; height: 13px; }
+.memory-stats {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--s2);
+    padding-top: var(--s2);
+    border-top: 1px solid var(--line);
+}
+.memory-stats span {
+    font-size: var(--t-2xs);
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.memory-stats strong {
+    font-family: var(--font-mono);
+    font-size: var(--t-sm);
+    color: var(--ink);
+}
+.insight-strip {
+    display: flex;
+    align-items: center;
+    gap: var(--s8);
+}
+.insight-strip > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.insight-strip .icon { width: 18px; height: 18px; color: var(--green); }
+.insight-strip strong { font-size: var(--t-sm); }
+.insight-strip span { font-size: var(--t-xs); color: var(--muted); }
+.insight-strip > .icon:last-child { margin-left: auto; color: var(--faint); }
+

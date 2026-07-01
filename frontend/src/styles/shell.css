@@ -1,0 +1,550 @@
+/* 4. APP SHELL — Hyperliquid terminal chrome -------------------------------- */
+
+.app-shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) 1fr;
+    min-height: 100vh;
+    position: relative;
+    z-index: var(--z-base);
+    background: var(--bg-0);
+}
+.app-shell.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-collapsed-w) 1fr;
+}
+
+.sidebar-nav {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    padding: var(--s3) var(--s2);
+    background: var(--chrome-bg);
+    border-right: 1px solid var(--chrome-border);
+    overflow: hidden;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+    padding: var(--s2) var(--s2) var(--s3);
+    border-bottom: 1px solid var(--line);
+    margin-bottom: var(--s2);
+}
+.brand-mark {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+.brand-word {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.8125rem;
+    letter-spacing: 0;
+    white-space: nowrap;
+    color: var(--ink);
+}
+.sidebar-collapsed .brand-word,
+.sidebar-collapsed .nav-label,
+.sidebar-collapsed .nav-group-label,
+.sidebar-collapsed .sidebar-status div {
+    display: none;
+}
+
+.nav-groups {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s4);
+}
+.nav-group-label {
+    display: block;
+    font-size: var(--t-2xs);
+    font-weight: 600;
+    color: var(--faint);
+    margin-bottom: var(--s1);
+    padding-left: var(--s2);
+    letter-spacing: 0;
+}
+.nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+    padding: 8px var(--s2);
+    border-radius: var(--r-sm);
+    color: var(--muted);
+    border: 1px solid transparent;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.nav-icon-wrap {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--r-sm);
+    background: transparent;
+    border: none;
+    color: inherit;
+    flex-shrink: 0;
+}
+.nav-item .icon {
+    width: 16px;
+    height: 16px;
+}
+.nav-label {
+    font-size: var(--t-sm);
+    font-weight: 500;
+    white-space: nowrap;
+}
+.nav-item:hover {
+    color: var(--ink);
+    background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.nav-item.active {
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    border-color: var(--accent-border);
+    font-weight: 600;
+}
+.nav-item.active .nav-icon-wrap {
+    color: var(--accent-ink);
+}
+
+.sidebar-footer {
+    padding-top: var(--s2);
+    border-top: 1px solid var(--line);
+}
+.sidebar-status {
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+    padding: var(--s2);
+    border-radius: var(--r-sm);
+    background: var(--panel);
+    border: 1px solid var(--line);
+}
+.sidebar-status strong {
+    display: block;
+    font-size: var(--t-xs);
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+.sidebar-status span {
+    font-size: var(--t-2xs);
+    color: var(--muted);
+}
+
+.avatar {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: var(--r-sm);
+    background: var(--panel);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: var(--t-2xs);
+    font-family: var(--font-mono);
+    border: 1px solid var(--line);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.app-frame {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 100vh;
+}
+
+.top-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    height: var(--topbar-h);
+    padding: 0 var(--s4);
+    background: var(--chrome-bg);
+    border-bottom: 1px solid var(--chrome-border);
+    flex-shrink: 0;
+}
+.top-bar-spacer {
+    flex: 1;
+}
+.icon-button {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.icon-button:hover {
+    color: var(--ink);
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+    border-color: var(--line);
+}
+.live-clock {
+    font-family: var(--font-mono);
+    font-size: var(--t-xs);
+    color: var(--muted);
+    letter-spacing: 0.02em;
+}
+
+/* Market ticker strip — HL-style instrument ribbon */
+.market-strip {
+    display: flex;
+    align-items: stretch;
+    min-height: var(--ticker-h);
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--chrome-border);
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+.market-strip-primary {
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+    border-right: 1px solid var(--line);
+    background: var(--accent-soft);
+}
+
+.market-strip-secondary {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+}
+
+.market-strip-secondary::-webkit-scrollbar {
+    display: none;
+}
+
+.market-strip-secondary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.market-instrument {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    padding: 0 var(--s4);
+    white-space: nowrap;
+}
+
+.market-symbol {
+    font-family: var(--font-mono);
+    font-size: var(--t-sm);
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+}
+
+.market-price {
+    font-family: var(--font-mono);
+    font-size: var(--t-sm);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+.market-venue {
+    font-size: var(--t-2xs);
+    font-weight: 500;
+    color: var(--green);
+    letter-spacing: 0.02em;
+}
+
+.market-stat {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    padding: 0 var(--s4);
+    border-right: 1px solid var(--line);
+    min-width: 88px;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+}
+
+.market-stat-primary {
+    min-width: 72px;
+    border-right: none;
+}
+
+.market-stat-scenario {
+    min-width: min(160px, 40vw);
+    border-right: none;
+}
+
+.market-stat-label {
+    font-size: var(--t-2xs);
+    color: var(--faint);
+    letter-spacing: 0;
+}
+
+.market-stat-value {
+    font-family: var(--font-mono);
+    font-size: var(--t-xs);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+}
+
+.market-stat-truncate {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.market-stat-value.tone-green {
+    color: var(--green);
+}
+
+.market-stat-value.tone-amber {
+    color: var(--amber);
+}
+
+.market-stat-value.tone-red {
+    color: var(--red);
+}
+
+.app-main {
+    flex: 1;
+    padding: var(--s4);
+    width: 100%;
+    background: var(--bg-0);
+    min-height: 0;
+}
+.route-page {
+    animation: fadeUp 0.22s var(--ease) both;
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--faint);
+    flex-shrink: 0;
+    display: inline-block;
+}
+.status-dot.green {
+    background: var(--green);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--green) 50%, transparent);
+}
+.status-dot.steel {
+    background: var(--steel);
+}
+.status-dot.pulse {
+    animation: dotPulse 1.8s var(--ease) infinite;
+}
+
+.preview-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: var(--r-sm);
+    font-size: var(--t-2xs);
+    font-weight: 600;
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+    color: var(--preview-ink);
+    background: var(--preview-bg);
+    border: 1px solid var(--preview-border);
+    white-space: nowrap;
+}
+.preview-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--preview-dot);
+    flex-shrink: 0;
+}
+
+.source-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: var(--r-sm);
+    font-size: var(--t-2xs);
+    font-weight: 500;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    background: var(--panel);
+    border: 1px solid var(--line);
+}
+.source-chip .status-dot {
+    width: 5px;
+    height: 5px;
+}
+.source-chip.live .status-dot {
+    background: var(--green);
+}
+.source-chip.fixtures .status-dot {
+    background: var(--amber);
+}
+.source-chip.hybrid .status-dot {
+    background: var(--cyan);
+}
+
+.alert-chip-wrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.sidebar-backdrop {
+    display: none;
+}
+
+@media (max-width: 960px) {
+    .app-shell {
+        grid-template-columns: 1fr;
+    }
+    .app-shell:not(.sidebar-collapsed) .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: var(--z-drawer-backdrop);
+        border: none;
+        cursor: pointer;
+    }
+    .sidebar-nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: min(260px, 85vw);
+        height: 100vh;
+        z-index: var(--z-drawer);
+        transform: translateX(-100%);
+        transition: transform 0.22s var(--ease);
+    }
+    .app-shell:not(.sidebar-collapsed) .sidebar-nav {
+        transform: translateX(0);
+    }
+    .app-shell.sidebar-collapsed .sidebar-nav {
+        transform: translateX(-100%);
+    }
+    .sidebar-collapsed .brand-word,
+    .sidebar-collapsed .nav-label,
+    .sidebar-collapsed .nav-group-label,
+    .sidebar-collapsed .sidebar-status div {
+        display: block;
+    }
+    .app-main {
+        padding: var(--s3);
+    }
+    .top-bar {
+        padding: 0 var(--s3);
+        gap: var(--s2);
+    }
+    .market-instrument {
+        padding: 0 var(--s3);
+    }
+    .market-stat {
+        min-width: 80px;
+        padding: 0 var(--s3);
+    }
+}
+
+@media (max-width: 640px) {
+    .live-clock {
+        display: none;
+    }
+    .source-chip-label {
+        display: none;
+    }
+    .preview-badge span:last-child {
+        display: none;
+    }
+    .preview-badge::after {
+        content: 'Preview';
+    }
+    .market-strip {
+        flex-direction: column;
+        min-height: 0;
+    }
+    .market-strip-primary {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+    }
+    .market-instrument {
+        padding: var(--s2) var(--s3);
+        gap: var(--s2);
+        min-width: 0;
+        flex: 1;
+    }
+    .market-stat-primary {
+        padding: var(--s2) var(--s3);
+        align-items: flex-start;
+        text-align: left;
+        border-top: 1px solid var(--line);
+        min-width: 0;
+    }
+    .market-strip-secondary {
+        width: 100%;
+        mask-image: linear-gradient(to right, black 88%, transparent 100%);
+    }
+    .market-stat {
+        min-width: 96px;
+        padding: var(--s2) var(--s3);
+    }
+    .market-venue {
+        display: none;
+    }
+    .market-price {
+        font-size: var(--t-xs);
+    }
+    .market-stat-scenario {
+        min-width: 140px;
+        padding-right: var(--s5);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .market-strip-secondary {
+        mask-image: none;
+    }
+}
+
+@media (pointer: coarse) {
+    .icon-button {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}

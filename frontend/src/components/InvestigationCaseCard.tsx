@@ -47,7 +47,7 @@ export function InvestigationCaseCard({ caseFile, decision }: Props) {
 
             {caseFile.narrative && (
                 <div className="narrative">
-                    <div style={{ marginBottom: 6, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--blue)' }}>
+                    <div style={{ marginBottom: 6, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--cyan)' }}>
                         Analyst narrative{' '}
                         <span className={`pill ${caseFile.narrative_source === 'llm' ? 'blue' : 'muted'}`} style={{ fontSize: 9, marginLeft: 6 }}>
                             {caseFile.narrative_source === 'llm' ? 'narrative engine' : 'deterministic'}

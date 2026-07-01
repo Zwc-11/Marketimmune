@@ -45,7 +45,7 @@ export function AgentOrchestrator({
             </svg>
             <div className="orchestrator-core">
                 <BrandMark />
-                <strong>IMMUNE LOOP</strong>
+                <strong>Immune loop</strong>
                 <span>Orchestrator</span>
                 <StatusBadge tone="green">{running ? 'Running' : 'Completed'}</StatusBadge>
             </div>
@@ -117,9 +117,14 @@ export function AgentDetailPanel({
                 <StatusBadge tone="green">{running ? 'Running' : 'Completed'}</StatusBadge>
                 <Icon name="close" />
             </div>
-            <SlidingTabs tabs={tabs} value={tab} onChange={setTab} />
+            <SlidingTabs tabs={tabs} value={tab} onChange={setTab} idPrefix="agent-tab" />
             {tab === 'overview' && (
-                <div className="t-reveal">
+                <div
+                    className="t-reveal"
+                    role="tabpanel"
+                    id="agent-tab-overview-panel"
+                    aria-labelledby="agent-tab-overview"
+                >
                     <h4>Latest Output Summary</h4>
                     <p>
                         {traces[0]?.observation ?? agent?.goal ?? 'No persisted trace for this agent.'}
@@ -141,7 +146,12 @@ export function AgentDetailPanel({
                 </div>
             )}
             {tab === 'tools' && (
-                <div className="t-reveal">
+                <div
+                    className="t-reveal"
+                    role="tabpanel"
+                    id="agent-tab-tools-panel"
+                    aria-labelledby="agent-tab-tools"
+                >
                     <div className="trace-heading">
                         <strong>Tool Calls Trace</strong>
                         <span>{tools.length} calls</span>
@@ -170,7 +180,12 @@ export function AgentDetailPanel({
                 </div>
             )}
             {(tab === 'telemetry' || tab === 'logs' || tab === 'output') && (
-                <div className="t-reveal">
+                <div
+                    className="t-reveal"
+                    role="tabpanel"
+                    id={`agent-tab-${tab}-panel`}
+                    aria-labelledby={`agent-tab-${tab}`}
+                >
                     <h4>Agent Stats</h4>
                     <div className="detail-stats">
                         <MiniMetric label="Started" value={formatClock(agent?.started_at)} helper="UTC" />

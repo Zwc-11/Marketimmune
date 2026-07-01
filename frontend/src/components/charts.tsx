@@ -1,4 +1,4 @@
-import type { SimulatorEvent, SimulatorPrediction } from '../types';
+import type { HyperliquidCandle, HyperliquidLiveSnapshot, SimulatorEvent, SimulatorPrediction } from '../types';
 import type { Tone } from '../routes';
 import { clamp, price, scoreValue } from '../lib/format';
 import { EmptyState } from './ui';
@@ -151,6 +151,95 @@ export function CandleReplayChart({ events }: { events: SimulatorEvent[] }) {
     );
 }
 
+export function LiveCandleChart({ candles }: { candles: HyperliquidCandle[] }) {
+    if (!candles.length) {
+        return (
+            <div className="chart-empty">
+                <EmptyState
+                    title="No live candles"
+                    body="Hyperliquid candle data is unavailable from the API."
+                />
+            </div>
+        );
+    }
+    const width = 900;
+    const height = 300;
+    const pad = { top: 16, right: 72, bottom: 48, left: 22 };
+    const max = Math.max(...candles.map((candle) => candle.high));
+    const min = Math.min(...candles.map((candle) => candle.low));
+    const maxVol = Math.max(...candles.map((candle) => candle.volume), 1);
+    const chartWidth = width - pad.left - pad.right;
+    const chartHeight = height - pad.top - pad.bottom;
+    const x = (index: number) =>
+        pad.left + (index / Math.max(candles.length - 1, 1)) * chartWidth;
+    const y = (value: number) =>
+        pad.top + ((max - value) / Math.max(max - min, 0.001)) * chartHeight;
+    const candleWidth = Math.max(3, (chartWidth / candles.length) * 0.58);
+    const current = candles[candles.length - 1];
+
+    return (
+        <svg
+            className="candle-chart live-candle-chart"
+            viewBox={`0 0 ${width} ${height}`}
+            role="img"
+            aria-label="Live Hyperliquid candlestick chart"
+        >
+            {[0, 1, 2, 3].map((grid) => {
+                const gy = pad.top + (grid / 3) * chartHeight;
+                return (
+                    <line
+                        key={grid}
+                        x1={pad.left}
+                        x2={width - pad.right}
+                        y1={gy}
+                        y2={gy}
+                        className="chart-grid-line"
+                    />
+                );
+            })}
+            {candles.map((candle, index) => {
+                const up = candle.close >= candle.open;
+                const barHeight = (candle.volume / maxVol) * 42;
+                return (
+                    <g key={`${candle.open_ts_ms}-${index}`}>
+                        <line
+                            x1={x(index)}
+                            x2={x(index)}
+                            y1={y(candle.high)}
+                            y2={y(candle.low)}
+                            className={up ? 'candle-wick up' : 'candle-wick down'}
+                        />
+                        <rect
+                            x={x(index) - candleWidth / 2}
+                            y={Math.min(y(candle.open), y(candle.close))}
+                            width={candleWidth}
+                            height={Math.max(2, Math.abs(y(candle.open) - y(candle.close)))}
+                            className={up ? 'candle-body up' : 'candle-body down'}
+                        />
+                        <rect
+                            x={x(index) - candleWidth / 2}
+                            y={height - 28 - barHeight}
+                            width={candleWidth}
+                            height={barHeight}
+                            className={up ? 'volume-bar up' : 'volume-bar down'}
+                        />
+                    </g>
+                );
+            })}
+            <line
+                x1={pad.left}
+                x2={width - pad.right}
+                y1={y(current.close)}
+                y2={y(current.close)}
+                className="price-dash"
+            />
+            <text x={width - 66} y={y(current.close) - 4} className="price-tag">
+                {price(current.close)}
+            </text>
+        </svg>
+    );
+}
+
 export function DepthChart({ event }: { event: SimulatorEvent | null }) {
     const levels = event?.depth_levels ?? [];
     const bids = levels.filter((level) => level.percentage < 0).sort((a, b) => a.percentage - b.percentage);
@@ -167,13 +256,66 @@ export function DepthChart({ event }: { event: SimulatorEvent | null }) {
     };
     return (
         <div className="depth-card">
-            <h4>Order Book Depth (Top 20)</h4>
-            <svg viewBox="0 0 860 150" aria-hidden="true">
+            <h4>Order book depth (top 20)</h4>
+            <svg
+                viewBox="0 0 860 150"
+                role="img"
+                aria-label={`Order book depth around ${price(event?.close)}`}
+            >
                 <path className="depth-area bid" d={makePath(bids, 'bid')} />
                 <path className="depth-area ask" d={makePath(asks, 'ask')} />
                 <line x1="430" x2="430" y1="10" y2="136" className="midline" />
                 <text x="398" y="145" className="depth-label">
                     {price(event?.close)}
+                </text>
+            </svg>
+        </div>
+    );
+}
+
+export function LiveDepthChart({ snapshot }: { snapshot: HyperliquidLiveSnapshot | null }) {
+    const bids = snapshot?.bids ?? [];
+    const asks = snapshot?.asks ?? [];
+    if (!snapshot || !bids.length || !asks.length) {
+        return (
+            <div className="depth-card">
+                <h4>Live order book depth</h4>
+                <div className="chart-empty small">
+                    <EmptyState
+                        title="No live order book"
+                        body="Hyperliquid L2 book data is unavailable from the API."
+                    />
+                </div>
+            </div>
+        );
+    }
+
+    const maxDepth = Math.max(
+        ...bids.map((level) => level.sz),
+        ...asks.map((level) => level.sz),
+        1,
+    );
+    const mid = snapshot.mid;
+    const makePath = (items: typeof bids, side: 'bid' | 'ask') => {
+        const sorted = side === 'bid' ? [...items].reverse() : items;
+        const originX = side === 'bid' ? 420 : 430;
+        const points = sorted.map((level, index) => {
+            const x = side === 'bid' ? originX - index * 42 : originX + index * 42;
+            const y = 130 - (level.sz / maxDepth) * 100;
+            return `${x},${y}`;
+        });
+        return `M ${originX},130 L ${points.join(' L ')} L ${side === 'bid' ? 40 : 820},130 Z`;
+    };
+
+    return (
+        <div className="depth-card">
+            <h4>Live order book depth</h4>
+            <svg viewBox="0 0 860 150" role="img" aria-label="Live Hyperliquid order book depth">
+                <path className="depth-area bid" d={makePath(bids, 'bid')} />
+                <path className="depth-area ask" d={makePath(asks, 'ask')} />
+                <line x1="430" x2="430" y1="10" y2="136" className="midline" />
+                <text x="398" y="145" className="depth-label">
+                    {price(mid)}
                 </text>
             </svg>
         </div>
@@ -249,6 +391,136 @@ export function RiskGauge({ value, label }: { value: number; label: string }) {
     );
 }
 
+export function MetricCompareBars({
+    rows,
+}: {
+    rows: Array<{ label: string; active: number; candidate: number; suffix?: string }>;
+}) {
+    if (!rows.length) {
+        return (
+            <EmptyState
+                title="No comparison metrics"
+                body="Persisted training runs did not return comparable benchmark rows."
+            />
+        );
+    }
+    const max = Math.max(...rows.flatMap((row) => [Math.abs(row.active), Math.abs(row.candidate)]), 0.001);
+
+    return (
+        <div className="metric-compare-chart" role="img" aria-label="Champion versus challenger metric comparison">
+            {rows.map((row) => {
+                const activeWidth = (Math.abs(row.active) / max) * 100;
+                const candidateWidth = (Math.abs(row.candidate) / max) * 100;
+                return (
+                    <div key={row.label} className="metric-compare-row">
+                        <span className="metric-compare-label">{row.label}</span>
+                        <div className="metric-compare-bars">
+                            <div className="metric-compare-track">
+                                <span
+                                    className="metric-compare-bar active"
+                                    style={{ width: `${activeWidth}%` }}
+                                />
+                                <em>
+                                    {row.active.toFixed(row.active > 10 ? 1 : 3)}
+                                    {row.suffix ?? ''}
+                                </em>
+                            </div>
+                            <div className="metric-compare-track">
+                                <span
+                                    className="metric-compare-bar candidate"
+                                    style={{ width: `${candidateWidth}%` }}
+                                />
+                                <em>
+                                    {row.candidate.toFixed(row.candidate > 10 ? 1 : 3)}
+                                    {row.suffix ?? ''}
+                                </em>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+            <div className="metric-compare-legend">
+                <span>
+                    <i className="active" /> Champion
+                </span>
+                <span>
+                    <i className="candidate" /> Challenger
+                </span>
+            </div>
+        </div>
+    );
+}
+
+export function ScenarioLiftBars({ rows }: { rows: Array<{ label: string; liftBps: number }> }) {
+    const max = Math.max(...rows.map((row) => Math.abs(row.liftBps)), 0.1);
+    return (
+        <div className="scenario-lift-chart" role="img" aria-label="Held-out markout lift by scenario family">
+            {rows.map((row) => (
+                <div key={row.label} className="scenario-lift-row">
+                    <span>{row.label}</span>
+                    <div className="scenario-lift-track">
+                        <span
+                            className={row.liftBps >= 0 ? 'positive' : 'negative'}
+                            style={{ width: `${(Math.abs(row.liftBps) / max) * 100}%` }}
+                        />
+                    </div>
+                    <strong className="num">
+                        {row.liftBps >= 0 ? '+' : ''}
+                        {row.liftBps.toFixed(1)} bps
+                    </strong>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+export function CalibrationCompare({
+    activeBrier,
+    candidateBrier,
+    activePrAuc,
+    candidatePrAuc,
+}: {
+    activeBrier: number;
+    candidateBrier: number;
+    activePrAuc: number;
+    candidatePrAuc: number;
+}) {
+    return (
+        <div className="calibration-compare">
+            <div className="calibration-metric">
+                <span>Brier score (lower is better)</span>
+                <div className="calibration-pair">
+                    <div>
+                        <small>Champion</small>
+                        <strong className="num">{activeBrier.toFixed(3)}</strong>
+                        <ProgressBar value={(1 - activeBrier) * 100} tone="green" />
+                    </div>
+                    <div>
+                        <small>Challenger</small>
+                        <strong className="num">{candidateBrier.toFixed(3)}</strong>
+                        <ProgressBar value={(1 - candidateBrier) * 100} tone="amber" />
+                    </div>
+                </div>
+            </div>
+            <div className="calibration-metric">
+                <span>PR-AUC after isotonic calibration</span>
+                <div className="calibration-pair">
+                    <div>
+                        <small>Champion</small>
+                        <strong className="num">{activePrAuc.toFixed(3)}</strong>
+                        <ProgressBar value={activePrAuc * 100} tone="green" />
+                    </div>
+                    <div>
+                        <small>Challenger</small>
+                        <strong className="num">{candidatePrAuc.toFixed(3)}</strong>
+                        <ProgressBar value={candidatePrAuc * 100} tone="amber" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export function RadialLoopDiagram({ activeIndex }: { activeIndex: number }) {
     const stages = [
         ['Red Team', 'Replay real toxic episodes', 'users'],
@@ -288,8 +560,8 @@ export function RadialLoopDiagram({ activeIndex }: { activeIndex: number }) {
             ))}
             <div className="loop-center">
                 <BrandMark />
-                <strong>IMMUNE LOOP</strong>
-                <span>Continuous Protection</span>
+                <strong>Immune loop</strong>
+                <span>Generate · Detect · Investigate · Decide · Remember</span>
             </div>
         </div>
     );

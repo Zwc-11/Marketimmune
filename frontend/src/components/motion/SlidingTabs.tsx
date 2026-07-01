@@ -4,10 +4,12 @@ export function SlidingTabs<T extends string>({
     tabs,
     value,
     onChange,
+    idPrefix = 'tab',
 }: {
     tabs: Array<{ id: T; label: string }>;
     value: T;
     onChange: (id: T) => void;
+    idPrefix?: string;
 }) {
     const listRef = useRef<HTMLDivElement>(null);
     const [indicator, setIndicator] = useState({ left: 0, width: 0 });
@@ -21,19 +23,22 @@ export function SlidingTabs<T extends string>({
     }, [value, tabs]);
 
     return (
-        <div className="t-tabs" ref={listRef} role="tablist">
+        <div className="t-tabs" ref={listRef} role="tablist" aria-label="Section tabs">
             <span
                 className="t-tabs-indicator"
                 style={{ left: indicator.left, width: indicator.width }}
-                aria-hidden
+                aria-hidden="true"
             />
             {tabs.map((tab) => (
                 <button
                     key={tab.id}
                     type="button"
                     role="tab"
+                    id={`${idPrefix}-${tab.id}`}
                     data-tab-id={tab.id}
                     aria-selected={value === tab.id}
+                    aria-controls={`${idPrefix}-${tab.id}-panel`}
+                    tabIndex={value === tab.id ? 0 : -1}
                     onClick={() => onChange(tab.id)}
                 >
                     {tab.label}

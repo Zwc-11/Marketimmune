@@ -1,0 +1,39 @@
+/* 9. MOTION ---------------------------------------------------------------- */
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes rowIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+@keyframes dotPulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 4px var(--green-soft); }
+    50% { opacity: 0.55; box-shadow: 0 0 0 2px var(--green-soft); }
+}
+@keyframes scanDrift {
+    0% { transform: translateY(-120%); }
+    100% { transform: translateY(320%); }
+}
+@keyframes countPop {
+    from { opacity: 0.4; transform: translateY(3px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+    body::after {
+        display: none;
+    }
+}
+

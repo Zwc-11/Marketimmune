@@ -1,0 +1,84 @@
+/* --- Agentic Loop --- */
+.agentic-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s5);
+}
+.agentic-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: var(--s4);
+    align-items: start;
+}
+.orchestrator-panel {
+    position: relative;
+    min-height: 620px;
+}
+.canvas-tools {
+    position: absolute;
+    top: var(--s4);
+    right: var(--s4);
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+    z-index: var(--z-base);
+}
+.canvas-tools button {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--line);
+    background: var(--surface-raised);
+    color: var(--ink-2);
+    cursor: pointer;
+}
+.canvas-tools button:hover {
+    border-color: var(--line-2);
+    color: var(--ink);
+}
+.canvas-zoom-label {
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    color: var(--muted);
+    min-width: 2.5rem;
+    text-align: center;
+}
+.orchestrator-viewport {
+    transform: scale(var(--zoom, 1));
+    transform-origin: center top;
+    transition: transform 0.2s;
+}
+.orchestrator-viewport.expanded {
+    min-height: 760px;
+}
+.agent-bottom-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s4);
+    padding: var(--s4) var(--s5);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--surface-border);
+    background: var(--surface-base);
+    box-shadow: var(--surface-shadow);
+}
+.agent-bottom-bar .metric-block {
+    min-width: 150px;
+}
+.bottom-progress {
+    flex: 1;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: var(--t-xs);
+    color: var(--muted);
+}
+@media (pointer: coarse) {
+    .canvas-tools button {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}

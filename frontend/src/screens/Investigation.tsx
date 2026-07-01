@@ -34,7 +34,8 @@ export function InvestigationScreen({ data, loading }: { data: ProductData; load
         return (
             <EmptyState
                 title="No investigation case"
-                body="Run the immune loop to create a persisted case file."
+                body="Run the immune loop to create a persisted case file with evidence and policy decisions."
+                action={{ label: 'Open command center', href: '#/command' }}
             />
         );
     }
@@ -50,8 +51,8 @@ export function InvestigationScreen({ data, loading }: { data: ProductData; load
     ).filter(Boolean);
     return (
         <section className="screen-stack">
-            <a className="back-link" href="#/risk">
-                <Icon name="chevron-left" /> Back to Investigations
+            <a className="back-link" href="#/agentic">
+                <Icon name="chevron-left" /> Back to immune loop
             </a>
             <DataPanel className="case-strip">
                 <div className="case-strip-cell">
@@ -74,9 +75,9 @@ export function InvestigationScreen({ data, loading }: { data: ProductData; load
                             caseFile.severity === 'critical' ? 'danger-text' : 'warning-text'
                         }
                     >
-                        {sentenceCase(caseFile.severity)} •
+                        {sentenceCase(caseFile.severity)}
                     </strong>
-                    <small>Requires Review</small>
+                    <small>Requires review</small>
                 </div>
                 <div className="case-strip-cell">
                     <span>Confidence</span>
@@ -116,18 +117,18 @@ export function InvestigationScreen({ data, loading }: { data: ProductData; load
                             150,
                         )}
                     </p>
-                    <StatusBadge tone="green">Behavioral Anomaly Detected</StatusBadge>
+                    <StatusBadge tone="amber">Adverse selection flagged</StatusBadge>
                 </DataPanel>
                 <DataPanel title="Feature Evidence">
                     <FeatureEvidenceTable features={caseFile.feature_evidence} />
                     <a className="panel-link" href="#/risk">
-                        View All Features <Icon name="chevron" />
+                        View features on sentinel <Icon name="chevron" />
                     </a>
                 </DataPanel>
                 <DataPanel title="Matched Rules">
                     <MatchedRulesTable rules={caseFile.matched_rules} />
                     <a className="panel-link" href="#/risk">
-                        View All Rules <Icon name="chevron" />
+                        View rules on sentinel <Icon name="chevron" />
                     </a>
                 </DataPanel>
                 <DataPanel title="Timeline of Events">

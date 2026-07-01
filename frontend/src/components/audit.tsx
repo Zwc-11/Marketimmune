@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { AuditRow } from '../lib/derive';
+import { toneForDecision, toneTextClass } from '../lib/derive';
 import { Icon } from './Icon';
 import { EmptyState, StatusBadge } from './ui';
 
@@ -15,26 +16,20 @@ export function AuditTreeView({ rows }: { rows: AuditRow[] }) {
         );
     }
     return (
-        <div className="audit-tree">
+        <div className="audit-tree" role="listbox" aria-label="Audit trace nodes">
             {rows.map((row, index) => (
                 <button
                     key={`${row.agent}-${index}`}
                     type="button"
                     className={`audit-tree-node ${selected === index ? 'active' : ''}`}
+                    role="option"
+                    aria-selected={selected === index}
                     onClick={() => setSelected(index)}
                 >
                     <span>{index + 1}</span>
                     <strong>{row.agent}</strong>
                     <em>{row.title}</em>
-                    <StatusBadge
-                        tone={
-                            row.decision === 'Block'
-                                ? 'red'
-                                : row.decision === 'Escalate'
-                                  ? 'amber'
-                                  : 'green'
-                        }
-                    >
+                    <StatusBadge tone={toneForDecision(row.decision)}>
                         {row.decision}
                     </StatusBadge>
                 </button>
@@ -69,21 +64,19 @@ export function TraceCard({
                 <strong>Agent: {row.agent}</strong>
                 <span>{row.step}</span>
             </div>
-            <button className="trace-main" type="button" onClick={() => setOpen((value) => !value)}>
+            <button
+                className="trace-main"
+                type="button"
+                aria-expanded={open}
+                aria-controls={`trace-panel-${index}`}
+                onClick={() => setOpen((value) => !value)}
+            >
                 <strong>{row.title}</strong>
                 <StatusBadge tone="green">Tool Calls ({row.tools})</StatusBadge>
             </button>
             <div className="trace-field">
                 <span>Policy Decision</span>
-                <strong
-                    className={
-                        row.decision === 'Block'
-                            ? 'danger-text'
-                            : row.decision === 'Escalate'
-                              ? 'warning-text'
-                              : 'positive'
-                    }
-                >
+                <strong className={toneTextClass(toneForDecision(row.decision))}>
                     {row.decision}
                 </strong>
             </div>
@@ -104,7 +97,11 @@ export function TraceCard({
                 </strong>
             </div>
             <Icon name="chevron" />
-            <div className={`trace-expanded ${open ? 'open' : ''}`}>
+            <div
+                className={`trace-expanded ${open ? 'open' : ''}`}
+                id={`trace-panel-${index}`}
+                hidden={!open}
+            >
                 <div className="t-panel-slide t-reveal" data-open={open ? 'true' : 'false'}>
                 <div className="trace-obs">
                     <span className="trace-label">Observation</span>

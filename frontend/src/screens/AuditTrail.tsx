@@ -12,6 +12,7 @@ import {
 import { AuditTreeView, TraceCard } from '../components/audit';
 import { auditRowsFrom, exportTrace, shareCurrentLink } from '../lib/derive';
 import { formatDuration, formatTimestamp, sentenceCase, shortId } from '../lib/format';
+import { StatusAnnouncer } from '../components/StatusAnnouncer';
 
 export function AuditTrailScreen({ data, loading }: { data: ProductData; loading: boolean }) {
     const loop = data.loopState?.loop ?? null;
@@ -47,7 +48,7 @@ export function AuditTrailScreen({ data, loading }: { data: ProductData; loading
                             type="button"
                             onClick={() => shareCurrentLink(setNotice)}
                         >
-                            <Icon name="link" /> Share Link
+                            <Icon name="link" /> Copy Share Link
                         </button>
                     </>
                 }
@@ -74,29 +75,39 @@ export function AuditTrailScreen({ data, loading }: { data: ProductData; loading
             </DataPanel>
             <DataPanel className="audit-panel">
                 <div className="audit-toolbar">
-                    <div className="tabs">
+                    <div className="tabs" role="tablist" aria-label="Audit trace view">
                         <button
                             className={auditView === 'timeline' ? 'active' : ''}
                             type="button"
+                            role="tab"
+                            id="audit-tab-timeline"
+                            aria-selected={auditView === 'timeline'}
+                            aria-controls="audit-panel-trace"
                             onClick={() => setAuditView('timeline')}
                         >
-                            Timeline View
+                            Timeline view
                         </button>
                         <button
                             className={auditView === 'tree' ? 'active' : ''}
                             type="button"
+                            role="tab"
+                            id="audit-tab-tree"
+                            aria-selected={auditView === 'tree'}
+                            aria-controls="audit-panel-trace"
                             onClick={() => setAuditView('tree')}
                         >
-                            Tree View
+                            Tree view
                         </button>
                     </div>
                     <div className="toolbar-actions">
                         <label className="search-box">
-                            <Icon name="search" />{' '}
+                            <Icon name="search" aria-hidden="true" />
+                            <span className="sr-only">Search audit trace</span>
                             <input
                                 value={query}
                                 onChange={(event) => setQuery(event.target.value)}
-                                placeholder="Search in trace..."
+                                placeholder="Search trace…"
+                                aria-label="Search audit trace"
                             />
                         </label>
                         <button
@@ -115,7 +126,14 @@ export function AuditTrailScreen({ data, loading }: { data: ProductData; loading
                         </button>
                     </div>
                 </div>
-                <div className="audit-timeline">
+                <div
+                    className="audit-timeline"
+                    id="audit-panel-trace"
+                    role="tabpanel"
+                    aria-labelledby={
+                        auditView === 'timeline' ? 'audit-tab-timeline' : 'audit-tab-tree'
+                    }
+                >
                     {auditView === 'tree' ? (
                         <AuditTreeView rows={filteredRows} />
                     ) : filteredRows.length ? (
@@ -150,7 +168,7 @@ export function AuditTrailScreen({ data, loading }: { data: ProductData; loading
                     </a>
                 </div>
             </DataPanel>
-            {notice && <div className="run-message">{notice}</div>}
+            {notice && <StatusAnnouncer message={notice} />}
             <div className="audit-footer">
                 <span>All timestamps in UTC</span>
                 <span>

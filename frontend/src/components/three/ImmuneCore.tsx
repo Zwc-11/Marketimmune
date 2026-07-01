@@ -11,13 +11,47 @@ import { useLiveRisk } from '../../data/provider';
 const AGENT_NODES = 8;
 const PARTICLES = 620;
 
-const COLOR_GREEN = new THREE.Color('#0d9488');
-const COLOR_AMBER = new THREE.Color('#d97706');
-const COLOR_RED = new THREE.Color('#dc2626');
+interface Palette {
+    green: THREE.Color;
+    amber: THREE.Color;
+    red: THREE.Color;
+    accent: THREE.Color;
+}
 
-function riskColorInto(target: THREE.Color, risk: number): void {
-    if (risk < 0.5) target.copy(COLOR_GREEN).lerp(COLOR_AMBER, risk / 0.5);
-    else target.copy(COLOR_AMBER).lerp(COLOR_RED, (risk - 0.5) / 0.5);
+function readVarColor(name: string, fallback: string): THREE.Color {
+    if (typeof window === 'undefined') return new THREE.Color(fallback);
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    try {
+        return new THREE.Color(value || fallback);
+    } catch {
+        return new THREE.Color(fallback);
+    }
+}
+
+// Read brand/semantic colours from the active theme so the hero re-tints on
+// light/dark toggle (semantic green/amber/red darken on light for visibility).
+function useThemePalette(): Palette {
+    const read = (): Palette => ({
+        green: readVarColor('--green', '#3fd68b'),
+        amber: readVarColor('--amber', '#f0b429'),
+        red: readVarColor('--red', '#f6465d'),
+        accent: readVarColor('--accent-ink', '#97fce4'),
+    });
+    const [palette, setPalette] = useState<Palette>(read);
+    useEffect(() => {
+        const observer = new MutationObserver(() => setPalette(read()));
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-theme'],
+        });
+        return () => observer.disconnect();
+    }, []);
+    return palette;
+}
+
+function riskColorInto(target: THREE.Color, risk: number, palette: Palette): void {
+    if (risk < 0.5) target.copy(palette.green).lerp(palette.amber, risk / 0.5);
+    else target.copy(palette.amber).lerp(palette.red, (risk - 0.5) / 0.5);
 }
 
 function hasWebGL(): boolean {
@@ -36,9 +70,10 @@ interface SceneProps {
     riskRef: MutableRefObject<number>;
     reduced: boolean;
     compact: boolean;
+    palette: Palette;
 }
 
-const Scene = memo(function Scene({ riskRef, reduced, compact }: SceneProps) {
+const Scene = memo(function Scene({ riskRef, reduced, compact, palette }: SceneProps) {
     const group = useRef<THREE.Group>(null);
     const core = useRef<THREE.Mesh>(null);
     const coreMat = useRef<THREE.MeshBasicMaterial>(null);
@@ -78,7 +113,7 @@ const Scene = memo(function Scene({ riskRef, reduced, compact }: SceneProps) {
 
     useFrame((state, delta) => {
         const risk = riskRef.current;
-        riskColorInto(color, risk);
+        riskColorInto(color, risk, palette);
         const t = state.clock.elapsedTime;
         const spin = reduced ? 0 : delta * (0.08 + risk * 0.22);
         if (group.current) group.current.rotation.y += spin;
@@ -126,7 +161,7 @@ const Scene = memo(function Scene({ riskRef, reduced, compact }: SceneProps) {
                 {geometry.nodePositions.map((position, i) => (
                     <mesh key={i} position={position}>
                         <sphereGeometry args={[0.07, 14, 14]} />
-                        <meshBasicMaterial color="#cffaea" />
+                        <meshBasicMaterial color={palette.accent} />
                     </mesh>
                 ))}
             </group>
@@ -157,6 +192,7 @@ export function ImmuneCore({
     const risk = useLiveRisk();
     const riskRef = useRef(risk);
     riskRef.current = risk;
+    const palette = useThemePalette();
 
     const [supported] = useState(hasWebGL);
     const reduced = useMemo(
@@ -194,7 +230,7 @@ export function ImmuneCore({
                     camera={{ position: [0, 1.5, compact ? 5.8 : 5.2], fov: 45 }}
                     gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
                 >
-                    <Scene riskRef={riskRef} reduced={reduced} compact={compact} />
+                    <Scene riskRef={riskRef} reduced={reduced} compact={compact} palette={palette} />
                 </Canvas>
             ) : (
                 <div className="three-fallback">Immune core (3D unavailable)</div>

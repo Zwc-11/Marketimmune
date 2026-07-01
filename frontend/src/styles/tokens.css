@@ -1,0 +1,344 @@
+/* =============================================================================
+   MarketImmune — Geist-based design tokens (light + dark) with mint brand.
+   Adapts Vercel's Geist system (https://vercel.com/design.md): near-neutral
+   surfaces, 10-step intent scales, tight radii, subtle elevation, calm motion.
+   MarketImmune keeps its mint accent (#97fce4) as the primary/brand colour and
+   green/red as PnL/toxicity semantics. Theme is switched via the `data-theme`
+   attribute on <html> (set before paint by the init script in index.html).
+   Never hard-code hex in components — reference these tokens.
+   ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Theme-agnostic tokens (identical in light + dark)
+   --------------------------------------------------------------------------- */
+:root {
+    /* Type families — Geist Sans (UI/prose) + Geist Mono (numerics/code) */
+    --font-display: 'Geist Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-ui: 'Geist Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-zh: 'Noto Sans SC', var(--font-ui);
+    --font-jp: 'Noto Sans JP', var(--font-ui);
+    --font-cjk: 'Noto Sans SC', 'Noto Sans JP', var(--font-ui);
+    --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', 'Cascadia Code', monospace;
+
+    /* Z-index ladder */
+    --z-base: 1;
+    --z-sticky: 20;
+    --z-drawer: 40;
+    --z-drawer-backdrop: 35;
+    --z-modal-backdrop: 45;
+    --z-modal: 46;
+    --z-toast: 50;
+
+    /* Grid axes */
+    --grid-margin: var(--s4);
+    --grid-micro-offset: var(--s3);
+    --grid-instrument-baseline: var(--s6);
+
+    /* Spacing — Geist 4px scale: 4 8 12 16 24 32 40 64 96 */
+    --s1: 4px;
+    --s2: 8px;
+    --s3: 12px;
+    --s4: 16px;
+    --s5: 20px;
+    --s6: 24px;
+    --s8: 32px;
+    --s10: 40px;
+    --s12: 48px;
+    --s16: 64px;
+    --s24: 96px;
+
+    /* Radii — Geist: 6 everyday, 12 menus/modals, 16 fullscreen, 9999 pills */
+    --r-sm: 6px;
+    --r-md: 12px;
+    --r-lg: 16px;
+    --r-xl: 16px;
+    --r-full: 9999px;
+
+    /* Type scale (compact terminal ladder mapped onto Geist metrics) */
+    --t-display: clamp(1.75rem, 2.4vw, 2.5rem);
+    --t-h1: 1.25rem;     /* ~heading-20 */
+    --t-h2: 1rem;        /* ~heading-16 */
+    --t-h3: 0.875rem;    /* ~heading-14 */
+    --t-body: 0.8125rem; /* ~copy-13 */
+    --t-sm: 0.75rem;     /* ~label-12 */
+    --t-xs: 0.6875rem;
+    --t-2xs: 0.625rem;
+
+    /* Layout chrome dimensions (full-bleed terminal shell) */
+    --sidebar-w: 220px;
+    --sidebar-collapsed-w: 56px;
+    --topbar-h: 48px;
+    --ticker-h: 36px;
+    --maxw: none;
+
+    /* Motion — Geist discipline: short, physical, no decoration.
+       Base easing is Geist's cubic-bezier(0.175, 0.885, 0.32, 1.1). */
+    --ease: cubic-bezier(0.175, 0.885, 0.32, 1.1);
+    --resize-dur: 180ms;
+    --resize-ease: var(--ease);
+    --digit-dur: 320ms;
+    --digit-distance: 4px;
+    --digit-stagger: 40ms;
+    --digit-blur: 0px;
+    --digit-ease: var(--ease);
+    --digit-dir-x: 0;
+    --digit-dir-y: 1;
+    --badge-slide-dur: 180ms;
+    --badge-pop-dur: 260ms;
+    --badge-pop-close-dur: 140ms;
+    --badge-fade-dur: 240ms;
+    --badge-fade-close-dur: 140ms;
+    --badge-blur: 0px;
+    --badge-offset-x: -8.2px;
+    --badge-offset-y: 12.4px;
+    --badge-slide-ease: var(--ease);
+    --badge-pop-ease: var(--ease);
+    --badge-close-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --text-swap-dur: 150ms;
+    --text-swap-translate-y: 4px;
+    --text-swap-blur: 0px;
+    --text-swap-ease: ease-out;
+    --dropdown-open-dur: 200ms;
+    --dropdown-close-dur: 140ms;
+    --dropdown-pre-scale: 0.98;
+    --dropdown-closing-scale: 0.99;
+    --dropdown-ease: var(--ease);
+    --modal-open-dur: 200ms;
+    --modal-close-dur: 140ms;
+    --modal-scale: 0.97;
+    --modal-scale-close: 0.97;
+    --modal-ease: var(--ease);
+    --panel-open-dur: 220ms;
+    --panel-close-dur: 180ms;
+    --panel-translate-y: 16px;
+    --panel-blur: 0px;
+    --panel-ease: var(--ease);
+    --page-slide-dur: 160ms;
+    --page-fade-dur: 160ms;
+    --page-slide-distance: 8px;
+    --page-blur: 0px;
+    --page-stagger: 0ms;
+    --page-exit-enabled: 1;
+    --page-slide-ease: var(--ease);
+    --page-fade-ease: var(--ease);
+    --route-dir: 1;
+    --icon-swap-dur: 150ms;
+    --icon-swap-blur: 0px;
+    --icon-swap-start-scale: 0.25;
+    --icon-swap-ease: ease-in-out;
+    --shake-distance: 4px;
+    --shake-overshoot: 3px;
+    --shake-dur-a: 70ms;
+    --shake-dur-b: 50ms;
+    --shake-ease: var(--ease);
+
+    /* Base text rendering */
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-feature-settings: 'tnum' 1;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* ---------------------------------------------------------------------------
+   DARK theme (default) — Geist dark surfaces + mint brand
+   --------------------------------------------------------------------------- */
+:root,
+:root[data-theme='dark'] {
+    color-scheme: dark;
+
+    /* Field + surfaces */
+    --bg-0: #0a0a0a;
+    --bg-1: #111111;
+    --bg-2: #1a1a1a;
+    --panel: #1a1a1a;
+    --panel-2: #1f1f1f;
+    --panel-3: #242424;
+    --line: rgba(255, 255, 255, 0.1);
+    --line-2: rgba(255, 255, 255, 0.16);
+    --line-strong: rgba(255, 255, 255, 0.24);
+    --grid-line: rgba(255, 255, 255, 0.05);
+    --grid-line-strong: rgba(255, 255, 255, 0.09);
+
+    /* Chrome (sidebar / top bar) — flat, no blur */
+    --chrome-bg: #0a0a0a;
+    --chrome-border: rgba(255, 255, 255, 0.1);
+    --glass-bg: var(--panel);
+    --glass-bg-strong: var(--panel-2);
+    --glass-border: var(--chrome-border);
+    --glass-highlight: rgba(151, 252, 228, 0.06);
+    --glass-inset: rgba(0, 0, 0, 0.4);
+    --glass-blur: 0px;
+    --glass-saturate: 100%;
+    --glass-shadow: var(--shadow);
+    --glass-shadow-sm: none;
+
+    /* Text ladder (Geist gray 1000 / 900 / 700) */
+    --ink: #ededed;
+    --ink-2: #c9c9c9;
+    --muted: #a0a0a0;
+    --faint: #8f8f8f;
+    --placeholder: #7d7d7d;
+
+    /* Data panels */
+    --surface: #111111;
+    --surface-raised: #1a1a1a;
+    --surface-muted: #1f1f1f;
+    --surface-border: rgba(255, 255, 255, 0.1);
+    --surface-border-strong: rgba(255, 255, 255, 0.18);
+    --surface-shadow: var(--shadow);
+
+    /* Mint brand accent (primary actions, brand stroke, focus ring) */
+    --signal: #97fce4;
+    --signal-soft: rgba(151, 252, 228, 0.1);
+    --accent: #97fce4;
+    --accent-hover: #a7fee9;
+    --accent-active: #76dcc6;
+    --accent-soft: rgba(151, 252, 228, 0.1);
+    --accent-ink: #97fce4;            /* mint reads on black */
+    --accent-contrast: #00120d;       /* text on a mint fill */
+    --accent-border: rgba(151, 252, 228, 0.25);
+    --ring: #97fce4;
+    --glow: 0 0 24px rgba(151, 252, 228, 0.15);
+
+    /* Preview honesty badge (amber) */
+    --preview-ink: #f0b429;
+    --preview-bg: rgba(240, 180, 41, 0.08);
+    --preview-border: rgba(240, 180, 41, 0.22);
+    --preview-dot: #f0b429;
+
+    /* Semantic — PnL / toxicity */
+    --green: #3fd68b;
+    --green-deep: #2eb872;
+    --green-soft: rgba(63, 214, 139, 0.12);
+    --cyan: #97fce4;
+    --cyan-soft: rgba(151, 252, 228, 0.1);
+    --amber: #f0b429;
+    --amber-soft: rgba(240, 180, 41, 0.12);
+    --red: #f6465d;
+    --red-soft: rgba(246, 70, 93, 0.12);
+    --danger-contrast: #ffffff;
+    --violet: #a78bfa;
+    --violet-soft: rgba(167, 139, 250, 0.1);
+    --steel: #8f8f8f;
+    --steel-soft: rgba(143, 143, 143, 0.12);
+
+    /* UI chrome bits */
+    --scrollbar-track: var(--bg-0);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.14);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.22);
+    --selection-bg: rgba(151, 252, 228, 0.22);
+    --modal-backdrop: rgba(0, 0, 0, 0.55);
+
+    /* Elevation (Geist dark: subtle, borders carry hierarchy) */
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+    --shadow-lg: 0 1px 1px rgba(0, 0, 0, 0.04), 0 8px 16px -4px rgba(0, 0, 0, 0.4),
+        0 24px 32px -8px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------------------------------------------------------------------------
+   LIGHT theme — Geist light surfaces + mint brand (darkened for text on white)
+   --------------------------------------------------------------------------- */
+:root[data-theme='light'] {
+    color-scheme: light;
+
+    /* Field + surfaces */
+    --bg-0: #ffffff;
+    --bg-1: #fafafa;
+    --bg-2: #f2f2f2;
+    --panel: #ffffff;
+    --panel-2: #fafafa;
+    --panel-3: #f2f2f2;
+    --line: rgba(0, 0, 0, 0.1);
+    --line-2: rgba(0, 0, 0, 0.16);
+    --line-strong: rgba(0, 0, 0, 0.24);
+    --grid-line: rgba(0, 0, 0, 0.05);
+    --grid-line-strong: rgba(0, 0, 0, 0.09);
+
+    /* Chrome */
+    --chrome-bg: #fafafa;
+    --chrome-border: rgba(0, 0, 0, 0.1);
+    --glass-bg: #ffffff;
+    --glass-bg-strong: #fafafa;
+    --glass-border: var(--chrome-border);
+    --glass-highlight: rgba(15, 118, 110, 0.12);
+    --glass-inset: rgba(0, 0, 0, 0.04);
+    --glass-blur: 0px;
+    --glass-saturate: 100%;
+    --glass-shadow: var(--shadow);
+    --glass-shadow-sm: none;
+
+    /* Text ladder (Geist gray 1000 / 900 / 700) */
+    --ink: #171717;
+    --ink-2: #404040;
+    --muted: #4d4d4d;
+    --faint: #767676;
+    --placeholder: #8f8f8f;
+
+    /* Data panels */
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-muted: #fafafa;
+    --surface-border: rgba(0, 0, 0, 0.1);
+    --surface-border-strong: rgba(0, 0, 0, 0.16);
+    --surface-shadow: var(--shadow);
+
+    /* Mint brand — bright mint stays a FILL; text/links use darkened mint */
+    --signal: #97fce4;
+    --signal-soft: rgba(151, 252, 228, 0.22);
+    --accent: #97fce4;
+    --accent-hover: #8bf1dc;
+    --accent-active: #73d6c1;
+    --accent-soft: rgba(15, 118, 110, 0.1);
+    --accent-ink: #0f766e;            /* AA on white (~4.8:1) */
+    --accent-contrast: #00120d;       /* text on a mint fill */
+    --accent-border: rgba(15, 118, 110, 0.35);
+    --ring: #0f766e;
+    --glow: none;
+
+    /* Preview honesty badge (amber, darkened for white) */
+    --preview-ink: #8a5a00;
+    --preview-bg: rgba(240, 180, 41, 0.14);
+    --preview-border: rgba(240, 180, 41, 0.4);
+    --preview-dot: #c98a00;
+
+    /* Semantic — darkened so they hold AA as text/strokes on white */
+    --green: #15924f;
+    --green-deep: #0f7a40;
+    --green-soft: rgba(21, 146, 79, 0.12);
+    --cyan: #0f766e;
+    --cyan-soft: rgba(15, 118, 110, 0.12);
+    --amber: #b45f06;
+    --amber-soft: rgba(240, 180, 41, 0.18);
+    --red: #d8001b;
+    --red-soft: rgba(216, 0, 27, 0.1);
+    --danger-contrast: #ffffff;
+    --violet: #7c3aed;
+    --violet-soft: rgba(124, 58, 237, 0.1);
+    --steel: #6b7280;
+    --steel-soft: rgba(107, 114, 128, 0.12);
+
+    /* UI chrome bits */
+    --scrollbar-track: var(--bg-0);
+    --scrollbar-thumb: rgba(0, 0, 0, 0.16);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.28);
+    --selection-bg: rgba(151, 252, 228, 0.45);
+    --modal-backdrop: rgba(0, 0, 0, 0.24);
+
+    /* Elevation (Geist light: tonal first, shadows subtle) */
+    --shadow: 0 2px 2px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 1px 1px rgba(0, 0, 0, 0.02), 0 8px 16px -4px rgba(0, 0, 0, 0.04),
+        0 24px 32px -8px rgba(0, 0, 0, 0.06);
+}
+
+/* Flat panel helpers (no blur — Geist relies on tone + hairline borders) */
+.glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+}
+.glass-strong {
+    background: var(--glass-bg-strong);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+}

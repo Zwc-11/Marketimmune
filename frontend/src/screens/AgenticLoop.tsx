@@ -6,16 +6,13 @@ import {
     DataPanel,
     LegendItem,
     LoadingState,
-    MetricCard,
+    MetricBlock,
     PageHeader,
     StatusBadge,
 } from '../components/ui';
 import { ProgressBar } from '../components/charts';
-import { LazyImmuneCore as ImmuneCore } from '../components/three/LazyImmuneCore';
 import { AgentDetailPanel, AgentOrchestrator } from '../components/agent';
-import { formatClock, formatDuration } from '../lib/format';
-import { clamp } from '../lib/derive';
-import { shortCycle } from '../lib/format';
+import { clamp, formatClock, formatDuration, shortCycle } from '../lib/format';
 
 export function AgenticLoopScreen({
     data,
@@ -34,50 +31,47 @@ export function AgenticLoopScreen({
         ? agentRuns[3]
         : agentRuns.find((agent) => agent.agent_name.includes('Investigator')) ?? agentRuns[0];
     const totalTools = agentRuns.reduce((sum, agent) => sum + agent.tool_call_count, 0);
+    const completedAgents = agentRuns.filter((agent) => agent.success).length;
+    const successRate = agentRuns.length
+        ? Math.round((completedAgents / agentRuns.length) * 100)
+        : 0;
     const [loopPaused, setLoopPaused] = useState(false);
     const [canvasZoom, setCanvasZoom] = useState(1);
     const [canvasExpanded, setCanvasExpanded] = useState(false);
-    const [showCanvasSettings, setShowCanvasSettings] = useState(false);
 
     if (loading && !loop) return <LoadingState label="Loading agent orchestration" />;
 
     return (
         <section className="agentic-page">
             <PageHeader
-                title="Immune Loop"
-                subtitle="Agentic defense orchestration in progress"
+                title="Immune loop"
+                subtitle="Agentic defense orchestration with persisted tool traces"
                 right={
                     <>
                         <StatusBadge tone="steel">Cycle {shortCycle(loop?.loop_id)}</StatusBadge>
-                        <span className="subtle">Started {formatClock(loop?.started_at)}</span>
+                        <span className="subtle">
+                            {loop ? `Started ${formatClock(loop.started_at)}` : 'No persisted cycle'}
+                        </span>
                         <a className="outline-action" href="#/audit">
-                            <Icon name="trend" /> View Loop Telemetry
+                            <Icon name="trend" /> Audit Trace
                         </a>
                     </>
                 }
             />
-            <DataPanel className="agentic-hero">
-                <ImmuneCore compact>
-                    <div className="hero-overlay">
-                        <div className="hero-readout tone-green">
-                            <strong>{agentRuns.filter((a) => a.success).length}/{agentRuns.length}</strong>
-                            <span>Agents Online · {totalTools} tools called</span>
-                        </div>
-                    </div>
-                </ImmuneCore>
-            </DataPanel>
             <div className="agentic-layout">
-                <DataPanel className="orchestrator-panel">
-                    <div className="canvas-tools">
+                <DataPanel className="orchestrator-panel" title="Agent orchestration">
+                    <div className="canvas-tools" role="toolbar" aria-label="Graph view controls">
                         <button
                             type="button"
-                            aria-label="Toggle canvas size"
+                            title={canvasExpanded ? 'Collapse graph' : 'Expand graph'}
+                            aria-label={canvasExpanded ? 'Collapse graph' : 'Expand graph'}
                             onClick={() => setCanvasExpanded((value) => !value)}
                         >
                             <Icon name="expand" />
                         </button>
                         <button
                             type="button"
+                            title="Zoom in"
                             aria-label="Zoom in"
                             onClick={() =>
                                 setCanvasZoom((value) => clamp(value + 0.08, 0.82, 1.18))
@@ -87,26 +81,16 @@ export function AgenticLoopScreen({
                         </button>
                         <button
                             type="button"
+                            title="Zoom out"
                             aria-label="Zoom out"
                             onClick={() =>
                                 setCanvasZoom((value) => clamp(value - 0.08, 0.82, 1.18))
                             }
                         >
-                            -
+                            −
                         </button>
-                        <button
-                            type="button"
-                            aria-label="Canvas settings"
-                            onClick={() => setShowCanvasSettings((value) => !value)}
-                        >
-                            <Icon name="settings" />
-                        </button>
+                        <span className="canvas-zoom-label">{Math.round(canvasZoom * 100)}%</span>
                     </div>
-                    {showCanvasSettings && (
-                        <div className="canvas-settings">
-                            Zoom {Math.round(canvasZoom * 100)}% · persisted agent graph
-                        </div>
-                    )}
                     <div
                         className={`orchestrator-viewport ${canvasExpanded ? 'expanded' : ''}`}
                         style={{ '--zoom': canvasZoom } as CSSProperties}
@@ -128,31 +112,29 @@ export function AgenticLoopScreen({
                 <AgentDetailPanel agent={activeAgent} running={runningLoop} />
             </div>
             <div className="agent-bottom-bar">
-                <MetricCard
-                    label="Loop Status"
+                <MetricBlock
+                    icon="pulse"
+                    label="Loop status"
                     value={runningLoop ? 'Running' : loop ? 'Completed' : 'Ready'}
-                    caption={loop ? `${formatDuration(loop.duration_ms)} elapsed` : 'No loop found'}
+                    helper={loop ? `${formatDuration(loop.duration_ms)} elapsed` : 'Run to persist agents'}
                     tone="green"
                 />
                 <div className="bottom-progress">
-                    <span>Progress</span>
+                    <span>Agent progress</span>
                     <ProgressBar
-                        value={
-                            agentRuns.length
-                                ? (agentRuns.filter((a) => a.success).length / agentRuns.length) * 100
-                                : 0
-                        }
+                        value={agentRuns.length ? (completedAgents / agentRuns.length) * 100 : 0}
                         tone="green"
                     />
                     <small>
-                        {agentRuns.filter((a) => a.success).length} of {agentRuns.length} agents
-                        completed
+                        {completedAgents} of {agentRuns.length} agents succeeded · {totalTools} tool
+                        calls
                     </small>
                 </div>
-                <MetricCard
-                    label="Success Rate"
-                    value={`${agentRuns.length ? Math.round((agentRuns.filter((a) => a.success).length / agentRuns.length) * 100) : 0}%`}
-                    caption={`(${agentRuns.filter((a) => a.success).length} / ${agentRuns.length})`}
+                <MetricBlock
+                    icon="check"
+                    label="Success rate"
+                    value={`${successRate}%`}
+                    helper={`${completedAgents} / ${agentRuns.length} agents`}
                     tone="green"
                 />
                 <button
@@ -161,7 +143,7 @@ export function AgenticLoopScreen({
                     onClick={() => setLoopPaused((value) => !value)}
                 >
                     <Icon name={loopPaused ? 'play' : 'pause'} />{' '}
-                    {loopPaused ? 'Resume View' : 'Pause View'}
+                    {loopPaused ? 'Resume Animation' : 'Pause Animation'}
                 </button>
                 <button
                     className="primary-action"
@@ -169,12 +151,8 @@ export function AgenticLoopScreen({
                     onClick={onRunLoop}
                     disabled={runningLoop}
                 >
-                    <Icon name="play" /> {runningLoop ? 'Running Loop' : 'Run Immune Loop'}
+                    <Icon name="play" /> {runningLoop ? 'Running Loop…' : 'Run Immune Loop'}
                 </button>
-                <a className="outline-action" href="#/audit">
-                    <Icon name="trend" /> View Telemetry
-                </a>
-                <span className="subtle">{totalTools} tools called</span>
             </div>
         </section>
     );

@@ -72,11 +72,13 @@ export function MemoryLibraryScreen({
                 right={
                     <>
                         <label className="search-box">
-                            <Icon name="search" />{' '}
+                            <Icon name="search" aria-hidden="true" />
+                            <span className="sr-only">Search memories</span>
                             <input
                                 value={query}
                                 onChange={(event) => setQuery(event.target.value)}
-                                placeholder="Search memories..."
+                                placeholder="Search memories…"
+                                aria-label="Search memories"
                             />
                         </label>
                         <button

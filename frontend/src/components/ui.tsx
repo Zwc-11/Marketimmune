@@ -66,7 +66,6 @@ export function MetricCard({
     caption,
     tone = 'ink',
     children,
-    action,
 }: {
     icon?: IconName;
     label: string;
@@ -74,19 +73,17 @@ export function MetricCard({
     caption?: ReactNode;
     tone?: Tone;
     children?: ReactNode;
-    action?: boolean;
 }) {
     return (
-        <DataPanel className={`metric-card tone-${tone}`}>
+        <article className={`metric-card tone-${tone}`}>
             <div className="metric-head">
                 {icon && <Icon name={icon} />}
                 <span>{label}</span>
-                {action && <Icon name="chevron" />}
             </div>
             <div className="metric-value">{value}</div>
             {caption && <div className="metric-caption">{caption}</div>}
             {children}
-        </DataPanel>
+        </article>
     );
 }
 
@@ -136,25 +133,6 @@ export function StatusLine({ icon, label, tone }: { icon: IconName; label: strin
         <div className={`status-line tone-${tone}`}>
             <Icon name={icon} />
             <span>{label}</span>
-        </div>
-    );
-}
-
-export function ToolbarPills({ labels }: { labels: string[] }) {
-    return (
-        <div className="toolbar-pills">
-            {labels.map((label, index) => (
-                <button key={label} className={index === 0 ? 'active' : ''} type="button">
-                    {label}
-                </button>
-            ))}
-            <span className="toolbar-icons">
-                <Icon name="calendar" />
-                <Icon name="wave" />
-                <Icon name="reset" />
-                <Icon name="settings" />
-                <Icon name="expand" />
-            </span>
         </div>
     );
 }
@@ -281,27 +259,31 @@ export function DataTable({
     rows,
     badge,
     footer,
+    footerHref = '#/audit',
 }: {
     title: string;
     columns: string[];
     rows: Array<Array<ReactNode>>;
     badge?: ReactNode;
     footer?: string;
+    footerHref?: string;
 }) {
     return (
         <DataPanel className="table-panel" title={title} badge={badge}>
             <div className="table-scroll">
-                <table>
-                    <thead>
-                        <tr>
-                            {columns.map((column) => (
-                                <th key={column}>{column}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.length ? (
-                            rows.map((row, rowIndex) => (
+                {rows.length ? (
+                    <table aria-label={title}>
+                        <thead>
+                            <tr>
+                                {columns.map((column) => (
+                                    <th key={column} scope="col">
+                                        {column}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((row, rowIndex) => (
                                 <tr
                                     key={rowIndex}
                                     style={{ '--delay': `${rowIndex * 45}ms` } as CSSProperties}
@@ -310,22 +292,18 @@ export function DataTable({
                                         <td key={`${rowIndex}-${cellIndex}`}>{cell}</td>
                                     ))}
                                 </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan={columns.length}>
-                                    <EmptyState
-                                        title="No persisted rows"
-                                        body="This table is empty because the backend did not return records."
-                                    />
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                            ))}
+                        </tbody>
+                    </table>
+                ) : (
+                    <EmptyState
+                        title="No persisted rows"
+                        body="This table is empty because the backend did not return records."
+                    />
+                )}
             </div>
             {footer && (
-                <a className="panel-link" href="#/audit">
+                <a className="panel-link" href={footerHref}>
                     {footer} <Icon name="chevron" />
                 </a>
             )}
@@ -335,7 +313,12 @@ export function DataTable({
 
 export function LoadingState({ label }: { label: string }) {
     return (
-        <div className="state-panel loading-state">
+        <div
+            className="state-panel loading-state"
+            role="status"
+            aria-busy="true"
+            aria-label={label}
+        >
             <div className="t-skeleton-stack" style={{ width: '100%', maxWidth: 420 }}>
                 <SkeletonBlock style={{ height: 14, width: '55%' }} />
                 <SkeletonBlock style={{ height: 48, width: '100%' }} />
@@ -346,24 +329,72 @@ export function LoadingState({ label }: { label: string }) {
     );
 }
 
-export function ErrorState({ errors }: { errors: string[] }) {
+export function WarningBanner({
+    warnings,
+    onDismiss,
+}: {
+    warnings: string[];
+    onDismiss?: () => void;
+}) {
+    if (!warnings.length) return null;
     return (
-        <div className="state-panel error-state">
+        <div className="state-panel warning-banner" role="status" aria-live="polite">
             <Icon name="alert" />
             <div>
-                <strong>Some backend data could not load</strong>
-                <p>{errors.join(' · ')}</p>
+                <strong>Partial data load</strong>
+                <p>{warnings.join(' · ')}</p>
+                {onDismiss && (
+                    <button className="outline-action" type="button" onClick={onDismiss}>
+                        Dismiss Notice
+                    </button>
+                )}
             </div>
         </div>
     );
 }
 
-export function EmptyState({ title, body }: { title: string; body: string }) {
+export function ErrorState({
+    errors,
+    onRetry,
+}: {
+    errors: string[];
+    onRetry?: () => void;
+}) {
+    return (
+        <div className="state-panel error-state" role="alert">
+            <Icon name="alert" />
+            <div>
+                <strong>Some persisted data did not load</strong>
+                <p>{errors.join(' · ')}</p>
+                {onRetry && (
+                    <button className="outline-action" type="button" onClick={onRetry}>
+                        Retry Hydration
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export function EmptyState({
+    title,
+    body,
+    action,
+}: {
+    title: string;
+    body: string;
+    action?: { label: string; href: string };
+}) {
     return (
         <div className="state-panel empty-state">
             <Icon name="file" />
             <strong>{title}</strong>
             <p>{body}</p>
+            {action && (
+                <a className="outline-action" href={action.href}>
+                    {action.label}
+                </a>
+            )}
         </div>
     );
 }

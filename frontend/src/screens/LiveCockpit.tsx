@@ -1,44 +1,22 @@
 import { useState } from 'react';
 import type { ProductData } from '../routes';
 import { Icon } from '../components/Icon';
+import { TimeframePills } from '../components/TimeframePills';
 import {
     DataPanel,
     DataTable,
+    EmptyState,
     LoadingState,
     MiniMetric,
     StatusBadge,
-    ToolbarPills,
 } from '../components/ui';
+import { LiveCandleChart, LiveDepthChart } from '../components/charts';
 import {
-    CandleReplayChart,
-    DepthChart,
-    RiskTrendChart,
-    Sparkline,
-} from '../components/charts';
-import {
-    eventMove,
-    eventTypeLabel,
-    latestEventFrom,
-    latestPredictionFrom,
-    marketImpact,
-    riskLabel,
-    sessionDuration,
-    toneForRisk,
-    uniqueAgentCount,
-} from '../lib/derive';
-import {
-    formatClock,
-    formatDuration,
-    formatNumber,
-    formatTimestamp,
-    price,
-    scoreValue,
-    sentenceCase,
-    shortId,
-} from '../lib/format';
-import { useAppData } from '../data/provider';
-import { AnimatedNumber } from '../components/motion/AnimatedNumber';
-import { TextSwap } from '../components/motion/TextSwap';
+    aggregateLiveCandles,
+    chartWindowSize,
+    type ChartTimeframe,
+} from '../lib/replay';
+import { formatClock, formatNumber, formatTimestamp, price } from '../lib/format';
 
 export function LiveCockpitScreen({
     data,
@@ -49,89 +27,61 @@ export function LiveCockpitScreen({
     loading: boolean;
     onRefresh?: () => Promise<void> | void;
 }) {
-    const simulator = data.simulator;
-    const currentEvent = latestEventFrom(simulator);
-    const latestPrediction = latestPredictionFrom(simulator);
-    const eventRows = (simulator?.events ?? []).slice(-5).reverse();
-    const orders = (simulator?.agent_orders ?? []).slice(-5).reverse();
-    const trades = (simulator?.agent_trades ?? []).slice(-5).reverse();
-    const scenarios = simulator?.scenarios ?? [];
-    const [selectedScenario, setSelectedScenario] = useState<string>(
-        simulator?.scenario_name ?? '',
+    const [timeframe, setTimeframe] = useState<ChartTimeframe>('1m');
+    const liveCandles = data.liveCandles?.candles ?? [];
+    const chartCandles = aggregateLiveCandles(liveCandles, timeframe).slice(
+        -chartWindowSize(timeframe),
     );
-    const [rebuilding, setRebuilding] = useState(false);
-    const [controlNotice, setControlNotice] = useState('');
-    const { setScenario } = useAppData();
+    const latestCandle = chartCandles[chartCandles.length - 1] ?? null;
+    const latestCandleTime = latestCandle
+        ? new Date(latestCandle.close_ts_ms).toISOString()
+        : null;
+    const bookLevels =
+        (data.liveMarket?.bids.length ?? 0) + (data.liveMarket?.asks.length ?? 0);
+    const marketBadge = data.liveCandles ? (
+        <StatusBadge tone={data.liveCandles.cache_hit ? 'steel' : 'green'}>
+            {data.liveCandles.cache_hit ? 'Live cache' : 'Live API'}
+        </StatusBadge>
+    ) : (
+        <StatusBadge tone="amber">Awaiting live API</StatusBadge>
+    );
 
-    async function rebuildReplay() {
-        const scenario = selectedScenario || simulator?.scenario_name;
-        if (!scenario) {
-            setControlNotice('No scenario selected; cannot rebuild replay.');
-            return;
-        }
-        setRebuilding(true);
-        setControlNotice('Rebuilding replay session...');
-        setScenario(scenario);
-        await new Promise((resolve) => setTimeout(resolve, 600));
-        if (onRefresh) await onRefresh();
-        setControlNotice(`Replay session rebuilt for scenario "${scenario}".`);
-        setRebuilding(false);
+    if (loading && !data.liveCandles && !data.liveMarket) {
+        return <LoadingState label="Loading live Hyperliquid market" />;
     }
-
-    if (loading && !simulator) return <LoadingState label="Loading replay cockpit" />;
-
-    const riskScore = latestPrediction?.risk_score ?? 0;
-    const replayDurationMs = sessionDuration(simulator);
-    const sessionStatus = simulator?.status ?? 'idle';
-    const persistedTone = sessionStatus === 'completed' ? 'green' : 'amber';
 
     return (
         <section className="screen-stack">
             <DataPanel className="control-strip">
                 <div className="strip-cell wide">
-                    <span>Scenario</span>
-                    <strong>{sentenceCase(simulator?.scenario_name)}</strong>
-                    <StatusBadge tone="amber">Simulated overlay</StatusBadge>
-                </div>
-                <div className="strip-cell">
-                    <span>Session ID</span>
-                    <strong>{shortId(simulator?.session_id)}</strong>
-                </div>
-                <div className="strip-cell">
-                    <span>Last Event</span>
-                    <strong>{shortId(currentEvent?.id)}</strong>
-                </div>
-                <div className="strip-cell">
-                    <span>Session Status</span>
+                    <span>Market</span>
                     <strong>
-                        <span className={`status-dot ${sessionStatus === 'completed' ? 'green' : ''}`} />{' '}
-                        {sentenceCase(sessionStatus)}
+                        {data.liveMarket?.symbol ?? data.liveCandles?.symbol ?? 'Hyperliquid'}
                     </strong>
-                    <small>{formatDuration(replayDurationMs)} of persisted ticks</small>
+                    {marketBadge}
+                </div>
+                <div className="strip-cell">
+                    <span>Mid</span>
+                    <strong>{price(data.liveMarket?.mid ?? latestCandle?.close)}</strong>
+                </div>
+                <div className="strip-cell">
+                    <span>Spread</span>
+                    <strong>
+                        {data.liveMarket ? `${data.liveMarket.spread_bps.toFixed(2)} bps` : '-'}
+                    </strong>
+                </div>
+                <div className="strip-cell">
+                    <span>Live source</span>
+                    <strong>
+                        <span
+                            className={`status-dot ${data.liveMarket ? 'green' : ''}`}
+                            aria-hidden="true"
+                        />{' '}
+                        {data.liveMarket ? 'Connected' : 'Unavailable'}
+                    </strong>
+                    <small>{data.liveMarket?.client_elapsed_ms?.toFixed(1) ?? '-'} ms client</small>
                 </div>
                 <div className="strip-actions">
-                    {scenarios.length > 0 && (
-                        <select
-                            className="model-select"
-                            value={selectedScenario || simulator?.scenario_name || ''}
-                            onChange={(event) => setSelectedScenario(event.target.value)}
-                            disabled={rebuilding}
-                        >
-                            {scenarios.map((scenario) => (
-                                <option key={scenario.name} value={scenario.name}>
-                                    {scenario.label}
-                                </option>
-                            ))}
-                        </select>
-                    )}
-                    <button
-                        className="outline-action green"
-                        type="button"
-                        onClick={rebuildReplay}
-                        disabled={rebuilding}
-                    >
-                        <Icon name="reset" /> {rebuilding ? 'Rebuilding…' : 'Rebuild Replay'}
-                    </button>
                     {onRefresh && (
                         <button
                             className="outline-action"
@@ -139,85 +89,88 @@ export function LiveCockpitScreen({
                             onClick={() => onRefresh()}
                             disabled={loading}
                         >
-                            <Icon name="reset" /> Refresh
+                            <Icon name="reset" /> Refresh API
                         </button>
                     )}
                 </div>
-                {controlNotice && <span className="control-notice">{controlNotice}</span>}
             </DataPanel>
 
             <div className="live-grid">
-                <DataPanel className="market-panel" title="Hyperliquid BTC-PERP Kline Replay">
-                    <ToolbarPills labels={['1m', '5m', '15m', '1H', '4H', '1D']} />
+                <DataPanel
+                    className="market-panel"
+                    title="Hyperliquid live market"
+                    badge={marketBadge}
+                >
+                    <TimeframePills value={timeframe} onChange={setTimeframe} />
                     <div className="market-meta">
-                        <span>{formatTimestamp(currentEvent?.timestamp)}</span>
-                        <span>O {price(currentEvent?.open)}</span>
-                        <span>H {price(currentEvent?.high)}</span>
-                        <span>L {price(currentEvent?.low)}</span>
-                        <span>C {price(currentEvent?.close)}</span>
+                        <span>{formatTimestamp(latestCandleTime)}</span>
+                        <span>O {price(latestCandle?.open)}</span>
+                        <span>H {price(latestCandle?.high)}</span>
+                        <span>L {price(latestCandle?.low)}</span>
+                        <span>C {price(latestCandle?.close)}</span>
                         <span
                             className={
-                                eventMove(currentEvent).startsWith('+') ? 'positive' : 'danger-text'
+                                latestCandle && latestCandle.close >= latestCandle.open
+                                    ? 'positive'
+                                    : 'danger-text'
                             }
                         >
-                            {eventMove(currentEvent)}
+                            {latestCandle && latestCandle.open
+                                ? `${(((latestCandle.close - latestCandle.open) / latestCandle.open) * 100).toFixed(3)}%`
+                                : '-'}
                         </span>
                     </div>
-                    <CandleReplayChart events={(simulator?.events ?? []).slice(-96)} />
-                    <DepthChart event={currentEvent} />
+                    <LiveCandleChart candles={chartCandles} />
+                    <LiveDepthChart snapshot={data.liveMarket} />
                 </DataPanel>
 
                 <div className="live-side">
-                    <DataPanel
-                        title="Toxicity Score Over Time"
-                        badge={<StatusBadge tone={persistedTone}>{sentenceCase(sessionStatus)}</StatusBadge>}
-                    >
-                        <div className="risk-current">
-                            <span>Current Toxicity Score</span>
-                            <strong>
-                                <AnimatedNumber value={scoreValue(riskScore)} />
-                            </strong>
-                            <StatusBadge tone={toneForRisk(riskScore)}>
-                                <TextSwap text={riskLabel(riskScore)} />
-                            </StatusBadge>
-                        </div>
-                        <RiskTrendChart predictions={(simulator?.predictions ?? []).slice(-120)} />
-                    </DataPanel>
-                    <DataPanel title="Simulation Status">
+                    <DataPanel title="Live market status" badge={marketBadge}>
                         <div className="status-card-grid">
                             <MiniMetric
-                                label="Agents Active"
-                                value={formatNumber(uniqueAgentCount(simulator))}
-                                helper="persisted agents"
+                                label="Candles"
+                                value={formatNumber(liveCandles.length)}
+                                helper={data.liveCandles?.interval ?? 'awaiting API'}
+                                tone={liveCandles.length ? 'green' : 'steel'}
                             />
                             <MiniMetric
-                                label="Orders Sent"
-                                value={formatNumber(simulator?.agent_orders.length ?? 0)}
-                                helper="persisted orders"
+                                label="Book levels"
+                                value={formatNumber(bookLevels)}
+                                helper={data.liveMarket ? 'top 20 each side' : 'awaiting API'}
+                                tone={bookLevels ? 'green' : 'steel'}
                             />
                             <MiniMetric
-                                label="Trades Simulated"
-                                value={formatNumber(simulator?.agent_trades.length ?? 0)}
-                                helper="persisted fills"
+                                label="Open interest"
+                                value={formatNumber(data.liveMarket?.asset_context?.open_interest ?? 0)}
+                                helper={
+                                    data.liveMarket?.asset_context ? 'from asset context' : 'awaiting API'
+                                }
                             />
                             <MiniMetric
-                                label="Market Impact (Est.)"
-                                value={marketImpact(currentEvent)}
-                                helper="spread / close"
-                                tone="amber"
+                                label="Funding"
+                                value={
+                                    data.liveMarket?.asset_context
+                                        ? data.liveMarket.asset_context.funding.toExponential(2)
+                                        : '-'
+                                }
+                                helper="Hyperliquid perp"
                             />
                             <MiniMetric
-                                label="Confidence"
-                                value={latestPrediction?.confidence.toFixed(2) ?? '-'}
-                                helper={latestPrediction ? 'model output' : 'unavailable'}
+                                label="Basis"
+                                value={
+                                    data.liveMarket?.asset_context
+                                        ? `${data.liveMarket.asset_context.basis_bps.toFixed(2)} bps`
+                                        : '-'
+                                }
+                                helper="mark vs oracle"
                                 tone="green"
                             />
                         </div>
                     </DataPanel>
-                    <DataPanel title="Quick Sparkline">
-                        <Sparkline
-                            values={(simulator?.predictions ?? []).slice(-32).map((p) => p.risk_score)}
-                            tone="amber"
+                    <DataPanel title="Model overlay" badge={<StatusBadge tone="steel">Disabled</StatusBadge>}>
+                        <EmptyState
+                            title="No real model stream"
+                            body="This page now shows only live Hyperliquid market data. Toxicity scoring stays disabled until real fills/backfill are connected."
                         />
                     </DataPanel>
                 </div>
@@ -225,70 +178,58 @@ export function LiveCockpitScreen({
 
             <div className="three-table-grid">
                 <DataTable
-                    title="Live Market Event Stream"
-                    badge={<StatusBadge tone={persistedTone}>{sentenceCase(sessionStatus)}</StatusBadge>}
-                    columns={['Time (UTC+0)', 'Event Type', 'Symbol', 'Details']}
-                    rows={eventRows.map((event) => [
-                        formatClock(event.timestamp),
-                        eventTypeLabel(event),
-                        event.symbol ?? data.simulator?.symbol ?? 'BTC-PERP',
-                        `${event.volume.toFixed(2)} BTC @ ${price(event.close)}`,
+                    title="Live Hyperliquid candles"
+                    badge={marketBadge}
+                    columns={['Time (UTC)', 'Interval', 'Symbol', 'Close', 'Volume']}
+                    rows={liveCandles.slice(-10).reverse().map((candle) => [
+                        formatClock(new Date(candle.close_ts_ms).toISOString()),
+                        candle.interval,
+                        data.liveCandles?.symbol ?? `${candle.coin}-PERP`,
+                        price(candle.close),
+                        candle.volume.toFixed(4),
                     ])}
-                    footer="View full event stream"
+                    footer="Live market data from Hyperliquid public Info API"
                 />
                 <DataTable
-                    title="Simulated Agent Orders"
-                    badge={<StatusBadge tone="steel">Simulated</StatusBadge>}
-                    columns={['Time', 'Agent', 'Side', 'Price', 'Size', 'Status']}
-                    rows={orders.map((order) => [
-                        formatClock(order.timestamp),
-                        order.agent_id,
-                        order.side,
-                        price(order.price),
-                        order.quantity.toFixed(2),
-                        order.status,
+                    title="Live bids"
+                    badge={data.liveMarket ? <StatusBadge tone="green">Live</StatusBadge> : marketBadge}
+                    columns={['Price', 'Size', 'Orders']}
+                    rows={(data.liveMarket?.bids ?? []).slice(0, 10).map((level) => [
+                        price(level.px),
+                        level.sz.toFixed(4),
+                        String(level.n),
                     ])}
-                    footer="View all agent orders"
+                    footer="Hyperliquid L2 book bid side"
                 />
                 <DataTable
-                    title="Simulated Trades"
-                    badge={<StatusBadge tone="steel">Simulated</StatusBadge>}
-                    columns={['Time', 'Agent', 'Side', 'Price', 'Size', 'Notional ($)']}
-                    rows={trades.map((trade) => [
-                        formatClock(trade.timestamp),
-                        trade.agent_id,
-                        trade.side,
-                        price(trade.price),
-                        trade.quantity.toFixed(2),
-                        price(trade.notional ?? trade.price * trade.quantity),
+                    title="Live asks"
+                    badge={data.liveMarket ? <StatusBadge tone="green">Live</StatusBadge> : marketBadge}
+                    columns={['Price', 'Size', 'Orders']}
+                    rows={(data.liveMarket?.asks ?? []).slice(0, 10).map((level) => [
+                        price(level.px),
+                        level.sz.toFixed(4),
+                        String(level.n),
                     ])}
-                    footer={
-                        trades.length
-                            ? 'View all simulated trades'
-                            : 'No persisted simulated trades for this replay'
-                    }
+                    footer="Hyperliquid L2 book ask side"
                 />
             </div>
 
             <div className="bottom-readout">
                 <span>
-                    Simulation Time <strong>{formatTimestamp(currentEvent?.timestamp)}</strong>
+                    Live candle time <strong>{formatTimestamp(latestCandleTime)}</strong>
                 </span>
                 <span>
-                    Replay Speed <strong>{simulator?.speed ?? 1}.0x</strong>
+                    Candle source <strong>{data.liveCandles?.source ?? 'Unavailable'}</strong>
                 </span>
                 <span>
-                    Data Source <strong>{simulator?.market_coverage.source ?? 'Unavailable'}</strong>
+                    Book source <strong>{data.liveMarket?.source ?? 'Unavailable'}</strong>
                 </span>
                 <span>
-                    Market <strong>{simulator?.symbol ?? '-'}</strong>
+                    Market <strong>{data.liveMarket?.symbol ?? data.liveCandles?.symbol ?? '-'}</strong>
                 </span>
                 <span>
-                    Replay Window <strong>{simulator?.session_date ?? '-'}</strong>
+                    Model overlay <strong>Disabled until real fills are connected</strong>
                 </span>
-                <label className="toggle-label">
-                    Auto-Scroll <span className="toggle on" />
-                </label>
             </div>
         </section>
     );

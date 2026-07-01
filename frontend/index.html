@@ -1,34 +1,38 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="dark light" />
+    <script>
+      /* No-flash theme init: honor saved choice, else OS, else dark (terminal heritage). */
+      (function () {
+        try {
+          var saved = localStorage.getItem("mi-theme");
+          var theme =
+            saved ||
+            (window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: light)").matches
+              ? "light"
+              : "dark");
+          var root = document.documentElement;
+          root.setAttribute("data-theme", theme);
+          root.style.colorScheme = theme;
+        } catch (e) {}
+      })();
+    </script>
     <meta
       name="description"
-      content="MarketImmune — an autonomous immune system for adverse selection on Hyperliquid perpetuals. Detect toxic order flow, investigate, decide, and remember."
+      content="MarketImmune - an autonomous immune system for adverse selection on Hyperliquid perpetuals. Detect toxic order flow, investigate, decide, and remember."
     />
-    <meta property="og:title" content="MarketImmune — Adverse-Selection Immune System" />
+    <meta property="og:title" content="MarketImmune - Adverse-Selection Immune System" />
     <meta
       property="og:description"
       content="Detect toxic order flow on Hyperliquid BTC-PERP, investigate with agentic loops, and improve markout under honest walk-forward evaluation."
     />
     <meta property="og:type" content="website" />
-    <meta name="theme-color" content="#dce8f5" />
-    <title>MarketImmune — Adverse-Selection Immune System</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!--
-      Internationalist type system:
-        EN  -> Montserrat (display) + Outfit (UI/body)
-        ZH  -> Source Han Sans / Noto Sans SC
-        JP  -> Kozuka Gothic Pr6N (if installed) -> Noto Sans JP fallback
-      Weights are loaded bold..light to drive the visual hierarchy.
-    -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Outfit:wght@200;300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    <meta name="theme-color" content="#000000" />
+    <title>MarketImmune - Adverse-Selection Immune System</title>
   </head>
   <body>
     <div id="root"></div>

@@ -1,0 +1,104 @@
+/* 10. TERMINAL SURFACE OVERRIDES ----------------------------------------- */
+
+.toolbar-pills {
+    border: 1px solid var(--line);
+    background: var(--bg-1);
+    border-radius: var(--r-sm);
+}
+.toolbar-pills button.active {
+    background: var(--panel-2);
+    color: var(--accent);
+}
+.state-panel,
+.empty-state,
+.loading-state {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    box-shadow: none;
+    border-radius: var(--r-sm);
+}
+.t-skeleton-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    padding: var(--s6);
+}
+.trace-card,
+.audit-tree-node,
+.agent-node,
+.case-strip,
+.split-card,
+.memory-card {
+    background: var(--panel) !important;
+    border: 1px solid var(--line) !important;
+    box-shadow: none !important;
+    border-radius: var(--r-sm) !important;
+}
+.trace-card.active,
+.audit-tree-node.active,
+.agent-node.active {
+    background: var(--panel-2) !important;
+    border-color: var(--accent-border) !important;
+}
+.hero-three {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+}
+.hero-readout strong {
+    text-shadow: none;
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+.status-badge {
+    border-radius: var(--r-sm);
+    border: 1px solid color-mix(in srgb, var(--tone) 28%, transparent);
+}
+.tone-ink { --tone-soft: color-mix(in srgb, var(--ink-2) 10%, transparent); }
+.chart-surface {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+}
+.depth-chart .bid { fill: color-mix(in srgb, var(--green) 35%, transparent); }
+.depth-chart .ask { fill: color-mix(in srgb, var(--red) 30%, transparent); }
+.progress-track {
+    background: var(--bg-2);
+    border: none;
+    border-radius: var(--r-sm);
+}
+.risk-gauge-track {
+    stroke: var(--line-strong);
+}
+.memory-card:hover {
+    border-color: var(--accent-border) !important;
+}
+.model-select {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    border-radius: var(--r-sm);
+    padding: 6px 10px;
+    color: var(--ink);
+}
+.alert-chip-wrap {
+    position: relative;
+    display: inline-flex;
+}
+.sidebar-status {
+    background: var(--panel);
+    border: 1px solid var(--line);
+}
+.metric-block,
+.mini-metric,
+.search-box {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+}
+.filter-line.active {
+    background: var(--panel-2);
+    border-color: var(--accent-border);
+}
+.trace-expanded {
+    overflow: hidden;
+}

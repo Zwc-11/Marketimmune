@@ -1,7 +1,13 @@
 import type { Tone } from '../routes';
+import type { BenchmarkSplitView } from '../lib/derive';
 import type { BenchmarkRow } from '../lib/derive';
 import { humanizeFeature, signed } from '../lib/format';
 import { StatusBadge } from './ui';
+
+/** Stable display id for a matched rule, derived from its row index. */
+function ruleId(index: number): string {
+    return `R-${102 + index * 103}`;
+}
 
 export function FeatureImpactList({ rows }: { rows: Array<[string, number]> }) {
     const total = Math.max(...rows.map(([, value]) => Math.abs(value)), 0.01);
@@ -61,7 +67,7 @@ export function RuleOverlayList({ rules }: { rules: string[] }) {
                 return (
                     <div key={rule}>
                         <span>
-                            R-{102 + index * 103}: {humanizeFeature(rule)}
+                            {ruleId(index)}: {humanizeFeature(rule)}
                         </span>
                         <strong>{strength.toFixed(2)}</strong>
                         <i style={{ width: `${strength * 100}%` }} />
@@ -140,7 +146,7 @@ export function MatchedRulesTable({ rules }: { rules: string[] }) {
             <tbody>
                 {rules.slice(0, 4).map((rule, index) => (
                     <tr key={rule}>
-                        <td>R-{102 + index * 103}</td>
+                        <td>{ruleId(index)}</td>
                         <td>{humanizeFeature(rule)}</td>
                         <td>{(0.92 - index * 0.07).toFixed(2)}</td>
                         <td>
@@ -177,37 +183,59 @@ export function LinkedIdentifierGroup({
     );
 }
 
-export function BenchmarkTable({ rows }: { rows: BenchmarkRow[] }) {
+export function BenchmarkTable({
+    rows,
+    splitView = 'heldout',
+}: {
+    rows: BenchmarkRow[];
+    splitView?: BenchmarkSplitView;
+}) {
+    const splitLabel =
+        splitView === 'random'
+            ? 'Random row split (IID)'
+            : splitView === 'heldout'
+              ? 'Scenario-family held-out'
+              : splitView === 'window'
+                ? 'Benchmark window'
+                : 'Scenario coverage';
+
     return (
-        <table className="benchmark-table">
+        <table className="benchmark-table" aria-label="Benchmark metric comparison">
             <thead>
                 <tr>
-                    <th>Metric (Higher is better)</th>
-                    <th>Random Row Split (IID)</th>
-                    <th>
-                        Scenario-Family Held-Out Split <span>(Primary)</span>
+                    <th scope="col">Metric</th>
+                    <th scope="col" className="num-cell">
+                        Champion
+                    </th>
+                    <th scope="col" className="num-cell">
+                        Challenger
+                    </th>
+                    <th scope="col" className="num-cell">
+                        Δ
                     </th>
                 </tr>
             </thead>
             <tbody>
-                {rows.map((row) => (
-                    <tr key={row.metric}>
-                        <td>
-                            <strong>{row.metric}</strong>
-                            <span>{row.helper}</span>
-                        </td>
-                        <td>
-                            <span>{row.active}</span>
-                            <span>{row.candidate}</span>
-                            <strong className={`tone-text-${row.tone}`}>{row.delta}</strong>
-                        </td>
-                        <td>
-                            <span>{row.active}</span>
-                            <span>{row.candidate}</span>
-                            <strong className={`tone-text-${row.tone}`}>{row.delta}</strong>
+                {rows.length === 0 ? (
+                    <tr>
+                        <td colSpan={4}>
+                            <span className="subtle">No benchmark metrics in persisted records.</span>
                         </td>
                     </tr>
-                ))}
+                ) : (
+                    rows.map((row) => (
+                        <tr key={row.metric}>
+                            <td>
+                                <strong>{row.metric}</strong>
+                                <span>{row.helper}</span>
+                                <span className="benchmark-split-tag">{splitLabel}</span>
+                            </td>
+                            <td className="num-cell">{row.active}</td>
+                            <td className="num-cell">{row.candidate}</td>
+                            <td className={`num-cell tone-text-${row.tone}`}>{row.delta}</td>
+                        </tr>
+                    ))
+                )}
             </tbody>
         </table>
     );
