@@ -1,16 +1,26 @@
 {
   "name": "marketimmune-dashboard",
   "version": "1.0.0",
-  "description": "Interactive web dashboard for MarketImmune benchmark visualization",
-  "main": "dashboard/static/js/dashboard.js",
+  "description": "Agentic market-safety research platform for crypto perps with a terminal dashboard, audited immune loop, and markout evaluation roadmap.",
+  "private": true,
   "scripts": {
     "dev": "python manage.py runserver",
-    "build": "tsc",
-    "watch": "tsc --watch",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:all": "concurrently -k -n api,ui -c blue,green \"npm run dev\" \"npm run dev:frontend\"",
+    "build": "npm run build --prefix frontend",
+    "build:django": "npm run build && node scripts/sync-django-bundle.mjs",
+    "serve": "npm run build:django && python manage.py runserver",
+    "typecheck": "npm run typecheck --prefix frontend",
+    "preview": "npm run preview --prefix frontend",
     "collect": "python manage.py collectstatic --noinput",
     "migrate": "python manage.py migrate",
     "load-data": "python manage.py load_metrics",
-    "setup": "npm install && pip install -r dashboard/requirements.txt && python manage.py migrate && python manage.py load_metrics"
+    "setup:frontend": "npm install --prefix frontend",
+    "setup:backend": "pip install -r dashboard/requirements.txt",
+    "setup": "npm run setup:frontend && npm run setup:backend && python manage.py migrate && python manage.py load_metrics"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
   },
   "keywords": [
     "benchmark",
@@ -18,22 +28,15 @@
     "django",
     "visualization",
     "trading",
-    "market-immume"
+    "market-immune",
+    "hyperliquid",
+    "adverse-selection",
+    "agentic-ai"
   ],
   "author": "MarketImmune Team",
   "license": "MIT",
-  "devDependencies": {
-    "@types/chart.js": "^4.4.0",
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "axios": "^1.4.0",
-    "chart.js": "^4.4.0"
-  },
   "engines": {
-    "node": ">=14.0.0",
-    "npm": ">=6.0.0",
-    "python": ">=3.8"
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }

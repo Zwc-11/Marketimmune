@@ -76,7 +76,7 @@
     font-weight: 700;
     font-family: var(--font-mono);
     background: var(--red);
-    color: #fff;
+    color: var(--danger-contrast);
     transform-origin: center;
     transform: scale(1);
     opacity: 1;
@@ -159,12 +159,11 @@
 .t-modal-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 100;
+    z-index: var(--z-modal-backdrop);
     display: grid;
     place-items: center;
     padding: var(--s6);
-    background: rgba(15, 23, 42, 0.35);
-    backdrop-filter: blur(8px);
+    background: var(--modal-backdrop);
 }
 .t-modal {
     transform-origin: center;
@@ -293,15 +292,15 @@
     gap: 2px;
     padding: 4px;
     border-radius: 999px;
-    background: var(--glass-inset);
+    background: var(--surface-muted);
+    border: 1px solid var(--surface-border);
 }
 .t-tabs-indicator {
     position: absolute;
     top: 4px;
     bottom: 4px;
     border-radius: 999px;
-    background: var(--glass-highlight);
-    box-shadow: var(--glass-shadow-sm);
+    background: var(--accent-soft);
     transition:
         left var(--resize-dur) var(--resize-ease),
         width var(--resize-dur) var(--resize-ease);
@@ -335,17 +334,18 @@
 }
 
 .t-shimmer {
-    background: linear-gradient(
-        90deg,
-        var(--muted) 0%,
-        var(--ink) 45%,
-        var(--muted) 90%
-    );
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: t-shimmer 2.4s linear infinite;
+    color: var(--ink);
+    animation: t-shimmer-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes t-shimmer-pulse {
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 1;
+    }
 }
 
 /* --- Skeleton loader --- */
@@ -361,13 +361,8 @@
 
 .t-skeleton {
     border-radius: var(--r-md);
-    background: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0.25) 0%,
-        rgba(255, 255, 255, 0.55) 50%,
-        rgba(255, 255, 255, 0.25) 100%
-    );
-    background-size: 200% 100%;
+    background: var(--surface-muted);
+    border: 1px solid var(--surface-border);
     animation: t-skeleton-pulse 1.4s ease-in-out infinite;
 }
 .t-skeleton-reveal {
@@ -412,10 +407,9 @@
     border-radius: var(--r-sm);
     font-size: var(--t-xs);
     white-space: nowrap;
-    background: var(--glass-bg-strong);
-    backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
+    background: var(--panel-2);
+    border: 1px solid var(--line-2);
+    box-shadow: var(--shadow-lg);
     opacity: 0;
     pointer-events: none;
     transition:
@@ -446,6 +440,9 @@
     .t-skeleton {
         animation: none !important;
         transition: none !important;
+    }
+    .t-shimmer {
+        opacity: 1;
     }
     .t-tooltip-wrap:hover .t-tooltip {
         transition-delay: 0ms;

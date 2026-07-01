@@ -12,9 +12,12 @@ function formatDigits(value: string): Array<{ char: string; stagger?: string }> 
 export function AnimatedNumber({
     value,
     className = '',
+    live = false,
 }: {
     value: string | number;
     className?: string;
+    /** Screen-reader announcements; off for engine-ticked metrics (default). */
+    live?: boolean;
 }) {
     const text = String(value);
     const [animating, setAnimating] = useState(true);
@@ -36,7 +39,7 @@ export function AnimatedNumber({
     return (
         <span
             className={`t-digit-group mono num ${animating ? 'is-animating' : ''} ${className}`.trim()}
-            aria-label={text}
+            {...(live ? { role: 'status', 'aria-live': 'polite' as const } : {})}
         >
             {digits.map((digit, index) => (
                 <span

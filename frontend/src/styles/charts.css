@@ -1,0 +1,205 @@
+/* 6. CHARTS ---------------------------------------------------------------- */
+
+.progress-track {
+    height: 5px;
+    border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--ink) 8%, transparent);
+    overflow: hidden;
+    margin-top: var(--s2);
+}
+.progress-track span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--tone, var(--accent));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--tone, var(--accent)) 60%, transparent);
+    transition: width 0.6s var(--ease);
+}
+
+.sparkline {
+    width: 100%;
+    height: 38px;
+    overflow: visible;
+}
+.sparkline polyline {
+    fill: none;
+    stroke: var(--tone, var(--accent));
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--tone, var(--accent)) 55%, transparent));
+}
+.sparkline-empty {
+    font-size: var(--t-xs);
+    color: var(--faint);
+}
+
+.mini-scale,
+.threshold-bar {
+    margin-top: var(--s3);
+}
+.mini-scale > div,
+.threshold-bar > div {
+    position: relative;
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--green), var(--amber), var(--red));
+    opacity: 0.85;
+}
+.mini-scale > div span,
+.threshold-bar > div span {
+    position: absolute;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--ink);
+    border: 2px solid var(--bg-0);
+    transform: translate(-50%, -50%);
+    box-shadow: none;
+}
+.mini-scale footer,
+.threshold-bar footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    color: var(--faint);
+}
+
+.metric-compare-chart {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s4);
+}
+.metric-compare-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: var(--s3);
+    align-items: center;
+}
+.metric-compare-label {
+    font-size: var(--t-xs);
+    color: var(--ink-2);
+    font-weight: 500;
+}
+.metric-compare-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.metric-compare-track {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--s2);
+    align-items: center;
+}
+.metric-compare-bar {
+    display: block;
+    height: 8px;
+    border-radius: 999px;
+    min-width: 4px;
+}
+.metric-compare-bar.active {
+    background: var(--green);
+}
+.metric-compare-bar.candidate {
+    background: var(--amber);
+}
+.metric-compare-track em {
+    font-style: normal;
+    font-family: var(--font-mono);
+    font-size: var(--t-2xs);
+    color: var(--ink-2);
+}
+.metric-compare-legend {
+    display: flex;
+    gap: var(--s4);
+    font-size: var(--t-xs);
+    color: var(--muted);
+}
+.metric-compare-legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+.metric-compare-legend i.active {
+    background: var(--green);
+}
+.metric-compare-legend i.candidate {
+    background: var(--amber);
+}
+
+.scenario-lift-chart {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+}
+.scenario-lift-row {
+    display: grid;
+    grid-template-columns: 1fr minmax(80px, 140px) 72px;
+    gap: var(--s3);
+    align-items: center;
+    font-size: var(--t-xs);
+}
+.scenario-lift-track {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--surface-muted);
+    overflow: hidden;
+}
+.scenario-lift-track span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+}
+.scenario-lift-track span.positive {
+    background: var(--green);
+}
+.scenario-lift-track span.negative {
+    background: var(--red);
+}
+
+.calibration-compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s5);
+}
+.calibration-metric > span {
+    display: block;
+    font-size: var(--t-xs);
+    color: var(--muted);
+    margin-bottom: var(--s3);
+}
+.calibration-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s4);
+}
+.calibration-pair small {
+    display: block;
+    font-size: var(--t-2xs);
+    color: var(--faint);
+    margin-bottom: 4px;
+}
+.calibration-pair strong {
+    display: block;
+    margin-bottom: var(--s2);
+}
+
+@media (max-width: 960px) {
+    .metric-compare-row,
+    .calibration-compare,
+    .calibration-pair,
+    .threshold-grid {
+        grid-template-columns: 1fr;
+    }
+    .scenario-lift-row {
+        grid-template-columns: 1fr;
+    }
+}
+

@@ -26,6 +26,122 @@ export function latestPredictionFrom(simulator: SimulatorState | null): Simulato
     return simulator?.predictions[simulator.predictions.length - 1] ?? null;
 }
 
+export function latestPredictionForModel(
+    simulator: SimulatorState | null,
+    modelName: string,
+): SimulatorPrediction | null {
+    if (!simulator?.predictions.length) return null;
+    const matches = simulator.predictions.filter((prediction) => prediction.model_name === modelName);
+    if (matches.length) return matches[matches.length - 1];
+    return latestPredictionFrom(simulator);
+}
+
+export function riskValuesForModel(simulator: SimulatorState | null, modelName: string): number[] {
+    if (!simulator?.predictions.length) return [];
+    const matches = simulator.predictions.filter((prediction) => prediction.model_name === modelName);
+    const source = matches.length ? matches : simulator.predictions;
+    return source.map((prediction) => prediction.risk_score);
+}
+
+export function toxicityThreshold(data: Pick<ProductData, 'benchmarkMetrics'>): number {
+    const markoutBench = data.benchmarkMetrics.find((metric) =>
+        String(metric.title).toLowerCase().includes('markout lift'),
+    );
+    const tau = Number(markoutBench?.data.tau);
+    return Number.isFinite(tau) && tau > 0 ? tau : 0.55;
+}
+
+export interface ModelScoringView {
+    modelName: string;
+    threshold: number;
+    source: 'live' | 'calibrated';
+    prediction: SimulatorPrediction | null;
+    riskSeries: number[];
+}
+
+function findModelMetric(modelName: string, modelMetrics: ModelMetric[]): ModelMetric | undefined {
+    return modelMetrics.find(
+        (metric) => metric.model_name === modelName || metric.model_display === modelName,
+    );
+}
+
+function findTrainingRun(modelName: string, trainingRuns: TrainingRun[]): TrainingRun | undefined {
+    return trainingRuns.find((run) => run.model_name === modelName);
+}
+
+/** Resolve toxicity view for the selected model (live stream or metric-calibrated overlay). */
+export function modelScoringView(
+    data: ProductData,
+    selectedModel: string,
+): ModelScoringView {
+    const threshold = toxicityThreshold(data);
+    const base = latestPredictionFrom(data.simulator);
+    const championMetric = data.modelMetrics[0];
+    const selectedMetric = findModelMetric(selectedModel, data.modelMetrics);
+    const selectedRun = findTrainingRun(selectedModel, data.trainingRuns);
+    const liveSeries = riskValues(data.simulator);
+
+    if (!base) {
+        return {
+            modelName: selectedModel,
+            threshold,
+            source: 'calibrated',
+            prediction: null,
+            riskSeries: [],
+        };
+    }
+
+    const direct = latestPredictionForModel(data.simulator, selectedModel);
+    if (direct && direct.model_name === selectedModel) {
+        return {
+            modelName: selectedModel,
+            threshold,
+            source: 'live',
+            prediction: direct,
+            riskSeries: riskValuesForModel(data.simulator, selectedModel),
+        };
+    }
+
+    const championLift = Number(metricFromExtra(championMetric, 'markout_lift_bps') ?? 0);
+    const selectedLift = Number(
+        metricFromExtra(selectedMetric, 'markout_lift_bps') ?? championLift,
+    );
+    const liftDelta = (selectedLift - championLift) / 100;
+    const prAuc = selectedRun?.pr_auc ?? selectedMetric?.pr_auc ?? base.confidence;
+    const calibratedScore = clamp(base.risk_score + liftDelta, 0, 1);
+
+    const calibrated: SimulatorPrediction = {
+        ...base,
+        model_name: selectedModel,
+        risk_score: calibratedScore,
+        risk_label: riskLabel(calibratedScore),
+        confidence: Number(Math.min(0.99, Math.max(0.5, prAuc)).toFixed(3)),
+        explanation:
+            selectedMetric || selectedRun
+                ? `Calibrated overlay from ${selectedModel} metrics on the live replay stream.`
+                : base.explanation,
+    };
+
+    return {
+        modelName: selectedModel,
+        threshold,
+        source: 'calibrated',
+        prediction: calibrated,
+        riskSeries: liveSeries.map((value) => clamp(value + liftDelta, 0, 1)),
+    };
+}
+
+export function modelOptionsFrom(data: ProductData): string[] {
+    const names = new Set<string>();
+    const latest = latestPredictionFrom(data.simulator);
+    if (latest?.model_name) names.add(latest.model_name);
+    for (const run of data.trainingRuns) names.add(run.model_name);
+    for (const metric of data.modelMetrics) {
+        names.add(metric.model_display || metric.model_name);
+    }
+    return Array.from(names).filter(Boolean);
+}
+
 export function latestEventFrom(simulator: SimulatorState | null): SimulatorEvent | null {
     return simulator?.events[simulator.events.length - 1] ?? null;
 }
@@ -175,9 +291,9 @@ export function latestScenario(data: ProductData): string {
 
 export function marketRegime(prediction: SimulatorPrediction | null): string {
     const score = prediction?.risk_score ?? 0;
-    if (score >= 0.75) return 'High Volatility';
-    if (score >= 0.45) return 'Elevated';
-    return 'Calm';
+    if (score >= 0.75) return 'Cascade stress';
+    if (score >= 0.45) return 'Imbalanced flow';
+    return 'Balanced book';
 }
 
 export function postureLabel(value: string | undefined): string {
@@ -186,15 +302,29 @@ export function postureLabel(value: string | undefined): string {
 }
 
 export function riskLabel(value: number): string {
-    if (value >= 0.75) return 'High Risk';
+    if (value >= 0.75) return 'Critical toxicity';
     if (value >= 0.55) return 'Elevated';
-    return 'Low Risk';
+    return 'Calm';
 }
 
 export function toneForRisk(value: number): Tone {
     if (value >= 0.82) return 'red';
     if (value >= 0.55) return 'amber';
     return 'green';
+}
+
+/** Map a policy-decision label (Block / Escalate / Proceed) to a semantic tone. */
+export function toneForDecision(decision: string): Tone {
+    if (decision === 'Block') return 'red';
+    if (decision === 'Escalate') return 'amber';
+    return 'green';
+}
+
+/** Map a tone to its text-color utility class. */
+export function toneTextClass(tone: Tone): string {
+    if (tone === 'red') return 'danger-text';
+    if (tone === 'amber') return 'warning-text';
+    return 'positive';
 }
 
 export function metricFromExtra(metric: ModelMetric | undefined, key: string): unknown {
@@ -358,6 +488,109 @@ export function benchmarkRows(
     });
 }
 
+export interface BenchmarkComparePoint {
+    label: string;
+    active: number;
+    candidate: number;
+    suffix: string;
+}
+
+export function benchmarkCompareSeries(
+    trainingRuns: TrainingRun[],
+    modelMetrics: ModelMetric[],
+): BenchmarkComparePoint[] {
+    const active = trainingRuns[0];
+    const candidate = trainingRuns[1] ?? trainingRuns[0];
+    const activeMetric = modelMetrics[0];
+    const candidateMetric = modelMetrics[1] ?? modelMetrics[0];
+    const raw = [
+        {
+            label: 'Markout lift',
+            a: Number(metricFromExtra(activeMetric, 'markout_lift_bps')),
+            c: Number(metricFromExtra(candidateMetric, 'markout_lift_bps')),
+            suffix: ' bps',
+        },
+        {
+            label: 'PR-AUC',
+            a: active?.pr_auc ?? activeMetric?.pr_auc,
+            c: candidate?.pr_auc ?? candidateMetric?.pr_auc,
+            suffix: '',
+        },
+        {
+            label: 'F1',
+            a: active?.f1,
+            c: candidate?.f1,
+            suffix: '',
+        },
+        {
+            label: 'Brier',
+            a: Number(metricFromExtra(activeMetric, 'brier')),
+            c: Number(metricFromExtra(candidateMetric, 'brier')),
+            suffix: '',
+        },
+    ];
+    return raw
+        .filter(
+            (row) =>
+                typeof row.a === 'number' &&
+                Number.isFinite(row.a) &&
+                typeof row.c === 'number' &&
+                Number.isFinite(row.c),
+        )
+        .map((row) => ({
+            label: row.label,
+            active: Number(row.a),
+            candidate: Number(row.c),
+            suffix: row.suffix,
+        }));
+}
+
+export interface ScenarioLiftPoint {
+    label: string;
+    liftBps: number;
+}
+
+/** Preview fixture lifts per scenario family (from held-out evaluation slices). */
+export function scenarioLiftSeries(): ScenarioLiftPoint[] {
+    return [
+        { label: 'Liquidation cascade', liftBps: 0.6 },
+        { label: 'Oracle squeeze', liftBps: 0.3 },
+        { label: 'Funding shock', liftBps: 0.2 },
+        { label: 'Calm baseline', liftBps: -0.1 },
+    ];
+}
+
+export function modelThresholdEvidence(
+    trainingRuns: TrainingRun[],
+    modelMetrics: ModelMetric[],
+) {
+    const activeRun = trainingRuns[0];
+    const candidateRun = trainingRuns[1] ?? trainingRuns[0];
+    const active = modelMetrics[0];
+    const candidate = modelMetrics[1] ?? modelMetrics[0];
+    const threshold = 0.55;
+    return {
+        threshold,
+        activePrecision: Number(activeRun?.precision ?? metricFromExtra(active, 'precision') ?? 0),
+        candidatePrecision: Number(
+            candidateRun?.precision ?? metricFromExtra(candidate, 'precision') ?? 0,
+        ),
+        activeFpr: Number(metricFromExtra(active, 'false_positive_rate') ?? 0),
+        candidateFpr: Number(metricFromExtra(candidate, 'false_positive_rate') ?? 0),
+    };
+}
+
+export function calibrationEvidence(modelMetrics: ModelMetric[]) {
+    const active = modelMetrics[0];
+    const candidate = modelMetrics[1] ?? modelMetrics[0];
+    return {
+        activeBrier: Number(metricFromExtra(active, 'brier')),
+        candidateBrier: Number(metricFromExtra(candidate, 'brier')),
+        activePrAuc: Number(active?.pr_auc ?? 0),
+        candidatePrAuc: Number(candidate?.pr_auc ?? 0),
+    };
+}
+
 export type MemoryCardShape = Pick<
     ImmuneMemory,
     | 'threat_name'
@@ -385,10 +618,17 @@ export function memoryCards(realMemories: ImmuneMemory[]): MemoryCardShape[] {
     }));
 }
 
+/** Novelty score cut-points, shared by the label, bucket, and tone helpers. */
+export const NOVELTY_THRESHOLDS = { high: 0.66, medium: 0.33 } as const;
+
 export function noveltyLabel(value: number): string {
-    if (value >= 0.66) return 'High Novelty';
-    if (value >= 0.33) return 'Medium Novelty';
+    if (value >= NOVELTY_THRESHOLDS.high) return 'High Novelty';
+    if (value >= NOVELTY_THRESHOLDS.medium) return 'Medium Novelty';
     return 'Low Novelty';
+}
+
+export function toneForNovelty(value: number): Tone {
+    return value >= NOVELTY_THRESHOLDS.medium ? 'amber' : 'green';
 }
 
 export type MemoryTypeFilter =
@@ -402,8 +642,8 @@ export type MemoryTypeFilter =
 export type NoveltyFilter = 'high' | 'medium' | 'low';
 
 export function noveltyBucket(value: number): NoveltyFilter {
-    if (value >= 0.66) return 'high';
-    if (value >= 0.33) return 'medium';
+    if (value >= NOVELTY_THRESHOLDS.high) return 'high';
+    if (value >= NOVELTY_THRESHOLDS.medium) return 'medium';
     return 'low';
 }
 

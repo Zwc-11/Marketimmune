@@ -1,10 +1,15 @@
 import type {
     AgentRunSummary,
     BenchmarkMetric,
+    HyperliquidCandleSeries,
+    HyperliquidBackfillJobPayload,
     ImmuneMemory,
     InvestigationCase,
+    HyperliquidLiveSnapshot,
     LLMStatus,
+    MarkoutFillDecisionPayload,
     LoopState,
+    MarkoutModelHealth,
     ModelMetric,
     SimulatorEvent,
     SimulatorPrediction,
@@ -45,14 +50,23 @@ export const NAV_GROUPS: { id: NavGroupId; label: string }[] = [
     { id: 'intelligence', label: 'Intelligence' },
 ];
 
+export type DataSource = 'fixtures' | 'hybrid' | 'live';
+
 export interface ProductData {
     loopState: LoopState | null;
     llm: LLMStatus | null;
     simulator: SimulatorState | null;
+    liveMarket: HyperliquidLiveSnapshot | null;
+    liveCandles: HyperliquidCandleSeries | null;
+    hyperliquidBackfills: HyperliquidBackfillJobPayload | null;
+    markoutModel: MarkoutModelHealth | null;
+    markoutDecisions: MarkoutFillDecisionPayload | null;
     modelMetrics: ModelMetric[];
     benchmarkMetrics: BenchmarkMetric[];
     trainingRuns: TrainingRun[];
     errors: string[];
+    warnings: string[];
+    dataSource: DataSource;
     loadedAt: string | null;
 }
 
@@ -69,9 +83,9 @@ export const ROUTES: RouteDef[] = [
     {
         id: 'live',
         path: '/live',
-        label: 'Simulation',
-        title: 'Live Simulation Cockpit',
-        subtitle: 'Hyperliquid perp microstructure replay with live toxicity scoring',
+        label: 'Live Market',
+        title: 'Live Hyperliquid Market',
+        subtitle: 'Free public API candles, order book, and perp context',
         icon: 'sliders',
         group: 'market',
     },
@@ -135,10 +149,17 @@ export const EMPTY_DATA: ProductData = {
     loopState: null,
     llm: null,
     simulator: null,
+    liveMarket: null,
+    liveCandles: null,
+    hyperliquidBackfills: null,
+    markoutModel: null,
+    markoutDecisions: null,
     modelMetrics: [],
     benchmarkMetrics: [],
     trainingRuns: [],
     errors: [],
+    warnings: [],
+    dataSource: 'fixtures',
     loadedAt: null,
 };
 
@@ -156,10 +177,15 @@ export function getRoute(pathname: string): RouteDef {
 export type {
     AgentRunSummary,
     BenchmarkMetric,
+    HyperliquidCandleSeries,
+    HyperliquidBackfillJobPayload,
     ImmuneMemory,
     InvestigationCase,
+    HyperliquidLiveSnapshot,
     LLMStatus,
+    MarkoutFillDecisionPayload,
     LoopState,
+    MarkoutModelHealth,
     ModelMetric,
     SimulatorEvent,
     SimulatorPrediction,

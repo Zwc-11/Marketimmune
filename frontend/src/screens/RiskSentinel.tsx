@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ProductData } from '../routes';
 import { Icon } from '../components/Icon';
 import {
@@ -8,6 +8,7 @@ import {
     LoadingState,
     MetricBlock,
     PageHeader,
+    StatusBadge,
 } from '../components/ui';
 import { RiskGauge, Sparkline, ThresholdBar } from '../components/charts';
 import {
@@ -17,9 +18,9 @@ import {
 } from '../components/investigation';
 import {
     featureRowsFrom,
-    latestPredictionFrom,
+    modelOptionsFrom,
+    modelScoringView,
     riskLabel,
-    riskValues,
     toneForRisk,
 } from '../lib/derive';
 import {
@@ -33,37 +34,56 @@ import {
 import { AnimatedNumber } from '../components/motion/AnimatedNumber';
 import { TextSwap } from '../components/motion/TextSwap';
 
-const HIGH_RISK_THRESHOLD = 0.75;
-
 export function RiskSentinelScreen({ data, loading }: { data: ProductData; loading: boolean }) {
-    const latestPrediction = latestPredictionFrom(data.simulator);
+    const modelOptions = useMemo(() => modelOptionsFrom(data), [data]);
+    const defaultModel = modelOptions[0] ?? '';
+    const [selectedModel, setSelectedModel] = useState(defaultModel);
+
+    useEffect(() => {
+        if (!modelOptions.length) return;
+        if (!modelOptions.includes(selectedModel)) {
+            setSelectedModel(modelOptions[0]);
+        }
+    }, [modelOptions, selectedModel]);
+
+    const scoring = useMemo(
+        () => modelScoringView(data, selectedModel || defaultModel),
+        [data, selectedModel, defaultModel],
+    );
+    const prediction = scoring.prediction;
+    const riskScore = prediction?.risk_score ?? 0;
+    const threshold = scoring.threshold;
     const latestCase = data.loopState?.loop?.cases[0] ?? null;
-    const riskScore = latestPrediction?.risk_score ?? latestCase?.confidence ?? 0;
     const featureRows = featureRowsFrom(latestCase, data.simulator);
     const alerts = data.simulator?.alerts.slice(0, 5) ?? [];
-    const modelOptions = useMemo(() => {
-        const names = new Set<string>();
-        if (latestPrediction?.model_name) names.add(latestPrediction.model_name);
-        for (const run of data.trainingRuns) names.add(run.model_name);
-        for (const metric of data.modelMetrics) names.add(metric.model_name);
-        return Array.from(names).filter(Boolean);
-    }, [latestPrediction?.model_name, data.trainingRuns, data.modelMetrics]);
-    const [selectedModel, setSelectedModel] = useState<string>(
-        latestPrediction?.model_name ?? modelOptions[0] ?? '',
-    );
 
-    if (loading && !data.simulator) return <LoadingState label="Loading risk sentinel" />;
+    if (loading && !data.simulator) {
+        return <LoadingState label="Loading toxicity sentinel" />;
+    }
+
+    if (!data.simulator) {
+        return (
+            <EmptyState
+                title="No replay stream"
+                body="The local replay stream is unavailable. Open Live Market to inspect the Hyperliquid feed."
+                action={{ label: 'Open live market', href: '#/live' }}
+            />
+        );
+    }
 
     return (
         <section className="screen-stack">
             <PageHeader
                 title="Toxicity Sentinel"
-                subtitle="Score maker fills for adverse selection with explainable AI"
+                subtitle="Score maker fills for adverse selection with explainable features and rule overlays"
                 right={
                     <>
-                        <label className="model-select-label">Model</label>
+                        <label className="model-select-label" htmlFor="risk-model-select">
+                            Scoring model
+                        </label>
                         {modelOptions.length ? (
                             <select
+                                id="risk-model-select"
                                 className="model-select"
                                 value={selectedModel}
                                 onChange={(event) => setSelectedModel(event.target.value)}
@@ -75,106 +95,122 @@ export function RiskSentinelScreen({ data, loading }: { data: ProductData; loadi
                                 ))}
                             </select>
                         ) : (
-                            <span className="subtle">No persisted model</span>
+                            <span className="subtle">No model artifacts loaded</span>
+                        )}
+                        {scoring.source === 'calibrated' && selectedModel ? (
+                            <StatusBadge tone="amber">Metric overlay</StatusBadge>
+                        ) : (
+                            <StatusBadge tone="green">Live stream</StatusBadge>
                         )}
                         <span className="subtle">
-                            Last updated: {data.loadedAt ? relativeTime(data.loadedAt) : 'pending'}
+                            Updated {data.loadedAt ? relativeTime(data.loadedAt) : 'pending'}
                         </span>
                     </>
                 }
             />
+
+            {scoring.source === 'calibrated' && (
+                <p className="risk-notice" role="note">
+                    Showing {selectedModel} scores calibrated from stored training metrics on the
+                    current replay stream. Switch to the live classifier name for raw stream scores.
+                </p>
+            )}
+
             <DataPanel className="risk-top-strip">
                 <MetricBlock
                     icon="trend"
-                    label="Latest Prediction"
+                    label="Latest score"
                     value={<AnimatedNumber value={scoreValue(riskScore)} />}
-                    helper="Toxicity Score (0-1)"
+                    helper={`Toxicity (0–1) · ${scoring.modelName || 'model'}`}
                     tone={toneForRisk(riskScore)}
                 >
-                    <Sparkline values={riskValues(data.simulator).slice(-24)} tone="amber" />
+                    <Sparkline values={scoring.riskSeries.slice(-24)} tone="amber" />
                 </MetricBlock>
                 <MetricBlock
                     icon="shield"
-                    label="Toxicity Label"
+                    label="Toxicity label"
                     value={<TextSwap text={riskLabel(riskScore)} />}
-                    helper="Adverse-selection risk"
+                    helper="Adverse-selection band"
                     tone={toneForRisk(riskScore)}
                 />
                 <MetricBlock
                     icon="target"
                     label="Confidence"
-                    value={latestPrediction?.confidence.toFixed(2) ?? '-'}
-                    helper="Model Confidence"
+                    value={prediction ? prediction.confidence.toFixed(2) : '-'}
+                    helper={prediction ? 'Model score confidence' : 'Unavailable'}
                     tone="green"
                 />
                 <MetricBlock
                     icon="gauge"
-                    label="Decision Threshold"
-                    value={HIGH_RISK_THRESHOLD.toFixed(2)}
-                    helper="Toxicity Threshold"
+                    label="Quote threshold τ"
+                    value={threshold.toFixed(2)}
+                    helper="Widen/withhold above τ"
                     tone="ink"
                 >
-                    <ThresholdBar value={HIGH_RISK_THRESHOLD} />
+                    <ThresholdBar value={threshold} />
                 </MetricBlock>
             </DataPanel>
 
             <div className="risk-grid">
-                <DataPanel title="Toxicity Score Gauge" badge={<Icon name="info" />}>
+                <DataPanel title="Toxicity gauge" badge={<Icon name="info" />}>
                     <RiskGauge value={riskScore} label={riskLabel(riskScore)} />
-                    <p className="center-note">Toxicity score calibrated (isotonic) to realized markout</p>
+                    <p className="center-note">
+                        {prediction?.explanation ??
+                            'No prediction explanation is available for this model.'}
+                    </p>
                 </DataPanel>
-                <DataPanel title="Top Contributing Features" badge={<Icon name="info" />}>
+                <DataPanel title="Top contributing features" badge={<Icon name="info" />}>
                     {featureRows.length ? (
                         <FeatureImpactList rows={featureRows.slice(0, 6)} />
                     ) : (
                         <EmptyState
                             title="No feature evidence"
-                            body="No persisted feature snapshot is available for this replay."
+                            body="Run the immune loop or advance the replay to populate feature snapshots."
                         />
                     )}
                 </DataPanel>
-                <DataPanel title="Feature Deltas (vs. Baseline)" badge={<Icon name="info" />}>
+                <DataPanel title="Feature deltas vs baseline" badge={<Icon name="info" />}>
                     {featureRows.length ? (
                         <FeatureDeltaTable rows={featureRows.slice(0, 7)} />
                     ) : (
                         <EmptyState
                             title="No feature deltas"
-                            body="Feature deltas require persisted case or simulator feature data."
+                            body="Feature deltas require a case file or simulator feature row."
                         />
                     )}
                     <a className="panel-link" href="#/investigations">
-                        View all feature deltas <Icon name="chevron" />
+                        Open investigation case <Icon name="chevron" />
                     </a>
                 </DataPanel>
-                <DataPanel title="Matched Rule Overlays" badge={<Icon name="info" />}>
+                <DataPanel title="Matched rule overlays" badge={<Icon name="info" />}>
                     {latestCase?.matched_rules.length ? (
                         <RuleOverlayList rules={latestCase.matched_rules} />
                     ) : (
                         <EmptyState
                             title="No matched rules"
-                            body="Run the immune loop to persist rule matches."
+                            body="Run the immune loop to persist rule matches on a case file."
                         />
                     )}
                     <a className="panel-link" href="#/investigations">
-                        View all matched rules <Icon name="chevron" />
+                        Open investigation case <Icon name="chevron" />
                     </a>
                 </DataPanel>
             </div>
 
             <DataTable
-                title="Recent Alerts"
+                title="Recent alerts"
                 columns={[
                     'Time',
                     'Alert ID',
-                    'Metric / Message',
+                    'Metric / message',
                     'Value',
                     'Severity',
                     'Status',
-                    'Linked Case',
+                    'Linked case',
                 ]}
                 rows={alerts.map((alert) => {
                     const linkedCase = data.loopState?.loop?.cases.find(
-                        (c) => c.alert_id === String(alert.id),
+                        (caseFile) => caseFile.alert_id === String(alert.id),
                     );
                     return [
                         formatTimestamp(alert.timestamp),
@@ -182,14 +218,16 @@ export function RiskSentinelScreen({ data, loading }: { data: ProductData; loadi
                         alert.metric_name ? `${alert.metric_name}: ${alert.message}` : alert.message,
                         metricValue(alert.metric_value),
                         sentenceCase(alert.severity),
-                        linkedCase ? 'In Review' : 'Detected',
+                        linkedCase ? 'In review' : 'Open',
                         linkedCase ? shortId(linkedCase.case_id) : '-',
                     ];
                 })}
-                footer={alerts.length ? 'View full alert evidence' : 'No persisted alerts'}
+                footer={alerts.length ? 'Open investigation case' : undefined}
+                footerHref="#/investigations"
             />
             <div className="assurance-line">
-                <Icon name="shield" /> Explainability ensured by Immune Loop
+                <Icon name="shield" aria-hidden="true" />
+                Feature attributions trace to persisted agent runs
             </div>
         </section>
     );

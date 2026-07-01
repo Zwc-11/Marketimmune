@@ -29,6 +29,7 @@ export type IconName =
     | 'link'
     | 'loop'
     | 'menu'
+    | 'moon'
     | 'more'
     | 'nodes'
     | 'pause'
@@ -41,6 +42,7 @@ export type IconName =
     | 'shield'
     | 'sliders'
     | 'stop'
+    | 'sun'
     | 'target'
     | 'trend'
     | 'users'
@@ -75,6 +77,7 @@ const PATHS: Record<IconName, ReactNode> = {
     link: <path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1" />,
     loop: <path d="M4 12a8 8 0 0 1 13-6l2 2m1 4a8 8 0 0 1-13 6l-2-2M17 6h2V4M7 18H5v2" />,
     menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+    moon: <path d="M21 12.8A8 8 0 1 1 11.2 3a6 6 0 0 0 9.8 9.8Z" />,
     more: <path d="M12 6h.01M12 12h.01M12 18h.01" />,
     nodes: <path d="M12 3v6m0 0-6 5m6-5 6 5M6 14v7m12-7v7M12 9v12M4 21h4m8 0h4m-6 0h-4" />,
     pause: <path d="M8 5h3v14H8V5Zm5 0h3v14h-3V5Z" />,
@@ -87,6 +90,7 @@ const PATHS: Record<IconName, ReactNode> = {
     shield: <path d="M12 3 20 6v6c0 5-3.2 8.2-8 10-4.8-1.8-8-5-8-10V6l8-3Zm-4 9 3 3 5-6" />,
     sliders: <path d="M4 7h7m4 0h5M4 12h12m-9 5h13M11 5v4m5 1v4M7 15v4" />,
     stop: <path d="M7 7h10v10H7V7Z" />,
+    sun: <path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0-13v2m0 14v2M4 12H2m20 0h-2M5.6 5.6 4.2 4.2m15.6 15.6-1.4-1.4M18.4 5.6l1.4-1.4M5.6 18.4l-1.4 1.4" />,
     target: <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0-3a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />,
     trend: <path d="M4 18 9 13l4 3 7-10m0 0v6m0-6h-6" />,
     users: <path d="M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8 10v-2a3 3 0 0 0-3-3m1-12a3 3 0 0 1 0 6" />,

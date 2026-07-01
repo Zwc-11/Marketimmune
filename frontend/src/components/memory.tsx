@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { MemoryCardShape } from '../lib/derive';
-import { noveltyLabel } from '../lib/derive';
+import { noveltyLabel, toneForNovelty } from '../lib/derive';
 import { shortId } from '../lib/format';
 import { Icon } from './Icon';
 import { DataPanel, KeyValueList, StatusBadge } from './ui';
@@ -13,8 +13,7 @@ export function MemoryCard({
     memory: MemoryCardShape;
     index: number;
 }) {
-    const noveltyTone: Tone =
-        memory.novelty_score >= 0.66 ? 'amber' : memory.novelty_score >= 0.33 ? 'amber' : 'green';
+    const noveltyTone: Tone = toneForNovelty(memory.novelty_score);
     return (
         <DataPanel
             className="memory-card"

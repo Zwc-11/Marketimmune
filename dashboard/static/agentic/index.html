@@ -1,13 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MarketImmune Agentic Loop</title>
-    <script type="module" crossorigin src="/static/agentic/assets/index-CJndNtKI.js"></script>
-    <link rel="stylesheet" crossorigin href="/static/agentic/assets/index-D1D_MIYC.css">
+    <meta name="color-scheme" content="dark light" />
+    <script>
+      /* No-flash theme init: honor saved choice, else OS, else dark (terminal heritage). */
+      (function () {
+        try {
+          var saved = localStorage.getItem("mi-theme");
+          var theme =
+            saved ||
+            (window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: light)").matches
+              ? "light"
+              : "dark");
+          var root = document.documentElement;
+          root.setAttribute("data-theme", theme);
+          root.style.colorScheme = theme;
+        } catch (e) {}
+      })();
+    </script>
+    <meta
+      name="description"
+      content="MarketImmune - an autonomous immune system for adverse selection on Hyperliquid perpetuals. Detect toxic order flow, investigate, decide, and remember."
+    />
+    <meta property="og:title" content="MarketImmune - Adverse-Selection Immune System" />
+    <meta
+      property="og:description"
+      content="Detect toxic order flow on Hyperliquid BTC-PERP, investigate with agentic loops, and improve markout under honest walk-forward evaluation."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#000000" />
+    <title>MarketImmune - Adverse-Selection Immune System</title>
+    <script type="module" crossorigin src="./assets/index-BRK17eje.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/three-DPuLSphK.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-CInbUQtd.css">
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"></div>
   </body>
 </html>
