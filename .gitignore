@@ -3,11 +3,18 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+.tmp/
+.claude/
+.cursor/skills/impeccable/
+.cursor/impeccable/
 *.egg-info/
 build/
 dist/
 node_modules/
-data/
+# Python data lake at repo root (Bronze/Silver/Gold parquet). Anchored with a
+# leading slash so it does NOT swallow the frontend source dir frontend/src/data/.
+/data/
+!frontend/src/data/
 reports/
 docs/
 .coverage
