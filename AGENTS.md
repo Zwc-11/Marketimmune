@@ -1,23 +1,22 @@
-# MarketImmune — Visual System & Frontend Guide (CLAUDE.md)
+# MarketImmune — Visual System & Frontend Guide (AGENTS.md)
 
 This file is the **single source of truth for the look and feel** of the
 MarketImmune web app. Every screen, component, and future change must conform
 to it so the product stays visually consistent. If a change would violate
 something here, update this document first, then the code.
 
-> **Design language:** **Geist-based pro terminal** — Vercel's Geist system
-> (`https://vercel.com/design.md`) adapted to MarketImmune. Near-neutral
-> surfaces, 10-step intent scales, Geist Sans/Mono, tight radii (6/12/16px),
-> subtle tonal elevation, calm motion. **Light + dark**, switched via the
-> `data-theme` attribute on `<html>` (toggle in the top bar). MarketImmune keeps
-> its **mint accent** (`#97fce4`) as the primary/brand colour and **green/red**
-> as PnL/toxicity semantics. Full-bleed chrome, dense data tables, hairline
-> borders, no glass blur. Navigation is grouped by function (Overview / Market /
-> Operations / Intelligence), not numbered sections.
+> **Design language:** **Geist-based pro terminal** - Vercel's Geist system
+> adapted to MarketImmune: full-bleed chrome, dense data tables, Geist Sans/Mono,
+> mint accent (`#97fce4`), green/red PnL semantics, light + dark themes, and
+> token-driven surfaces. Flat panels with hairline borders, 6/12/16px radii,
+> subtle tonal elevation, no glass blur.
+> Motion follows [transitions.dev](https://transitions.dev) primitives in
+> `src/styles/transitions.css`. Navigation is grouped by function (Overview /
+> Market / Operations / Intelligence), not numbered sections.
 
-**Reference mood:** Vercel-grade developer terminal — instrument ticker strip,
-monospace numerics, compact rows, high information density, equally at home in
-light or dark. Not a marketing landing page.
+**Reference mood:** Vercel-grade developer terminal for on-chain perp monitoring
+- instrument ticker strip, monospace numerics, compact rows, high information
+density, equally at home in light or dark. Not a marketing landing page.
 
 ---
 
@@ -68,65 +67,63 @@ perpetual swaps**, not simulated CEX spoofing. Keep UI copy on this vocabulary:
 
 ---
 
-## 1. Color & surface (Geist, light + dark)
+## 1. Color & surface (International / geometric)
 
-Defined in `src/styles/tokens.css`: theme-agnostic tokens in `:root`, plus
-per-theme colour blocks (`:root`/`[data-theme="dark"]` and
-`[data-theme="light"]`). The no-flash init script in `index.html` sets
-`data-theme` before paint; the top-bar `ThemeToggle` flips it and persists to
-`localStorage` (`mi-theme`). **Never hard-code hex in components** — every colour
-reads a token so both themes follow automatically.
+Defined in `src/styles/tokens.css`. Never hard-code hex in components.
 
-| Token | Role (Geist intent) |
+| Token | Role |
 |---|---|
-| `--bg-0` … `--bg-2` | Page field → recessed (dark `#000`→`#141414`, light `#fff`→`#f2f2f2`) |
-| `--panel`, `--panel-2`, `--panel-3` | Flat data-panel fills (raised / hover / nested) |
-| `--line`, `--line-2`, `--line-strong` | Hairline borders (default / hover / active), translucent |
-| `--chrome-bg`, `--chrome-border` | Sidebar / top bar |
-| `--ink`, `--ink-2`, `--muted`, `--faint` | Text ladder (Geist gray 1000 / · / 900 / 700) |
-| `--accent`, `--signal` | Mint **fill** — primary actions, brand stroke |
-| `--accent-ink` | Mint **text/links** — bright mint on dark, darkened teal (`#0f766e`) on light (AA) |
-| `--accent-contrast` | Label on a mint fill (near-black, both themes) |
-| `--accent-border`, `--ring` | Active-card border / focus ring |
-| `--green`, `--red` | Calm/long vs toxic/short (PnL semantics; darkened on light for AA) |
-| `--amber` | Preview badge, elevated warnings |
-| `--steel`, `--cyan`, `--violet` | Secondary metadata |
+| `--bg-0` … `--bg-2` | Cool neutral field stops (light gray, not warm cream) |
+| `--grid-line`, `--grid-line-strong` | Visible blueprint grid on field + panels |
+| `--surface`, `--surface-raised`, `--surface-muted` | Opaque data panels (primary reading surfaces) |
+| `--surface-border`, `--surface-border-strong` | 1px hairline edges |
+| `--chrome-bg`, `--chrome-border` | Sidebar / top bar matte chrome |
+| `--ink` … `--faint` | Text hierarchy (body ≥4.5:1 on `--surface`) |
+| `--signal` | Mint brand accent — primary action fill, hero focal, brand stroke |
+| `--signal-soft` | Tinted mint wash for brand emphasis only |
+| `--green`, `--amber`, `--red` | Semantic toxicity (calm → elevated → critical) |
+| `--accent` | Alias of `--signal`; use `--accent-ink` for text on light surfaces |
+| `--steel`, `--cyan`, `--violet` | Secondary ML / metadata only |
 
-**Color strategy:** near-neutral field; **mint** for the single primary action
-and brand; **green/red** reserved for toxicity and markout direction; colour
-signals state, not decoration. Mint is a *fill* — for text/links (esp. on light)
-use `--accent-ink`. No gradient meshes, no frosted glass. Elevation is tonal
-first (`--shadow`, `--shadow-lg` stay subtle, per Geist).
+**Color strategy:** restrained monochrome + **mint accent used sparingly**.
+Semantic green/amber/red stay for toxicity state; do not sprinkle accent color
+on decorative chrome.
 
-**Layout chrome:** full-bleed shell (no floating card canvas), market ticker
-strip under top bar (`MarketStrip` in `shell.tsx`), left nav rail.
+**Avoid:** gradient meshes as default background, frosted glass on data panels,
+soft pill SaaS shadows, blue primary buttons.
+
+**Body field:** flat neutral wash + subtle orthogonal grid (`body::before`).
+Panels use opaque `--surface-raised`, 1px border, minimal shadow.
 
 ---
 
 ## 2. Typography
 
 Fonts are self-hosted through Fontsource imports in `frontend/src/main.tsx`.
+**Weight descends with hierarchy:**
+larger type = heavier weight; smaller type = lighter weight.
 
 | Role | Stack | Weight |
 |---|---|---|
-| UI / headings | Geist Sans | 600 |
-| Body | Geist Sans | 400–500 |
-| Labels / captions | Geist Sans | 400, `--muted` |
-| Micro metadata | Geist Sans | 400-500, `--t-2xs` |
+| Display / hero metric | Geist Sans | 600–700 |
+| Page title (`.page-header h1`) | Geist Sans | 600 |
+| Panel title (`h3`, section heads) | Geist Sans | 600 |
+| Body / UI default | Geist Sans | 400–500 |
+| Labels / captions | Geist Sans | 400, `--ink-2` or `--muted` |
+| Micro metadata / trace labels | Geist Sans | 400–500, `--t-2xs`, no forced uppercase |
 | Numerics / code / timestamps | Geist Mono | 500–600, `tabular-nums` |
-| Chinese (`.lang-zh`) | Noto Sans SC | Same ladder |
-| Japanese (`.lang-jp`) | Noto Sans JP | Same ladder |
+| Chinese (`.lang-zh`, `:lang(zh)`) | Source Han Sans SC → Noto Sans SC | Same weight ladder |
+| Japanese (`.lang-jp`, `:lang(ja)`) | Kozuka Gothic Pr6N → Noto Sans JP | Same weight ladder |
 
-Type scale: `--t-display`, `--t-h1` … `--t-2xs`, mapped onto the Geist ladder
-(heading / label / copy / button). Utilities: `.heading-xl|lg|md|sm`,
-`.copy-md|sm`, `.label-md`, `.label-mono`, `.eyebrow`, `.mono`, `.num`,
-`.trace-label`. Headings use zero tracking so compact panels and buttons do not
-drift on mobile.
+Kozuka is Adobe-licensed and not web-embeddable; use it only when installed,
+otherwise Noto Sans JP. This is intentional.
 
-**Rules (Geist voice):** **Title Case** for labels, buttons, titles and tabs;
-**sentence case** for body, helper text and toasts. Name actions verb + noun
-(`Run Immune Loop`), never a bare `Confirm`/`OK`; in-progress uses the ellipsis
-(`Running…`). `text-wrap: balance` on h1–h3; `pretty` on prose; body ~65–75ch.
+Type scale: `--t-display`, `--t-h1` … `--t-2xs`. Helpers: `.eyebrow`,
+`.mono`, `.num`, `.trace-label`.
+
+**Rules:** Title Case for labels, buttons, titles, and tabs; sentence case for
+body/helper text (no ALL CAPS body). `text-wrap: balance` on
+h1–h3; `text-wrap: pretty` on prose. Cap body line length ~65–75ch.
 
 ---
 
@@ -162,9 +159,8 @@ decoration sit on intentional axes:
 - **Rule:** decoration aligns to C; **data** still reads on A/B. Never float
   labels without a grid line or leader.
 
-**Layout shell:** fixed **left nav rail** + **top bar** + **market ticker strip**
-(`MarketStrip`) + full-bleed **main canvas** (`.app-main` on `--bg-0`). No floating
-card wrapper, no numbered nav.
+**Layout shell:** matte **sidebar** + **top bar** (grouped nav) + **main canvas**
+(`.app-main` on `--surface`). No numbered nav, no `01 / 08` breadcrumbs.
 
 **Page header** (`.page-header`): `h1` + subtitle; optional actions right.
 Wrap copy in `<Reveal>` where motion is appropriate.
@@ -173,36 +169,31 @@ Wrap copy in `<Reveal>` where motion is appropriate.
 
 ## 4. Components & motifs
 
-- **Panel** (`.data-panel`): flat `--panel`, 1px `--line` border, **6px radius**
-  (`--r-sm`); 24px padding (16 compact, 32 hero). Menus/modals 12px (`--r-lg`),
-  fullscreen 16px (`--r-xl`). One radius family per view.
-- **MetricCard / MetricBlock / MiniMetric:** compact KPI tiles; numerics in mono;
-  live values → `<AnimatedNumber>`.
-- **StatusBadge:** flat pill, tone wash, mono labels for terminal readout.
-- **Buttons:** `.primary-action` (mint fill, `--accent-contrast` label),
-  `.secondary-action` (surface + hairline), `.outline-action` (ghost). **One
-  primary per view.** Focus shows the `--ring` outline.
-- **Theme toggle:** sun/moon `icon-button` in the top bar (`ThemeToggle`),
-  persists to `localStorage`.
-- **Tables:** uppercase headers, mono body cells, compact row height — density
-  survives (tables/ticker stay tight while cards breathe).
-- **Brand mark:** geometric shield, mint stroke.
+- **Panel** (`.data-panel`): opaque surface, 1px border, light shadow only.
+  Optional `.t-resize` for height transitions. No nested panels.
+- **MetricCard / MetricBlock / MiniMetric:** KPI tiles on `--surface-raised`;
+  live values → `<AnimatedNumber>`; linked tiles use `.metric-card-link`.
+- **StatusBadge:** flat pill, tone wash, sentence case (not uppercase eyebrows).
+- **Buttons:** `.primary-action` (ink fill or signal for single primary),
+  `.secondary-action` (outline hairline), `.outline-action` (ghost). **One
+  primary per view.**
+- **Tables:** hairline dividers, row hover, header `scope="col"`, empty state
+  outside `<table>`.
+- **Brand mark:** geometric shield, **signal red** stroke, no glow except hero.
+- **Leader lines / dashed rules:** 1px dashed `--grid-line-strong` for instrument
+  separators; never thick side-stripe accents on cards.
 
 ---
 
 ## 5. Motion ([transitions.dev](https://transitions.dev))
 
 CSS primitives in `src/styles/transitions.css`; React helpers in
-`src/components/motion/`. Tuned to **Geist motion** — short, physical, never
-decorative. Base easing `cubic-bezier(0.175, 0.885, 0.32, 1.1)` (token `--ease`);
-~150ms state changes, 200ms popovers, 300ms overlays; motion blur and bounce
-removed. Live-data motion (`AnimatedNumber`) is kept because it signals real
-change, not decoration.
+`src/components/motion/`.
 
 | Primitive | Typical use |
 |---|---|
 | Card resize | `.t-resize` — panels, route wrapper |
-| Number pop-in | `AnimatedNumber` — live toxicity, KPIs (functional — kept) |
+| Number pop-in | `AnimatedNumber` — live toxicity, KPIs |
 | Text swap | `TextSwap` — status labels |
 | Route enter | `.route-page` — hash navigation |
 | Panel reveal | `.t-panel-slide` — audit trace expand |
@@ -215,10 +206,8 @@ Engine tick 1.5s drives live numbers. Always respect `prefers-reduced-motion`.
 ## 6. Three.js (instrument hero, used with restraint)
 
 - Stack: `three` + `@react-three/fiber` + `@react-three/drei`.
-- **Signature:** `ImmuneCore.tsx` — wireframe geometry that pulses green→amber→red
-  with `useLiveRisk()` toxicity. Colours read live from theme tokens
-  (`--green`/`--amber`/`--red`/`--accent-ink`) via `useThemePalette()`, so the
-  hero re-tints on the light/dark toggle.
+- **Signature:** `ImmuneCore.tsx` — wireframe geometry, monochrome with signal
+  red pulse on critical toxicity from `useLiveRisk()`.
 - **Guardrails:** cap `dpr` at 1.5; pause when hidden / reduced motion; one hero
   per screen maximum; align overlay readout to Scheme C center.
 
@@ -226,13 +215,12 @@ Engine tick 1.5s drives live numbers. Always respect `prefers-reduced-motion`.
 
 ## 7. Consistency checklist
 
-- [ ] Colours from tokens (both themes follow); mint used sparingly; toxicity uses semantic tones.
-- [ ] **Light and dark both pass** — surfaces, text and mint hold WCAG AA (4.5:1 body).
+- [ ] Colors from tokens; signal red used sparingly; toxicity uses semantic tones.
 - [ ] Type ladder: heavier weights only on larger sizes; CJK stacks on `.lang-*`.
 - [ ] Screen uses Scheme A (macro) **and** Scheme B (micro) alignment.
 - [ ] Decorative / hero elements align to Scheme C when present.
-- [ ] Radii 6/12/16, one family per view; panels opaque; chrome matte; no glass.
-- [ ] One `.primary-action` per view; **Title Case** labels, verb + noun.
+- [ ] Panels opaque; chrome matte; no glass on dense tables.
+- [ ] One `.primary-action` per view; button labels verb + object.
 - [ ] Live metrics use motion helpers; reduced motion respected.
 - [ ] Preview honesty badge visible while data is simulated.
 - [ ] `npm run typecheck` and `npm run build` pass from repo root.
