@@ -27,6 +27,7 @@ from marketimmune.schemas.events import (
     AggTradeEvent,
     BookTickerEvent,
     CanonicalEvent,
+    HyperliquidFillEvent,
     KlineEvent,
     Side,
     TradeEvent,
@@ -208,7 +209,7 @@ class ExecutionSimulator:
         )
 
     def _limit_fill(self, *, order: _ActiveOrder, event: CanonicalEvent) -> Fill | None:
-        if not isinstance(event, AggTradeEvent | TradeEvent):
+        if not isinstance(event, AggTradeEvent | TradeEvent | HyperliquidFillEvent):
             return None
         limit_price = cast(float, order.intent.limit_price)
         if order.intent.side == Side.BUY and event.price > limit_price:
@@ -278,6 +279,6 @@ def _mark_price(event: CanonicalEvent) -> float | None:
         return event.close_price
     if isinstance(event, BookTickerEvent):
         return (event.bid_price + event.ask_price) / 2
-    if isinstance(event, AggTradeEvent | TradeEvent):
+    if isinstance(event, AggTradeEvent | TradeEvent | HyperliquidFillEvent):
         return event.price
     return None
