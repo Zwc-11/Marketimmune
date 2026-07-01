@@ -6,12 +6,23 @@ import argparse
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 
 from hindsight import __version__
 from hindsight.core.clock import ReplayClock
 from hindsight.core.hashing import run_hash, stable_hash
 from hindsight.data.binance_adapter import BinanceLakeAdapter
+from hindsight.data.hyperliquid_adapter import HyperliquidLakeAdapter
+from hindsight.evaluation.benchmark import (
+    BenchmarkResult,
+    benchmark_quote_policies,
+    label_intervals,
+    leaky_markout_policy,
+    maker_side_policy,
+    quote_all_policy,
+)
+from hindsight.evaluation.walk_forward import purged_walk_forward_folds
 from hindsight.execution.compare import ComparisonResult, compare_naive_vs_realistic
 from hindsight.execution.config import ExecConfig
 from hindsight.pit.view import PointInTimeView
@@ -21,6 +32,7 @@ from hindsight.reporting.backtest_report import (
 )
 from hindsight.reporting.curves import write_curve_png
 from hindsight.reporting.json_report import HindsightReport, write_json_report
+from hindsight.reporting.leaderboard import write_leaderboard_csv
 from hindsight.reporting.manifest import RunManifest, current_git_sha
 from hindsight.reporting.markdown_report import write_markdown_report
 from hindsight.strategy.base import NoopStrategy, Strategy
@@ -46,6 +58,14 @@ class ComparisonArtifacts:
     markdown_path: Path
     png_path: Path | None
     result: ComparisonResult
+
+
+@dataclass(frozen=True, slots=True)
+class BenchmarkArtifacts:
+    """Paths and result returned by a benchmark run."""
+
+    csv_path: Path
+    result: BenchmarkResult
 
 
 def default_exec_config() -> ExecConfig:
@@ -198,6 +218,55 @@ def run_comparison(
     )
 
 
+def run_benchmark(
+    *,
+    lake_root: Path,
+    output_dir: Path,
+    symbol: str,
+    date: str,
+    limit: int,
+    horizon: str,
+    label_horizon_seconds: float,
+    n_folds: int,
+    train_window: int,
+    test_window: int,
+    purge_seconds: float,
+    embargo_seconds: float,
+    include_leaky: bool,
+) -> BenchmarkArtifacts:
+    adapter = HyperliquidLakeAdapter(lake_root)
+    records = adapter.load_markouts(symbol=symbol, date=date, limit=limit)
+    if not records:
+        raise FileNotFoundError(f"No Hyperliquid markout rows loaded for {symbol.upper()}")
+    intervals = label_intervals(records, horizon=timedelta(seconds=label_horizon_seconds))
+    folds = purged_walk_forward_folds(
+        intervals,
+        n_folds=n_folds,
+        train_window=train_window,
+        test_window=test_window,
+        purge=timedelta(seconds=purge_seconds),
+        embargo=timedelta(seconds=embargo_seconds),
+    )
+    policies = [
+        quote_all_policy(len(records)),
+        maker_side_policy(records),
+    ]
+    if include_leaky:
+        policies.append(leaky_markout_policy(records, horizon_key=horizon))
+    result = benchmark_quote_policies(
+        records=records,
+        folds=folds,
+        policies=tuple(policies),
+        baseline_policy_name="ofi_quote",
+        horizon_key=horizon,
+        target_name=f"markout_bps_{horizon}",
+        fail_on_leakage=True,
+    )
+    csv_path = output_dir / "hindsight-leaderboard.csv"
+    write_leaderboard_csv(csv_path, result)
+    return BenchmarkArtifacts(csv_path=csv_path, result=result)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hindsight")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -219,6 +288,20 @@ def build_parser() -> argparse.ArgumentParser:
     compare_parser.add_argument("--quantity", type=float, default=0.01)
     compare_parser.add_argument("--lookback-bars", type=int, default=2)
     compare_parser.add_argument("--threshold-bps", type=float, default=1.0)
+    benchmark_parser = subparsers.add_parser("benchmark")
+    benchmark_parser.add_argument("--lake-root", type=Path, default=Path("data/hyperliquid"))
+    benchmark_parser.add_argument("--output-dir", type=Path, default=Path("reports/hindsight"))
+    benchmark_parser.add_argument("--symbol", default="SOL-PERP")
+    benchmark_parser.add_argument("--date", required=True)
+    benchmark_parser.add_argument("--limit", type=int, default=120)
+    benchmark_parser.add_argument("--horizon", default="10s")
+    benchmark_parser.add_argument("--label-horizon-seconds", type=float, default=10.0)
+    benchmark_parser.add_argument("--n-folds", type=int, default=2)
+    benchmark_parser.add_argument("--train-window", type=int, default=80)
+    benchmark_parser.add_argument("--test-window", type=int, default=20)
+    benchmark_parser.add_argument("--purge-seconds", type=float, default=0.0)
+    benchmark_parser.add_argument("--embargo-seconds", type=float, default=0.0)
+    benchmark_parser.add_argument("--include-leaky", action="store_true")
     return parser
 
 
@@ -240,6 +323,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Wrote {comparison_artifacts.markdown_path}")
         if comparison_artifacts.png_path is not None:
             print(f"Wrote {comparison_artifacts.png_path}")
+        return 0
+    if args.command == "benchmark":
+        benchmark_artifacts = run_benchmark(
+            lake_root=args.lake_root,
+            output_dir=args.output_dir,
+            symbol=args.symbol,
+            date=args.date,
+            limit=args.limit,
+            horizon=args.horizon,
+            label_horizon_seconds=args.label_horizon_seconds,
+            n_folds=args.n_folds,
+            train_window=args.train_window,
+            test_window=args.test_window,
+            purge_seconds=args.purge_seconds,
+            embargo_seconds=args.embargo_seconds,
+            include_leaky=args.include_leaky,
+        )
+        print(f"Wrote {benchmark_artifacts.csv_path}")
+        print(f"Benchmark hash {benchmark_artifacts.result.run_hash}")
         return 0
     run_artifacts = run_hindsight(
         lake_root=args.lake_root,

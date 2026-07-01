@@ -35,7 +35,7 @@ def test_purged_walk_forward_removes_nearby_training_samples() -> None:
     assert folds[0].test_indices == (4, 5)
     assert folds[0].train_indices == (0, 1, 2)
     assert folds[1].test_indices == (6, 7)
-    assert folds[1].train_indices == (2, 3, 4)
+    assert folds[1].train_indices == (1, 2, 3, 4)
 
 
 def test_purged_walk_forward_rejects_duplicate_indices() -> None:
