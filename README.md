@@ -1,16 +1,16 @@
 # MarketImmune
 
 **Agentic market-safety research platform for crypto perpetuals.**
-MarketImmune combines a terminal-style dashboard, an audited multi-agent immune
-loop, exchange-data ingestion groundwork, markout labeling primitives, and
-leakage-safe evaluation into one research workspace.
+MarketImmune combines a terminal-style dashboard, a multi-agent immune loop with
+an append-only audit trail, exchange-data ingestion groundwork, markout labeling
+primitives, and leakage-safe evaluation into one research workspace.
 
-![MarketImmune terminal dashboard preview](screenshots/marketimmune-live-dashboard.svg)
+![MarketImmune Command Center real capture](screenshots/geist-command-dark.png)
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-REST-0C4B33?logo=django&logoColor=white)
 ![React](https://img.shields.io/badge/React-TypeScript-61DAFB?logo=react&logoColor=111)
-![Coverage](https://img.shields.io/badge/coverage%20gate-95%25%2B-97fce4)
+![coverage gate ≥95% (CI-enforced)](https://img.shields.io/badge/coverage%20gate-%E2%89%A595%25%20(CI--enforced)-97fce4)
 ![Market](https://img.shields.io/badge/market-crypto%20perps-97fce4)
 
 ## What It Does
@@ -44,7 +44,8 @@ What is live today in this repository:
   Django/React promoted-artifact readout.
 - **Leakage-aware evaluation tools** including purged/embargoed walk-forward
   splits, calibration metrics, and promotion policy checks.
-- **Quality gates**: ruff, mypy, pytest, and a 95%+ coverage gate in CI.
+- **Quality gates**: ruff, mypy, pytest, and a coverage gate ≥95%
+  (CI-enforced).
 
 What is still preview:
 
@@ -60,9 +61,24 @@ The remaining roadmap is summarized below so the README stays self-contained.
 
 The gallery below shows the core product surfaces: Command Center, Live Market,
 Toxicity Sentinel, Immune Loop, Investigation Case File, Model Center, and
-Audit Trail.
+Audit Trail. Each image is a bitmap capture of the running UI or a resized
+bitmap derived from those captures.
 
-![MarketImmune project screenshot gallery](screenshots/project/marketimmune-project-gallery.svg)
+| Command Center | Live Market |
+|---|---|
+| ![Command Center real capture](screenshots/project/marketimmune-command-center.readme.jpg) | ![Live Market real capture](screenshots/project/marketimmune-live-market.readme.jpg) |
+
+| Toxicity Sentinel | Immune Loop |
+|---|---|
+| ![Toxicity Sentinel real capture](screenshots/project/marketimmune-toxicity-sentinel.readme.jpg) | ![Immune Loop real capture](screenshots/project/marketimmune-immune-loop.readme.jpg) |
+
+| Investigation Case File | Model Center |
+|---|---|
+| ![Investigation Case File real capture](screenshots/project/marketimmune-investigation-case.readme.jpg) | ![Model Center real capture](screenshots/project/marketimmune-model-center.readme.jpg) |
+
+| Audit Trail |
+|---|
+| ![Audit Trail real capture](screenshots/project/marketimmune-audit-trail.readme.jpg) |
 
 ## Highlights
 
@@ -74,28 +90,58 @@ Audit Trail.
   historical L2, asset context, and node-fill backfills into parquet.
 - **ML research stack**: gradient-boosting risk head today, plus an agentic
   CatBoost markout trainer/Judge path for real Gold rows.
-- **Honesty-first metrics**: no hard-coded market claims; the current real-data
-  report trains on SOL `20260527..20260531` and holds out `20260601`. On the
-  held-out day it reaches `PR-AUC=0.556`, `Brier=0.233`,
-  `markout_lift_bps=0.860`, and `+0.109 bps` versus the event-OFI baseline.
-  The Judge promotes CatBoost over that explicit event-OFI incumbent, while the
-  report keeps the uncalibrated comparison, fold-local policy thresholds, and
-  baseline details.
+- **Honesty-first metrics**: `[real-model]` no hard-coded market claims; the
+  current real-data report trains on SOL `20260527..20260531` and holds out
+  `20260601`. On the held-out day it reaches `PR-AUC=0.556`,
+  `Brier=0.233`, `markout_lift_bps=0.860`, and `+0.109 bps` versus the
+  event-OFI baseline. The Judge promotes CatBoost over that explicit event-OFI
+  incumbent, while the report keeps the uncalibrated comparison, fold-local
+  policy thresholds, and baseline details.
 
-## Architecture
+### Benchmark Provenance
+
+`[real-model]` The held-out SOL metrics above were reproduced in this session
+with:
+
+```powershell
+python -m scripts.train_hyperliquid_markout --coin SOL --dates 20260527..20260531 --holdout-date 20260601 --horizon 10s --iterations 150 --n-splits 5 --report docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json --model-out .tmp/benchmarks/hyperliquid_catboost_SOL_20260527_20260531_holdout_20260601_10s.cbm --calibrator-out .tmp/benchmarks/hyperliquid_catboost_SOL_20260527_20260531_holdout_20260601_10s.isotonic.json
+```
+
+Data source: local Hyperliquid Gold training parquet partitions under
+`data/hyperliquid/gold/hyperliquid/training/SOL/`, train dates
+`20260527..20260531`, holdout date `20260601`, produced by the requester-pays
+Hyperliquid backfill path. Report artifact:
+[docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json).
+
+Note: the direct script-path form
+`python scripts/train_hyperliquid_markout.py ...` failed in this Windows session
+before training because the script imports `scripts.hyperliquid_markout_args`
+and the repo root was not on `sys.path`. The module form above uses the same
+training code and arguments from the repo root.
+
+## Repository Map
 
 ```text
-marketimmune/         Python core: agents, ingestion, labels, models, replay
-dashboard/            Django REST API, ORM audit trail, static React host
+marketimmune/         Python core: agents, ingestion, labels, models, replay, policy
+hindsight/            Research backtesting/evaluation layer and canonical-event adapters
+aegisbench/           Experimental benchmark harness; not part of the core narrative
+dashboard/            Django app: API views, ORM persistence, audit trail, static SPA host
+dashboard_project/    Django settings and URL root
 frontend/             React + TypeScript + Vite terminal UI
-aegisbench/           Benchmark tasks, splits, metrics, and reports
-scripts/              Training, metrics, and verification CLIs
-tests/                Unit, integration, parser, model, and dashboard tests
+scripts/              Backfill, training, verification, and bundle-sync CLIs
+tests/                Unit, integration, parser, model, dashboard, and UI-adjacent tests
 ```
 
 Python core code has no Django dependency. Django owns persistence and API
 hydration. The React app can run static-first, then hydrate live slices when the
-Django API is reachable.
+Django API is reachable. `frontend/` builds to `frontend/dist/`; when Django
+should serve the latest SPA, `scripts/sync-django-bundle.mjs` removes
+`dashboard/static/agentic/`, recreates it, and copies `frontend/dist/` there.
+
+`aegisbench/` is experimental research scaffolding retained for benchmark-task
+experiments. It is not the core MarketImmune product narrative in this pass.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the ingest-to-audit flow.
 
 ## Quickstart
 
@@ -187,7 +233,7 @@ python scripts/rebuild_hyperliquid_training_rows.py --coin SOL --date 20260601 -
 Train the real-data CatBoost markout model from that Gold table:
 
 ```powershell
-python scripts/train_hyperliquid_markout.py --coin SOL --date 20260601 --horizon 10s --iterations 150 --n-splits 5 --report reports/hyperliquid_markout_SOL_20260601.json --model-out data/models/hyperliquid_catboost_SOL_10s.cbm
+python -m scripts.train_hyperliquid_markout --coin SOL --date 20260601 --horizon 10s --iterations 150 --n-splits 5 --report reports/hyperliquid_markout_SOL_20260601.json --model-out data/models/hyperliquid_catboost_SOL_10s.cbm
 ```
 
 That command also writes an isotonic calibrator next to the model:
@@ -196,7 +242,7 @@ That command also writes an isotonic calibrator next to the model:
 Train across every local SOL partition currently available:
 
 ```powershell
-python scripts/train_hyperliquid_markout.py --coin SOL --dates 20250727,20260601 --horizon 10s --iterations 150 --n-splits 5 --report reports/hyperliquid_markout_SOL_panel.json --model-out data/models/hyperliquid_catboost_SOL_panel_10s.cbm
+python -m scripts.train_hyperliquid_markout --coin SOL --dates 20250727,20260601 --horizon 10s --iterations 150 --n-splits 5 --report reports/hyperliquid_markout_SOL_panel.json --model-out data/models/hyperliquid_catboost_SOL_panel_10s.cbm
 ```
 
 Date ranges are strict by default: every requested Gold training parquet must
