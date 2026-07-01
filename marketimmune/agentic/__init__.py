@@ -19,10 +19,10 @@ from marketimmune.agentic.base import (
 )
 from marketimmune.agentic.investigator import InvestigationCase, InvestigatorAgent
 from marketimmune.agentic.judge import BenchmarkJudgeAgent, JudgeVerdict
-from marketimmune.agentic.llm import AnthropicLLMClient, build_default_llm
+from marketimmune.agentic.llm import DeepSeekLLMClient, build_default_llm
 from marketimmune.agentic.loop import ImmuneLoop, LoopResult
 from marketimmune.agentic.market_simulator import MarketSimulatorAgent
-from marketimmune.agentic.memory import ImmuneMemory, ImmuneMemoryAgent
+from marketimmune.agentic.memory import DriftReport, ImmuneMemory, ImmuneMemoryAgent
 from marketimmune.agentic.policy import PolicyAgent, PolicyDecision
 from marketimmune.agentic.redteam import RedTeamScenarioAgent, ScenarioProposal
 from marketimmune.agentic.sentinel import RiskSentinelAgent, SentinelAlert
@@ -31,7 +31,8 @@ from marketimmune.agentic.trainer import ModelTrainerAgent, TrainingJob
 __all__ = [
     "Agent",
     "AgentRun",
-    "AnthropicLLMClient",
+    "DeepSeekLLMClient",
+    "DriftReport",
     "BenchmarkJudgeAgent",
     "DecisionTrace",
     "ImmuneLoop",

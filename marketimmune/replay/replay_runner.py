@@ -4,26 +4,18 @@ import json
 import time
 from collections.abc import Iterable
 from hashlib import sha256
-from statistics import quantiles
 
 from marketimmune.replay.clock import ReplayClock
 from marketimmune.replay.cursor import EventCursor
 from marketimmune.replay.replay_report import ReplayReport
 from marketimmune.replay.shadow_book import ShadowBook
 from marketimmune.schemas.events import AgentOrderEvent, BookTickerEvent, CanonicalEvent
+from marketimmune.stats import p95
 
 
 def run_hash(records: list[dict[str, object]]) -> str:
     encoded = json.dumps(records, sort_keys=True, separators=(",", ":"), default=str)
     return sha256(encoded.encode("utf-8")).hexdigest()
-
-
-def p95(values: list[float]) -> float:
-    if not values:
-        return 0.0
-    if len(values) == 1:
-        return values[0]
-    return quantiles(values, n=20)[18]
 
 
 class ReplayRunner:

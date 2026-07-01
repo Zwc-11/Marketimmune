@@ -85,35 +85,38 @@ class KlineRepository:
         return self.lake_root / "klines" / symbol / interval
 
     def available_dates(self, symbol: str) -> list[str]:
-        d = self.directory_for(symbol)
-        if not d.exists():
+        symbol_directory = self.directory_for(symbol)
+        if not symbol_directory.exists():
             return []
         # File names look like BTCUSDT-klines-1m-2026-01-01.parquet
-        return sorted("-".join(f.stem.rsplit("-", 3)[-3:]) for f in d.glob("*.parquet"))
+        return sorted(
+            "-".join(file.stem.rsplit("-", 3)[-3:])
+            for file in symbol_directory.glob("*.parquet")
+        )
 
     def load(self, symbol: str, date: str | None, limit: int) -> list[KlineRecord]:
-        d = self.directory_for(symbol)
-        if not d.exists():
+        symbol_directory = self.directory_for(symbol)
+        if not symbol_directory.exists():
             return []
-        files = sorted(d.glob("*.parquet"))
+        files = sorted(symbol_directory.glob("*.parquet"))
         if not files:
             return []
-        chosen = next((f for f in files if date and date in f.name), files[0])
+        chosen = next((file for file in files if date and date in file.name), files[0])
         rows = _load_parquet(str(chosen))
-        rows.sort(key=lambda r: r["timestamp"])
+        rows.sort(key=lambda row: row["timestamp"])
         records: list[KlineRecord] = []
-        for r in rows[:limit]:
+        for kline_row in rows[:limit]:
             records.append(KlineRecord(
-                event_id=r.get("event_id", ""),
-                timestamp=_parse_iso(r["timestamp"]),
+                event_id=kline_row.get("event_id", ""),
+                timestamp=_parse_iso(kline_row["timestamp"]),
                 symbol=symbol,
-                open=float(r["open_price"]),
-                high=float(r["high_price"]),
-                low=float(r["low_price"]),
-                close=float(r["close_price"]),
-                volume=float(r["volume"]),
-                trade_count=int(r.get("trade_count", 0)),
-                raw=r,
+                open=float(kline_row["open_price"]),
+                high=float(kline_row["high_price"]),
+                low=float(kline_row["low_price"]),
+                close=float(kline_row["close_price"]),
+                volume=float(kline_row["volume"]),
+                trade_count=int(kline_row.get("trade_count", 0)),
+                raw=kline_row,
             ))
         return records
 
@@ -128,11 +131,14 @@ class DepthRepository:
         return self.lake_root / "bookDepth" / symbol
 
     def available_dates(self, symbol: str) -> list[str]:
-        d = self.directory_for(symbol)
-        if not d.exists():
+        symbol_directory = self.directory_for(symbol)
+        if not symbol_directory.exists():
             return []
         # File names look like BTCUSDT-bookDepth-2026-01-01.parquet
-        return sorted("-".join(f.stem.rsplit("-", 3)[-3:]) for f in d.glob("*.parquet"))
+        return sorted(
+            "-".join(file.stem.rsplit("-", 3)[-3:])
+            for file in symbol_directory.glob("*.parquet")
+        )
 
     def load(self, symbol: str, date: str) -> list[DepthSnapshot]:
         path = self.directory_for(symbol) / f"{symbol}-bookDepth-{date}.parquet"
@@ -141,21 +147,21 @@ class DepthRepository:
         rows = _load_parquet(str(path))
         # Group by timestamp first, then build a compact, sorted tuple per snap.
         grouped: dict[str, list[dict[str, Any]]] = {}
-        for r in rows:
-            grouped.setdefault(r["timestamp"], []).append(r)
+        for depth_row in rows:
+            grouped.setdefault(depth_row["timestamp"], []).append(depth_row)
         snaps: list[DepthSnapshot] = []
         for ts_str, ladder in grouped.items():
-            ladder.sort(key=lambda x: x["percentage"])
+            ladder.sort(key=lambda level: level["percentage"])
             levels = tuple(
                 DepthLevel(
-                    percentage=float(x["percentage"]),
-                    depth=float(x["depth"]),
-                    notional=float(x["notional"]),
+                    percentage=float(level["percentage"]),
+                    depth=float(level["depth"]),
+                    notional=float(level["notional"]),
                 )
-                for x in ladder
+                for level in ladder
             )
             snaps.append(DepthSnapshot(timestamp=_parse_iso(ts_str), levels=levels))
-        snaps.sort(key=lambda s: s.timestamp)
+        snaps.sort(key=lambda snapshot: snapshot.timestamp)
         return snaps
 
     @staticmethod
@@ -165,14 +171,17 @@ class DepthRepository:
         """Return the snapshot whose timestamp is closest to `target`."""
         if not snapshots:
             return None
-        keys = [s.timestamp for s in snapshots]
+        keys = [snapshot.timestamp for snapshot in snapshots]
         idx = bisect.bisect_left(keys, target)
         candidates = []
         if idx < len(keys):
             candidates.append(idx)
         if idx > 0:
             candidates.append(idx - 1)
-        best = min(candidates, key=lambda i: abs((keys[i] - target).total_seconds()))
+        best = min(
+            candidates,
+            key=lambda candidate_idx: abs((keys[candidate_idx] - target).total_seconds()),
+        )
         return snapshots[best]
 
 

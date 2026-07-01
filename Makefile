@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test coverage phase-metrics phase46 phase79 ci
+.PHONY: install lint linecount typecheck test coverage phase-metrics phase46 phase79 ci
 
 PYTHON ?= python
 
@@ -7,6 +7,9 @@ install:
 
 lint:
 	$(PYTHON) -m ruff check .
+
+linecount:
+	$(PYTHON) scripts/check_line_limit.py
 
 typecheck:
 	$(PYTHON) scripts/typecheck.py
@@ -34,4 +37,4 @@ phase79:
 	$(PYTHON) scripts/train_order_s2p2.py
 	$(PYTHON) scripts/phase79_metrics.py
 
-ci: lint typecheck test coverage phase-metrics
+ci: lint linecount typecheck test coverage phase-metrics

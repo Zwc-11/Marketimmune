@@ -22,6 +22,9 @@ from .api_demo import (
     phase_details,
     project_stats,
 )
+from .api_hyperliquid import hyperliquid_candles, hyperliquid_live_snapshot
+from .api_hyperliquid_backfill import hyperliquid_backfill_jobs
+from .api_markout_model import markout_fill_decisions, markout_model_health
 from .api_metrics import (
     BenchmarkMetricsViewSet,
     DemoAgentEventViewSet,
@@ -86,6 +89,11 @@ __all__ = [
     "live_demo_tick",
     "phase_details",
     "project_stats",
+    "hyperliquid_candles",
+    "hyperliquid_live_snapshot",
+    "hyperliquid_backfill_jobs",
+    "markout_model_health",
+    "markout_fill_decisions",
     # Simulator views.
     "SimulatorAgentsView",
     "SimulatorAuditView",

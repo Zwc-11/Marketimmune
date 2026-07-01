@@ -23,6 +23,7 @@ from typing import Any
 from marketimmune.agentic.base import Agent
 from marketimmune.agentic.investigator import InvestigationCase
 from marketimmune.agentic.policy import PolicyDecision
+from marketimmune.monitoring import drift_severity, ks_statistic, psi
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +60,26 @@ class ImmuneMemory:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class DriftReport:
+    """Feature or score drift observed during the Remember step."""
+
+    feature_name: str
+    psi: float
+    ks: float
+    severity: str
+    retrain_recommended: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "feature_name": self.feature_name,
+            "psi": self.psi,
+            "ks": self.ks,
+            "severity": self.severity,
+            "retrain_recommended": self.retrain_recommended,
+        }
+
+
 def _signature(case: InvestigationCase) -> tuple[frozenset[str], str]:
     """Stable signature used to detect "have we seen this before?"."""
     rules = frozenset(case.matched_rules)
@@ -83,6 +104,24 @@ def _novelty(
     return max(0.0, 1.0 - best_overlap)
 
 
+def _drift_report(
+    reference: Sequence[float],
+    current: Sequence[float],
+    feature_name: str,
+) -> DriftReport | None:
+    if not reference or not current:
+        return None
+    psi_value = psi(reference, current)
+    severity = drift_severity(psi_value)
+    return DriftReport(
+        feature_name=feature_name,
+        psi=psi_value,
+        ks=ks_statistic(reference, current),
+        severity=severity,
+        retrain_recommended=severity == "significant",
+    )
+
+
 class ImmuneMemoryAgent(Agent):
     """Decides whether each case is novel enough to remember."""
 
@@ -99,6 +138,9 @@ class ImmuneMemoryAgent(Agent):
         decisions: Sequence[PolicyDecision] | None = None,
         existing_memories: Sequence[ImmuneMemory] | None = None,
         scenario_source: str = "unknown",
+        drift_reference_scores: Sequence[float] = (),
+        drift_current_scores: Sequence[float] = (),
+        drift_feature_name: str = "risk_score",
         **_: Any,
     ) -> Mapping[str, Any]:
         if cases is None:
@@ -106,6 +148,29 @@ class ImmuneMemoryAgent(Agent):
         decisions = decisions or []
         existing = list(existing_memories or [])
         decision_by_case = {d.case_id: d for d in decisions}
+        drift = _drift_report(
+            drift_reference_scores,
+            drift_current_scores,
+            drift_feature_name,
+        )
+        if drift is not None:
+            self.record_tool_call(
+                "DriftMonitor.psi_ks",
+                arguments={"feature": drift.feature_name},
+                result_summary=f"psi={drift.psi:.3f}, ks={drift.ks:.3f}",
+            )
+            self.record_trace(
+                goal=goal,
+                observation=(
+                    f"Drift for {drift.feature_name}: PSI {drift.psi:.3f}, "
+                    f"KS {drift.ks:.3f}, severity {drift.severity}."
+                ),
+                decision=(
+                    "request_retrain" if drift.retrain_recommended else "monitor_drift"
+                ),
+                confidence=min(0.95, 0.5 + drift.psi),
+                evidence={"severity": drift.severity},
+            )
 
         new_memories: list[ImmuneMemory] = []
         recurrences: list[str] = []
@@ -168,6 +233,8 @@ class ImmuneMemoryAgent(Agent):
                 "new_memories": [m.to_dict() for m in new_memories],
                 "recurrences": recurrences,
                 "memory_total_after": len(existing) + len(new_memories),
+                "drift": drift.to_dict() if drift else None,
+                "retrain_recommended": drift.retrain_recommended if drift else False,
             },
-            "artifacts": {"new_memories": new_memories},
+            "artifacts": {"new_memories": new_memories, "drift_report": drift},
         }

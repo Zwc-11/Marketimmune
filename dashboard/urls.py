@@ -66,6 +66,31 @@ urlpatterns = [
     path("api/simulator/state/", views.get_simulator_state, name="api_simulator_state"),
     path("api/simulator/control/", views.control_replay, name="api_simulator_control"),
     path("api/risk-head/health/", views.risk_head_health, name="api_risk_head_health"),
+    path(
+        "api/hyperliquid/live/",
+        views.hyperliquid_live_snapshot,
+        name="api_hyperliquid_live",
+    ),
+    path(
+        "api/hyperliquid/candles/",
+        views.hyperliquid_candles,
+        name="api_hyperliquid_candles",
+    ),
+    path(
+        "api/hyperliquid/backfill-jobs/",
+        views.hyperliquid_backfill_jobs,
+        name="api_hyperliquid_backfill_jobs",
+    ),
+    path(
+        "api/markout-model/health/",
+        views.markout_model_health,
+        name="api_markout_model_health",
+    ),
+    path(
+        "api/markout-model/decisions/",
+        views.markout_fill_decisions,
+        name="api_markout_fill_decisions",
+    ),
     # Canonical React SPA routes — every `/dashboard/...` URL is the same
     # bundle; the React router picks the screen from `window.location`.
     path("dashboard/", views.AgenticReactView.as_view(), name="product_dashboard"),

@@ -1,7 +1,9 @@
 """ML risk-scoring head — gradient boosting trained on engineered features.
 
-Drop-in replacement for the rule engine when you want a calibrated
-probability rather than a discrete action. Kept dependency-light
+Drop-in replacement for the rule engine when you want a probability
+rather than a discrete action. NOTE: the raw model probability is used
+directly today; probability calibration (isotonic/Platt) is planned, not
+yet applied. Kept dependency-light
 (scikit-learn only) so it runs on a laptop, in CI, and inside Django
 without GPU or torch.
 
@@ -54,10 +56,10 @@ FEATURE_ORDER: tuple[str, ...] = (
 
 @dataclass(frozen=True, slots=True)
 class RiskDecisionPolicy:
-    """Maps a calibrated probability to a discrete action label.
+    """Maps a model probability to a discrete action label.
 
-    Thresholds are deliberately conservative so the head behaves
-    well-calibrated against the existing rule-engine baseline.
+    Thresholds are deliberately conservative. NOTE: the score is the raw
+    classifier probability; calibration (isotonic/Platt) is not yet applied.
     """
 
     alert_threshold: float = 0.40
@@ -108,7 +110,7 @@ class BenchmarkReport:
 
 
 class RiskScorer:
-    """A calibrated gradient-boosting risk head.
+    """A gradient-boosting risk head (raw probabilities; calibration planned).
 
     Use the class methods to train or load; instances are immutable once
     constructed.
@@ -143,14 +145,14 @@ class RiskScorer:
     def predict_batch(self, feature_dicts: Sequence[dict[str, float]]) -> list[RiskPrediction]:
         return [self.predict(f) for f in feature_dicts]
 
-    def _vectorise(self, features: dict[str, float]) -> np.ndarray:
+    def _vectorise(self, features: dict[str, float]) -> np.ndarray[Any, Any]:
         return np.array(
             [float(features.get(name, 0.0)) for name in self._feature_order],
             dtype=np.float64,
         )
 
     def _top_contributions(
-        self, vector: np.ndarray, k: int = 3
+        self, vector: np.ndarray[Any, Any], k: int = 3
     ) -> tuple[tuple[str, float], ...]:
         """Return the top-k features contributing to this prediction.
 
@@ -169,8 +171,8 @@ class RiskScorer:
     @classmethod
     def train(
         cls,
-        X: np.ndarray,
-        y: np.ndarray,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
         *,
         feature_order: Sequence[str] = FEATURE_ORDER,
         seed: int = 42,
@@ -178,7 +180,7 @@ class RiskScorer:
         scenario_names: Sequence[str] | None = None,
         held_out_scenarios: Sequence[str] | None = None,
     ) -> tuple[RiskScorer, BenchmarkReport]:
-        """Train a calibrated gradient-boosting risk head.
+        """Train a gradient-boosting risk head (no probability calibration yet).
 
         Two split modes:
 
@@ -244,7 +246,9 @@ class RiskScorer:
         return cls(clf, feature_order=feature_order), report
 
     @staticmethod
-    def _precision_at_top_k(y_true: np.ndarray, scores: np.ndarray, k: int) -> float:
+    def _precision_at_top_k(
+        y_true: np.ndarray[Any, Any], scores: np.ndarray[Any, Any], k: int
+    ) -> float:
         if len(scores) == 0:
             return 0.0
         top = np.argsort(-scores)[: min(k, len(scores))]

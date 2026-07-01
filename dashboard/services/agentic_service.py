@@ -17,6 +17,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from django.conf import settings
 from django.db import transaction
 
 from dashboard.models import (
@@ -31,6 +32,7 @@ from dashboard.models import (
     ScenarioProposalRecord,
 )
 from marketimmune.agentic import ImmuneLoop, ImmuneMemory, LoopResult, build_default_llm
+from marketimmune.models import GoldFillScore
 
 
 class AgenticService:
@@ -63,9 +65,17 @@ class AgenticService:
         difficulty: str = "medium",
         tick_limit: int = 60,
         enable_self_improvement: bool = True,
+        include_markout_decisions: bool = True,
     ) -> ImmuneLoopRun:
         """Execute one full loop and persist every artifact."""
+        from dashboard.services.markout_decision_service import gold_fill_scores_for_loop
+
         existing = AgenticService.existing_memories()
+        gold_fill_scores = (
+            gold_fill_scores_for_loop(limit=_markout_decision_limit())
+            if include_markout_decisions
+            else ()
+        )
         llm = build_default_llm()
         loop = ImmuneLoop.with_llm(llm) if llm.name != "null" else ImmuneLoop()
         loop.enable_self_improvement = enable_self_improvement
@@ -79,9 +89,15 @@ class AgenticService:
             tick_limit=tick_limit,
             existing_memories=existing,
             retrain_pending=retrain_pending,
+            gold_fill_scores=gold_fill_scores,
         )
         duration_ms = (time.perf_counter() - started) * 1000.0
-        loop_row = AgenticService._persist(result, difficulty, duration_ms)
+        loop_row = AgenticService._persist(
+            result,
+            difficulty,
+            duration_ms,
+            gold_fill_scores=gold_fill_scores,
+        )
         loop_row.output_provider = llm.name  # type: ignore[attr-defined]
         return loop_row
 
@@ -121,7 +137,10 @@ class AgenticService:
         result: LoopResult,
         difficulty: str,
         duration_ms: float,
+        gold_fill_scores: tuple[GoldFillScore, ...] = (),
     ) -> ImmuneLoopRun:
+        from dashboard.services.markout_decision_service import link_markout_decisions_to_loop
+
         loop_id = f"loop_{uuid.uuid4().hex[:12]}"
         first_run = result.agent_runs[0] if result.agent_runs else None
         last_run = result.agent_runs[-1] if result.agent_runs else None
@@ -140,7 +159,6 @@ class AgenticService:
             alert_count=len(result.alerts),
             case_count=len(result.cases),
         )
-
         # 1. Per-agent traces.
         for agent_run in result.agent_runs:
             agent_row = AgentRunRecord.objects.create(
@@ -279,6 +297,9 @@ class AgenticService:
                 },
             )
 
+        if gold_fill_scores:
+            link_markout_decisions_to_loop(loop=loop_row, result=result)
+
         return loop_row
 
 
@@ -297,6 +318,11 @@ def _now() -> datetime:
     strings with a ``+00:00`` suffix.
     """
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _markout_decision_limit() -> int:
+    raw = int(getattr(settings, "MARKETIMMUNE_LOOP_MARKOUT_DECISION_LIMIT", 5))
+    return max(0, min(20, raw))
 
 
 def _to_aware(dt: datetime) -> datetime:

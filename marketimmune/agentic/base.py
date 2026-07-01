@@ -41,7 +41,7 @@ from typing import Any, Protocol
 class LLMClient(Protocol):
     """Pluggable language-model interface.
 
-    Implementations may wrap OpenAI / Anthropic / a local model; the
+    Implementations may wrap DeepSeek / OpenAI / a local model; the
     agentic core never imports any vendor SDK directly. A
     :class:`NullLLMClient` ships with the package and is used when the
     operator chose to run the loop fully deterministically.

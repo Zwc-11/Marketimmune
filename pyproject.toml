@@ -11,7 +11,6 @@ requires-python = ">=3.12,<3.15"
 license = { text = "Apache-2.0" }
 authors = [{ name = "MarketImmune contributors" }]
 dependencies = [
-  "anthropic>=0.40",
   "duckdb>=1.0",
   "httpx>=0.27",
   "joblib>=1.4",
@@ -32,7 +31,19 @@ dev = [
   "mypy>=1.10",
   "pytest>=8.0",
   "pytest-asyncio>=0.23",
+  "pandas>=2.2",
   "ruff>=0.5",
+]
+# Optional — only needed to actually pull from the requester-pays Hyperliquid S3
+# archive. The parser/adapter core (marketimmune.ingest.hyperliquid_archive) imports
+# neither; these back the lz4_decompress / boto3_requester_pays_fetcher boundaries.
+hyperliquid = [
+  "boto3>=1.34",
+  "lz4>=4.0",
+]
+training = [
+  "catboost>=1.2.10",
+  "pandas>=2.2",
 ]
 
 [project.scripts]
@@ -67,6 +78,10 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["marketimmune.simulator.data_loader", "marketimmune.lake.parquet_io", "hindsight.data.repositories"]
 disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = ["boto3", "boto3.*", "lz4", "lz4.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = "-q"

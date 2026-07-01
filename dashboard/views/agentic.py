@@ -39,10 +39,10 @@ class AgenticReactView(View):
     """Serve the prebuilt React + TypeScript bundle.
 
     The bundle is produced by ``npm run build`` (see ``frontend/``)
-    into ``dashboard/static/agentic/index.html``. The HTML already
-    points at ``/static/agentic/assets/index-<hash>.js|css`` because
-    Vite is configured with ``base: '/static/agentic/'``, so Django's
-    staticfiles app serves the assets without any extra plumbing.
+    into ``dashboard/static/agentic/index.html``. Vite keeps relative
+    asset URLs so the same dist folder can deploy to a static host; when
+    Django serves the bundle from ``/dashboard/...`` we rewrite those
+    asset URLs to the staticfiles path.
     """
 
     BUNDLE_PATH = "dashboard/static/agentic/index.html"
@@ -57,7 +57,10 @@ class AgenticReactView(View):
                 status=503,
                 content_type="text/html",
             )
-        return HttpResponse(bundle.read_text(encoding="utf-8"), content_type="text/html")
+        html = bundle.read_text(encoding="utf-8")
+        html = html.replace('src="./assets/', 'src="/static/agentic/assets/')
+        html = html.replace('href="./assets/', 'href="/static/agentic/assets/')
+        return HttpResponse(html, content_type="text/html")
 
 
 class AgenticLoopView(View):
@@ -275,7 +278,7 @@ def agentic_llm_status(request):
 
     flag = (os.environ.get("MARKETIMMUNE_USE_LLM") or "").strip().lower()
     requested = flag in {"1", "true", "yes", "on"}
-    has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    has_key = bool(os.environ.get("DEEPSEEK_API_KEY"))
     client = build_default_llm(load_env=False)  # already loaded by manage.py
     enabled = client.name != "null"
     return Response(
@@ -292,14 +295,19 @@ def agentic_llm_status(request):
 @api_view(["POST"])
 def trigger_immune_loop(request):
     """Run one immune loop synchronously and return its summary."""
-    difficulty = (
-        request.data.get("difficulty", "medium") if hasattr(request, "data") else "medium"
-    )
-    limit = int(request.data.get("limit", 30)) if hasattr(request, "data") else 30
+    from dashboard.api_validators import parse_loop_run_request
+
+    payload = request.data if hasattr(request, "data") else {}
+    parsed, error = parse_loop_run_request(payload)
+    if error:
+        return Response(error, status=400)
+    difficulty, limit = parsed
     try:
         loop = AgenticService.run_once(difficulty=difficulty, tick_limit=limit)
+    except ValueError as exc:
+        return Response({"error": str(exc), "code": "validation_error"}, status=400)
     except Exception as exc:  # noqa: BLE001
-        return Response({"error": str(exc)}, status=500)
+        return Response({"error": str(exc), "code": "loop_failed"}, status=500)
     return Response(
         {
             "loop_id": loop.loop_id,

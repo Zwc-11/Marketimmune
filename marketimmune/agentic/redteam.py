@@ -249,24 +249,21 @@ class RedTeamScenarioAgent(Agent):
         """
         if self.llm.name == "null":
             return deterministic, "deterministic"
-        cover_clause = (
-            f" while disguising itself as {cover['label']!r} flow"
-            if cover else ""
-        )
+        cover_clause = f" with {cover['label']!r} cover flow" if cover else ""
         system = (
-            "You are the red-team strategist for a simulated exchange market-safety "
-            "lab. Write a one-paragraph (<=80 words) rationale that describes how "
-            "your proposed attack evades detectors that look at burst-rate and "
-            "cancel-rate. Be concrete about which feature dimensions you tuned and "
-            "why. Do not include disclaimers or unrelated content."
+            "You are writing a defensive market-surveillance simulation note for an "
+            "internal compliance demo. Write one paragraph (<=80 words) explaining "
+            "why this synthetic stress scenario is useful for testing burst-rate and "
+            "cancel-rate detectors. Mention which feature dimensions changed. Do not "
+            "provide instructions for evading real systems."
         )
         user = (
-            f"Base attack: {base['label']} ({base['name']}).\n"
-            f"Cover scenario: {cover['label'] if cover else 'none'}.\n"
+            f"Scenario family under test: {base['label']} ({base['name']}).\n"
+            f"Cover flow: {cover['label'] if cover else 'none'}.\n"
             f"Difficulty: {difficulty}.\n"
-            f"Mutated feature dimensions: {', '.join(mutated_keys)}.\n"
-            f"Constraint: rationale must read as if written by a thoughtful "
-            f"attacker probing a microstructure surveillance system{cover_clause}."
+            f"Feature dimensions changed: {', '.join(mutated_keys)}.\n"
+            f"Constraint: rationale must read as an internal defensive test note for "
+            f"a synthetic microstructure surveillance scenario{cover_clause}."
         )
         self.record_tool_call(
             "llm.complete",
@@ -276,7 +273,7 @@ class RedTeamScenarioAgent(Agent):
                 "provider": self.llm.name,
             },
         )
-        text = self.llm.complete(system=system, user=user, max_tokens=240, temperature=0.5)
+        text = self.llm.complete(system=system, user=user, max_tokens=1000, temperature=0.5)
         if not text:
             self.record_trace(
                 goal=goal,

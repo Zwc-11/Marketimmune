@@ -1,4 +1,8 @@
-"""Replay-cockpit views and the simulator state / control endpoints."""
+"""Replay-cockpit views and the simulator state / control endpoints.
+
+The React SPA uses the bundled ``simEngine`` for live simulation; these JSON
+endpoints remain for the legacy Django replay cockpit template.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -105,7 +109,10 @@ def get_simulator_state(request):
         return Response(SimulatorService().snapshot())
     except Exception as exc:  # noqa: BLE001 — surface to UI for diagnosis.
         return Response(
-            {"error": f"Failed to assemble simulator state: {exc}"},
+            {
+                "error": f"Failed to assemble simulator state: {exc}",
+                "code": "snapshot_failed",
+            },
             status=500,
         )
 
@@ -159,30 +166,61 @@ def risk_head_health(request):
     )
 
 
+def _simulator_control_payload(request) -> dict:
+    """Merge JSON body and query params for ``control_replay``."""
+    body = request.data if hasattr(request, "data") and request.data else {}
+    payload = dict(body) if isinstance(body, dict) else {}
+    for key in ("scenario", "limit", "symbol", "speed", "date"):
+        if key not in payload and request.GET.get(key) is not None:
+            payload[key] = request.GET.get(key)
+    return payload
+
+
 @api_view(["POST", "GET"])
 def control_replay(request):
     """Start a new replay session for a chosen scenario."""
-    payload = request.data if hasattr(request, "data") else {}
-    scenario = payload.get("scenario") or request.GET.get("scenario", "spoofing_layering")
-    limit = int(payload.get("limit") or request.GET.get("limit", 1440))
-    symbol = payload.get("symbol") or request.GET.get("symbol", "BTCUSDT")
-    speed = int(payload.get("speed") or request.GET.get("speed", 10))
-    replay_date = payload.get("date") or request.GET.get("date")
-    if scenario not in ScenarioRegistry.names():
+    from dashboard.api_validators import parse_simulator_control_request
+
+    parsed, error = parse_simulator_control_request(_simulator_control_payload(request))
+    if error:
         return Response(
-            {"status": "error", "message": f"Unknown scenario {scenario!r}."},
+            {
+                "status": "error",
+                "message": error["error"],
+                "error": error["error"],
+                "code": error["code"],
+            },
             status=400,
         )
     try:
         SimulatorService().start(
             ReplayConfig(
-                symbol=symbol,
-                scenario_name=scenario,
-                speed=speed,
-                limit=limit,
-                replay_date=replay_date,
+                symbol=parsed["symbol"],
+                scenario_name=parsed["scenario"],
+                speed=parsed["speed"],
+                limit=parsed["limit"],
+                replay_date=parsed["replay_date"],
             )
         )
+        scenario = parsed["scenario"]
         return Response({"status": "success", "message": f"Started scenario {scenario}."})
+    except ValueError as exc:
+        return Response(
+            {
+                "status": "error",
+                "message": str(exc),
+                "error": str(exc),
+                "code": "validation_error",
+            },
+            status=400,
+        )
     except Exception as exc:  # noqa: BLE001
-        return Response({"status": "error", "message": str(exc)}, status=500)
+        return Response(
+            {
+                "status": "error",
+                "message": str(exc),
+                "error": str(exc),
+                "code": "replay_failed",
+            },
+            status=500,
+        )

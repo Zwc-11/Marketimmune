@@ -5,9 +5,9 @@ import sys
 
 
 def main() -> None:
-    # Auto-load .env so ANTHROPIC_API_KEY / MARKETIMMUNE_USE_LLM /
-    # CLAUDE_MODEL are available to every `manage.py` subcommand and
-    # to the runserver process. `.env` is gitignored.
+    # Auto-load .env so DEEPSEEK_API_KEY / MARKETIMMUNE_USE_LLM /
+    # MARKETIMMUNE_LLM_PROVIDER are available to every `manage.py` subcommand
+    # and to the runserver process. `.env` is gitignored.
     try:
         from dotenv import load_dotenv  # noqa: WPS433 — optional dep.
 

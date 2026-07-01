@@ -47,6 +47,11 @@ def test_classify_generic() -> None:
     assert "anomalous" in result.lower() or "generic" in result.lower()
 
 
+def test_classify_promoted_markout() -> None:
+    result = _classify_behavior(["promoted_markout_threshold"], {})
+    assert result == "Adverse-selection markout risk"
+
+
 # ---------------------------------------------------------------------------
 # _next_step
 # ---------------------------------------------------------------------------
@@ -134,3 +139,32 @@ def test_investigator_window_is_clipped_to_plan_bounds() -> None:
     run = agent.run(goal="investigate", plan=plan, alerts=[alert], window=50)
     assert run.success is True
     assert len(run.linked_artifacts["cases"]) == 1
+
+
+def test_investigator_builds_case_from_direct_alert_evidence() -> None:
+    alert = _make_alert("alert_hl_SOL_1780272011755-123", severity="critical")
+    alert = type(alert)(
+        **{
+            **alert.to_dict(),
+            "matched_rules": ("promoted_markout_threshold",),
+            "top_features": ("asset_open_interest",),
+            "feature_evidence": {"asset_open_interest": 10_000.0},
+            "model_evidence": {
+                "model_name": "fake-catboost",
+                "calibrated_score": 0.82,
+                "action": "withhold_quote",
+            },
+            "source": "hyperliquid_gold",
+            "action": "withhold_quote",
+        }
+    )
+    agent = InvestigatorAgent()
+
+    run = agent.run(goal="investigate real fill", alerts=[alert])
+
+    assert run.success is True
+    cases = run.linked_artifacts["cases"]
+    assert len(cases) == 1
+    assert cases[0].case_id == "case_alert_hl_SOL_1780272011755-123"
+    assert cases[0].suspected_behavior == "Adverse-selection markout risk"
+    assert cases[0].timeline[0]["source"] == "hyperliquid_gold"

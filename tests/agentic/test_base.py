@@ -54,6 +54,14 @@ class _ErrorAgent(Agent):
         raise RuntimeError("deliberate error")
 
 
+class _ScalarAgent(Agent):
+    name = "ScalarAgent"
+    description = "Returns a scalar value."
+
+    def _execute(self, *, goal: str, **inputs: Any) -> str:
+        return f"value:{goal}"
+
+
 def test_agent_run_success() -> None:
     agent = _EchoAgent()
     run = agent.run(goal="hello")
@@ -75,6 +83,13 @@ def test_agent_run_error_capture() -> None:
     assert "deliberate error" in (run.error or "")
     assert len(run.traces) == 1
     assert "abort" in run.traces[0].decision
+
+
+def test_agent_run_wraps_scalar_output() -> None:
+    agent = _ScalarAgent()
+    run = agent.run(goal="plain")
+    assert run.success is True
+    assert run.output == {"value": "value:plain"}
 
 
 def test_agent_run_summary_with_traces() -> None:
