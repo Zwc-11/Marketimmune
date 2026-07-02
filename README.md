@@ -95,8 +95,15 @@ bitmap derived from those captures.
   `20260601`. On the held-out day it reaches `PR-AUC=0.556`,
   `Brier=0.233`, `markout_lift_bps=0.860`, and `+0.109 bps` versus the
   event-OFI baseline. The Judge promotes CatBoost over that explicit event-OFI
-  incumbent, while the report keeps the uncalibrated comparison, fold-local
-  policy thresholds, and baseline details.
+  incumbent by comparing the quoting-policy candidate in
+  [`policy.candidate_deployment_selection`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json#L609)
+  against
+  [`policy.baseline_deployment_selection`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json#L674);
+  [`holdout_split.policy`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json#L812),
+  [`holdout_split.uncalibrated`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json#L734),
+  and
+  [`holdout_split.baseline_comparison.event_ofi`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json#L803)
+  remain recorded in the same report.
 
 ### Benchmark Provenance
 
@@ -137,8 +144,11 @@ Django API is reachable. `frontend/` builds to `frontend/dist/`; when Django
 should serve the latest SPA, `scripts/sync-django-bundle.mjs` removes
 `dashboard/static/agentic/`, recreates it, and copies `frontend/dist/` there.
 
-`aegisbench/` is experimental research scaffolding retained for benchmark-task
-experiments. It is not the core MarketImmune product narrative in this pass.
+### AegisBench Disposition
+
+`aegisbench/` is experimental benchmark scaffolding for benchmark-task experiments.
+It remains in CI because it has package wiring, direct tests, and script consumers.
+It is not part of the core MarketImmune application narrative.
 
 The standalone Hindsight evaluation engine now lives at
 [Zwc-11/Hindsight](https://github.com/Zwc-11/Hindsight). MarketImmune keeps its
