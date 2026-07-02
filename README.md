@@ -123,7 +123,6 @@ training code and arguments from the repo root.
 
 ```text
 marketimmune/         Python core: agents, ingestion, labels, models, replay, policy
-hindsight/            Research backtesting/evaluation layer and canonical-event adapters
 aegisbench/           Experimental benchmark harness; not part of the core narrative
 dashboard/            Django app: API views, ORM persistence, audit trail, static SPA host
 dashboard_project/    Django settings and URL root
@@ -140,6 +139,11 @@ should serve the latest SPA, `scripts/sync-django-bundle.mjs` removes
 
 `aegisbench/` is experimental research scaffolding retained for benchmark-task
 experiments. It is not the core MarketImmune product narrative in this pass.
+
+The standalone Hindsight evaluation engine now lives at
+[Zwc-11/Hindsight](https://github.com/Zwc-11/Hindsight). MarketImmune keeps its
+own markout model evaluation and training paths here; the extracted backtesting
+engine is no longer vendored in this repository.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the ingest-to-audit flow.
 

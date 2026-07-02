@@ -11,7 +11,6 @@ def python_files() -> list[Path]:
     return (
         sorted(Path("marketimmune").rglob("*.py"))
         + sorted(Path("aegisbench").rglob("*.py"))
-        + sorted(Path("hindsight").rglob("*.py"))
         + sorted(Path("scripts").glob("*.py"))
     )
 
@@ -56,7 +55,6 @@ def main() -> int:
                 "pyproject.toml",
                 "marketimmune",
                 "aegisbench",
-                "hindsight",
             ],
             check=False,
             text=True,

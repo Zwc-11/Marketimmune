@@ -46,11 +46,8 @@ training = [
   "pandas>=2.2",
 ]
 
-[project.scripts]
-hindsight = "hindsight.cli:main"
-
 [tool.setuptools]
-packages = { find = { where = ["."], include = ["marketimmune*", "aegisbench*", "hindsight*"], exclude = ["dashboard*", "dashboard_project*", "configs*", "reports*", "data*", "docs*", "scripts*", "tests*"], namespaces = false } }
+packages = { find = { where = ["."], include = ["marketimmune*", "aegisbench*"], exclude = ["dashboard*", "dashboard_project*", "configs*", "reports*", "data*", "docs*", "scripts*", "tests*"], namespaces = false } }
 
 [tool.ruff]
 line-length = 100
@@ -64,7 +61,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
 python_version = "3.12"
-packages = ["marketimmune", "aegisbench", "hindsight"]
+packages = ["marketimmune", "aegisbench"]
 strict = true
 warn_unused_ignores = true
 warn_return_any = true
@@ -76,7 +73,7 @@ module = ["pyarrow", "pyarrow.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["marketimmune.simulator.data_loader", "marketimmune.lake.parquet_io", "hindsight.data.repositories"]
+module = ["marketimmune.simulator.data_loader", "marketimmune.lake.parquet_io"]
 disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
@@ -94,7 +91,7 @@ pythonpath = ["."]
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
-source = ["marketimmune", "aegisbench", "hindsight"]
+source = ["marketimmune", "aegisbench"]
 branch = true
 
 [tool.coverage.report]
