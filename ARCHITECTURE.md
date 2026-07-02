@@ -49,8 +49,10 @@ they are preview data and should not be presented as live market evidence.
 `marketimmune/` contains the core agents, policy rules, ingestion, labels, model
 evaluation, replay, and resilience code. It does not require Django.
 
-`hindsight/` contains the research backtesting/evaluation layer and canonical
-market-data adapters.
+Hindsight, the research backtesting/evaluation layer, has been extracted to
+[Zwc-11/Hindsight](https://github.com/Zwc-11/Hindsight). MarketImmune keeps the
+application-specific markout training, scoring, policy, and dashboard paths in
+this repository.
 
 `dashboard/` is the Django API, ORM persistence layer, management commands, and
 static SPA host. The React bundle is copied into `dashboard/static/agentic/` by
