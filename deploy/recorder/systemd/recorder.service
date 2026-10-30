@@ -1,0 +1,23 @@
+[Unit]
+Description=Price of Priority market-data recorder (Hyperliquid + Binance)
+Wants=network-online.target chrony.service
+After=network-online.target chrony.service
+
+[Service]
+Type=simple
+User=pop
+WorkingDirectory=/opt/pop/recorder
+ExecStart=/opt/pop/venv/bin/python /opt/pop/recorder/record.py --out /var/lib/pop/recorder
+Restart=always
+RestartSec=2
+# SIGTERM lets record.py close its hourly files cleanly.
+KillSignal=SIGTERM
+TimeoutStopSec=15
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/pop/recorder
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,6 @@
 import { Empty, Panel } from '../components/Panel';
 import CountUp from '../components/reactbits/CountUp';
-import { useDjango } from '../data/django';
+import { useServerApi } from '../data/serverApi';
 import { durationMs, fixed, integer, percent, signed, yyyymmdd } from '../lib/format';
 import { COMMITTED, COMMITTED_REPORT_PATH, REPRODUCE_COMMAND, type MetricSet } from '../lib/report';
 
@@ -122,7 +122,7 @@ function HoldoutTable() {
 }
 
 function PromotedArtifact() {
-    const { status, model } = useDjango();
+    const { status, model } = useServerApi();
     if (status !== 'online') {
         return (
             <Empty title="The Django API is not running">

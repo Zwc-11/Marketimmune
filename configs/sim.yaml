@@ -1,0 +1,14 @@
+# Simulator settings (Lesson 6). Latency comes from the recorder's own
+# measurements once it runs; these are placeholders until then.
+latency_ms:
+  entry: null        # TBD from recorder receive-time vs block-time
+  response: null
+queue_model: power_prob_queue_model3   # hftbacktest baseline only
+queue_model_n: 3.0
+fees_bps:
+  maker: -0.2        # rebate tier placeholder; set per strategy run
+  taker: 4.5
+avellaneda_stoikov:
+  gamma: 0.1
+  horizon_s: 60
+  tail_limit_bps: 5.0

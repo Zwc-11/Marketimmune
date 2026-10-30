@@ -10,15 +10,15 @@ import './styles/shell.css';
 import './styles/panels.css';
 import './styles/reports.css';
 import { App } from './App';
-import { DjangoProvider } from './data/django';
+import { ServerApiProvider } from './data/serverApi';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Missing #root');
 
 createRoot(container).render(
     <StrictMode>
-        <DjangoProvider>
+        <ServerApiProvider>
             <App />
-        </DjangoProvider>
+        </ServerApiProvider>
     </StrictMode>,
 );

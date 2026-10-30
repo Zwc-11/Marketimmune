@@ -1,0 +1,22 @@
+[package]
+name = "hl-replay-py"
+version = "0.1.0"
+description = "Python bindings for hl-replay"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "hl_replay"
+crate-type = ["cdylib", "rlib"]
+
+
+[dependencies]
+replay = { package = "hl-replay", path = "../hl-replay" }
+pyo3 = "0.30.1"
+
+[features]
+# maturin turns this on; plain `cargo test` links against libpython instead.
+extension-module = ["pyo3/extension-module"]

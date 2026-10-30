@@ -1,0 +1,29 @@
+{
+  "config": {
+    "rows": 724150,
+    "snapshots": 400000,
+    "fills": 190000,
+    "repeats": 3,
+    "seed": 7,
+    "out": "eval/pipeline_speed/results.json"
+  },
+  "machine": {
+    "python": "3.12.15",
+    "numpy": "2.2.6",
+    "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.35",
+    "processor": "x86_64"
+  },
+  "seconds": {
+    "temporal_folds_purged_kfold": 0.00466,
+    "temporal_folds_walk_forward": 0.00083,
+    "fold_local_thresholds": 0.25193,
+    "select_threshold": 0.05853,
+    "evaluate_oof_report": 0.09997,
+    "l2_rows_with_ofi": 0.33295,
+    "training_rows_asof_join": 0.86743,
+    "gold_markout_labels": 0.581,
+    "leakage_check_200_fills": 0.74277,
+    "oblivious_trees_batch_100000": 0.09917,
+    "oblivious_trees_single_row": 1e-05
+  }
+}

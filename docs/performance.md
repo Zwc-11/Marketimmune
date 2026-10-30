@@ -4,7 +4,53 @@ A pass over the markout pipeline's hot paths, from archive labels to the browser
 The rule was "same inputs, same report": every change is measured, and the
 end-to-end training report is compared field by field against the original code.
 
-## Results
+## Pass 2 (2026-10-30): the v3 Albers path, the leakage check, the Rust book
+
+Measured on real data (Albers et al. SOL, 2025-12-01) on a 2 vCPU, 3 GB Linux VM,
+Python 3.12; "before" is commit `add8ab7` run on the same machine. Every output
+was compared: same parquet tables, same validation JSON, same check verdicts.
+
+| Stage | Before | After | Speedup |
+|---|---:|---:|---:|
+| Silver L2 + order events, 24 h of statuses (801,715 rows, 346,446 events) | 134.3 s | 57.7 to 74.1 s | 1.8 to 2.3x |
+| Silver fills from the hourly trades members (169,024 matches) | 7.8 s | 5.4 s | 1.4x |
+| No-look-ahead check, 200 fills against 160K labels and 802K book rows | 103.3 s | 1.5 s | 69x |
+| Gold stage for the day (labels, training rows, check, CEX gap) | about 110 s | about 7 s | 16x |
+| Rust match-mode engine, 1M synthetic actions | 44.5 ms (22.5 M/s) | 37.3 ms (26.8 M/s) | 1.19x |
+
+For the whole SOL month that is about 2.2 hours down to about 40 minutes for the
+three Albers stages.
+
+**Book diffs.** Each hourly diff member holds every coin, 1.6 GB of JSON. Lines are
+written with a fixed key order, so one regex over 16 MB inflated chunks reads the
+oid and size of a coin's `new` diffs without `json.loads`; a chunk where a line of
+that coin breaks the order falls back to JSON. python-isal (`pip install .[fast]`)
+inflates 2.3x faster than zlib. A worker process parses the next hours' diffs while
+the current hour replays (`--diff-workers`, DeepInfer's overlap of CPU scheduling
+with execution).
+
+**Replay.** NumPy classifies all 2.4M statuses of an hour first: rejections, opens
+that never rested and statuses of orders the book never held are counted, not
+looped over. Blocks with nothing left leave the book unchanged and are counted in
+bulk. The remaining book updates are inlined, the top five levels are recomputed
+only after a change that touched them, and Silver rows are built straight from the
+levels.
+
+**Leakage check.** It used to rebuild every sampled fill twice, once over the rest of
+the day, so each of the 200 samples processed hundreds of thousands of book rows.
+The uncut run is now one `build` call for all samples (the builder is row-wise, the
+same property the as-of join already has); only the cut runs stay per sample. The
+largest feature difference it reports is now 4e-13, the rounding of prefix-sum
+windows that start earlier; the tolerance is 1e-9. It is also stricter: a feature
+that reads further back than `lookback_ms` now shows up as a mismatch, where one
+call per label cut both runs at the same point and let it pass.
+
+**Rust book.** A batch is split into its three classes with three O(n) passes
+instead of a sort, the duplicate check is a map lookup, and a taker drains each
+crossed level in place instead of looking the level up again for every fill. The
+2 x 1024 proptest streams against the naive reference still match exactly.
+
+## Pass 1 results
 
 Measured on the cloud container used for this work (2 vCPU, Python 3.13, NumPy
 2.x), median of runs, no other load. Synthetic inputs are shaped like the SOL run
@@ -37,7 +83,7 @@ report:
 CatBoost now dominates; the remaining 4 s is parquet decode and the six
 `predict_proba` calls.
 
-`python -m scripts.bench_pipeline --out docs/benchmarks/perf_pipeline.json` reruns
+`python eval/pipeline_speed/bench.py --out eval/pipeline_speed/results.json` reruns
 the after-column stages on any machine; the before column came from the same
 harness pointed at commit `087b1fd`.
 
@@ -82,7 +128,8 @@ inference engine; three of its ideas carry over to a tabular scorer.
 | Asynchronous scheduling overlaps CPU batch scheduling with device execution | The holdout parquet loads while CatBoost trains; partitions decode in parallel |
 | Decoder SWA bounded replay: recompute only a bounded suffix instead of the whole prompt | Browser OFI keeps only the last 10 s of book events (`frontend/src/lib/ofi.ts`) and still matches the full-day Python prefix sums to 1e-12 |
 | Batch-invariant inference: identical results whatever the batch composition | `predict_batch` returns exactly the per-fill result; pinned by a test with a real CatBoost model, because an audited decision must not depend on what else was in the batch |
-| Benchmark sweep script and methodology | `scripts/bench_pipeline.py` writes machine info and per-stage medians to JSON |
+| Benchmark sweep script and methodology | `eval/pipeline_speed/bench.py` writes machine info and per-stage medians to JSON |
+| Asynchronous scheduling, again | Albers book diffs parse in a worker process while the previous hour replays |
 
 ## The browser
 

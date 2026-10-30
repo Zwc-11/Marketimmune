@@ -1,0 +1,17 @@
+[workspace]
+resolver = "3"
+members = ["crates/hl-replay", "crates/hl-replay-py"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/Zwc-11/MarketImmune"
+rust-version = "1.97"
+
+[profile.release]
+debug = 1          # symbols for flamegraphs
+lto = "thin"
+codegen-units = 1
+
+[profile.bench]
+inherits = "release"

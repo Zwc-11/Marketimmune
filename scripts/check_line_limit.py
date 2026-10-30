@@ -24,7 +24,7 @@ SKIP_FRAGMENTS = (
     "frontend/dist/",
 )
 # Directories scanned when git is unavailable (the common case is git present).
-FALLBACK_ROOTS = ("marketimmune", "aegisbench", "frontend/src", "dashboard", "scripts", "tests")
+FALLBACK_ROOTS = ("marketimmune", "frontend/src", "server", "scripts", "tests")
 
 
 def tracked_files() -> list[Path]:

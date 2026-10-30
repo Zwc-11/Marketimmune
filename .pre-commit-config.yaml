@@ -1,16 +1,15 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.5.7
+    rev: v0.17.2
     hooks:
       - id: ruff
         args: ["--fix"]
-      - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.1
     hooks:
       - id: mypy
         additional_dependencies:
-          - pydantic>=2.7
           - pyarrow>=16.0
-          - duckdb>=1.0
-          - polars>=1.0
+          - polars>=1.40
+          - numpy>=2.2
+          - types-PyYAML

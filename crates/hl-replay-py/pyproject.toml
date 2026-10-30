@@ -1,0 +1,13 @@
+[build-system]
+requires = ["maturin==1.16.0"]
+build-backend = "maturin"
+
+[project]
+name = "hl-replay"
+version = "0.1.0"
+description = "Python bindings for the hl-replay order-book engine"
+requires-python = ">=3.12"
+
+[tool.maturin]
+features = ["extension-module"]
+module-name = "hl_replay"

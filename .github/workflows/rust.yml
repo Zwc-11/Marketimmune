@@ -1,0 +1,39 @@
+name: rust
+on:
+  push:
+  pull_request:
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5   # PyO3 needs an interpreter for the bindings crate
+        with:
+          python-version: "3.12"
+      - name: Toolchain from rust-toolchain.toml
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - name: fmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: tests (release; includes 2 x 1024 proptest cases)
+        run: cargo test --workspace --release
+      - name: benches compile
+        run: cargo bench --workspace --no-run
+  wheel:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - uses: Swatinem/rust-cache@v2
+      - name: build and import the extension
+        run: |
+          uvx maturin@1.16.0 build --release -m crates/hl-replay-py/Cargo.toml --out dist
+          uv venv -p 3.12 /tmp/wheel-venv
+          uv pip install -p /tmp/wheel-venv/bin/python dist/*.whl
+          /tmp/wheel-venv/bin/python -c "import hl_replay as h; b = h.Book(); b.add(1, 0, 'A', 101, 5); assert b.best_ask() == (101, 5); print(h.__version__)"

@@ -1,0 +1,37 @@
+# Assets and date ranges per experiment. Dates are UTC, inclusive.
+# Anything marked TBD is set by Gate G0 (docs/g0_note.md) and must be filled
+# in before the phase that uses it.
+
+coins: [BTC, ETH, SOL]
+
+windows:
+  albers_l4:            # outcome-mode ground truth, E3, golden test
+    start: 2025-12-01
+    end: 2025-12-31
+  e1_pre_launch:        # two weeks before priority fees reached core perps
+    start: 2026-03-16
+    end: 2026-03-29
+  e1_post_launch:       # TBD from G0: first day priorityGas > 0 on BTC fills
+    start: null
+    end: null
+  fills_scan:           # node_fills_by_block pulls for the launch search
+    - {start: 2025-12-01, end: 2025-12-31}
+    - {start: 2026-03-01, end: 2026-06-30}
+  held_out:             # scored once in Phase 6, never before
+    start: 2027-02-01
+    end: 2027-02-28
+
+priority_fees:
+  hip3_ioc_launch: 2026-04-13     # alpha mainnet launch, IOC on HIP-3 only
+  core_perp_launch: null          # TBD: measured, not published
+  alo_launch_approx: 2026-07-01   # inferred from order_book_server insertBefore; verify
+
+s3:
+  node_bucket: hl-mainnet-node-data
+  archive_bucket: hyperliquid-archive
+  node_region: ap-northeast-1
+  archive_region: us-east-1
+
+binance:
+  symbols: {BTC: BTCUSDT, ETH: ETHUSDT, SOL: SOLUSDT}
+  market: futures/um

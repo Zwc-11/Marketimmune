@@ -1,0 +1,7 @@
+[Unit]
+Description=Compress closed recorder hours with zstd
+
+[Service]
+Type=oneshot
+User=pop
+ExecStart=/opt/pop/recorder/rotate.sh /var/lib/pop/recorder

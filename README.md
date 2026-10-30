@@ -6,11 +6,11 @@ Trained on 724,150 Hyperliquid SOL maker fills. On a held-out day the model neve
 saw, its quoting policy beats a simple order-flow baseline by **+0.109 bps per
 fill**. Small, real, and measured the honest way.
 
-![MarketImmune terminal: live SOL-PERP book, fill tape with the 10 s regret clock, and the quote guard](screenshots/terminal.png)
+![MarketImmune terminal: live SOL-PERP book, fill tape with the 10 s regret clock, and the quote guard](docs/images/terminal.png)
 
 ## The result
 
-From [`docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json)
+From [`eval/markout_sol_10s/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json`](eval/markout_sol_10s/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json)
 (`holdout_split`): train on May 27 to 31, 2026, score June 1.
 
 | Held-out day, 210,530 fills | CatBoost | 10 s event-OFI baseline |
@@ -47,9 +47,9 @@ The policy skips a fill when `p(regret) >= 0.30`; skipped fills count as 0 bps.
   k-fold (5 folds, 60 s purge and 60 s embargo, so no training label overlaps a
   test fill). Four of those five folds also train on later days, which is why the
   holdout, not the CV average, is the number to quote.
-- **Walk-forward is now the default.** `--cv-scheme walk_forward` (the new
-  default) trains every fold strictly on earlier fills; `--cv-scheme purged_kfold`
-  reproduces the committed report exactly. Reports record `cv_scheme`.
+- **Forward-only CV by default.** `--cv-scheme rolling_daily` (the default) and
+  `walk_forward` train every fold strictly on earlier fills; `--cv-scheme
+  purged_kfold` reproduces the committed report exactly. Reports record `cv_scheme`.
 - **Point-in-time features.** Every feature joins the latest book and asset
   context at or before the fill; a vectorized as-of check raises `LeakageError`
   on any look-ahead.
@@ -72,17 +72,13 @@ Hyperliquid and Phoenix) that runs with no backend:
 - **Model report** built from the committed JSON: holdout table, per-fold lift,
   validation protocol, data, features, and the exact rerun command.
 
-![Model report: held-out results against the order-flow baseline](screenshots/model.png)
-
-- **Immune loop and audit trail** from the Django API, with a clearly badged
-  sample run when the API is not up.
+![Model report: held-out results against the order-flow baseline](docs/images/model.png)
 
 Under the hood: one `requestAnimationFrame` flush per frame no matter how many
 WebSocket messages arrive, slice-level subscriptions so the book does not
 re-render when the tape moves, CSS-only countdowns, and TypeScript feature and
 model code pinned to the Python implementation by parity tests. React Bits
-supplies four small components (rolling price digits, count-ups, ID reveal,
-status marks); see [`frontend/src/components/reactbits/NOTICE.md`](frontend/src/components/reactbits/NOTICE.md).
+supplies three small components (rolling price digits, count-ups, status marks); see [`frontend/src/components/reactbits/NOTICE.md`](frontend/src/components/reactbits/NOTICE.md).
 
 ## Performance
 
@@ -101,35 +97,51 @@ within 2e-13. Details and methodology in [docs/performance.md](docs/performance.
 | As-of feature join, 190K fills | 8.7 s | 2.0 s |
 | Score 2,000 fills | 0.35 s one by one | 0.012 s batched |
 | Full training run (CatBoost fits unchanged at ~94 s) | 200 s | 99 s |
+| Albers SOL day to Silver book (real data, 24 h) | 134 s | 58 to 74 s |
+| No-look-ahead check, 200 fills on a real day | 103 s | 1.5 s |
 
 ## Quickstart
 
 ```powershell
-# Backend (optional for the terminal; needed for the loop, audit, and scoring APIs)
-python -m pip install -e ".[dev]"
-python manage.py migrate
-python manage.py runserver 127.0.0.1:8000
+python -m pip install -e ".[training,server,aws,fast,dev]"    # or: uv sync --extra training --extra server --extra dev
 
-# Frontend
-npm.cmd run setup:frontend
-npm.cmd run dev:frontend          # http://127.0.0.1:5173/#/terminal
+# Terminal only (no backend needed): http://127.0.0.1:5173/#/terminal
+npm --prefix frontend install
+npm --prefix frontend run dev
+
+# Django API + the built terminal on http://127.0.0.1:8000/
+npm --prefix frontend run build:server
+python server/manage.py migrate
+python server/manage.py runserver
 ```
 
-Django serves the built SPA at `http://127.0.0.1:8000/dashboard/live/#/terminal`
-after `npm.cmd run build:django`.
+Every pipeline command is `python -m marketimmune.cli.<command> --help`; the
+`Makefile` (or `.\make.ps1` on Windows) wraps the common ones.
+
+| Command | What it does |
+|---|---|
+| `download_albers` | Albers et al. Dec 2025 L4 archives into `data/bronze/albers` (166 GB, resumable) |
+| `download_binance` | Binance aggTrades for the CEX-gap feature |
+| `build_albers_silver` / `build_albers_fills` / `build_albers_gold` | Albers archives to Silver book + fills, then Gold labels and training rows |
+| `run_albers_month` | The three Albers stages for a date range |
+| `backfill_day` | One day from the requester-pays Hyperliquid S3 archive to Gold |
+| `rebuild_training_rows` | Recompute Gold training rows and their leakage sidecars |
+| `train` | CatBoost markout model, CV report, calibrator |
+| `export_web_model` | Compact model JSON for the browser and CatBoost-free serving |
+| `probe_s3_day`, `find_first_priority_day`, `snapshot_asset_meta` | Price of Priority data probes |
 
 ### Reproduce the benchmark
 
-Needs the local Gold partitions under `data/hyperliquid/gold/hyperliquid/training/SOL/`
-(produced by `scripts/backfill_hyperliquid_day.py` from the requester-pays archive):
+Needs the local Gold partitions under `data/gold/hyperliquid/training/SOL/`
+(produced by `python -m marketimmune.cli.backfill_day` from the requester-pays archive):
 
 ```powershell
-python -m pip install -e ".[dev,hyperliquid,training]"
-python -m scripts.train_hyperliquid_markout --coin SOL --dates 20260527..20260531 `
+python -m pip install -e ".[training,aws,dev]"
+python -m marketimmune.cli.train --coin SOL --dates 20260527..20260531 `
   --holdout-date 20260601 --horizon 10s --iterations 150 --n-splits 5 `
   --cv-scheme purged_kfold `
-  --report docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json `
-  --model-out .tmp/benchmarks/hyperliquid_catboost_SOL_10s.cbm
+  --report eval/markout_sol_10s/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json `
+  --model-out data/models/hyperliquid_catboost_SOL_10s.cbm
 ```
 
 Drop `--cv-scheme purged_kfold` to run the walk-forward version.
@@ -137,9 +149,9 @@ Drop `--cv-scheme purged_kfold` to run the walk-forward version.
 ### Score live fills in the terminal
 
 ```powershell
-python -m scripts.export_markout_web_model `
-  --model .tmp/benchmarks/hyperliquid_catboost_SOL_10s.cbm `
-  --report docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json
+python -m marketimmune.cli.export_web_model `
+  --model data/models/hyperliquid_catboost_SOL_10s.cbm `
+  --report eval/markout_sol_10s/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json
 ```
 
 This writes `frontend/public/model/markout.json`; the terminal picks it up on the
@@ -149,22 +161,57 @@ installed (`MARKETIMMUNE_PROMOTED_MARKOUT_MODEL_PATH=...markout.json`).
 ### Checks
 
 ```powershell
-ruff check . ; python scripts/typecheck.py ; python scripts/check_line_limit.py
-python -m coverage run -m pytest ; python -m coverage report      # gate: 95%
-cd frontend ; npm run typecheck ; npm test ; npm run build
+.\make.ps1 ci      # ruff, line limit, mypy --strict, pytest + coverage (gate 90%), cargo test, frontend tests
 ```
 
-## Repository map
+## Repository layout
+
+Laid out like [DeepInfer](https://github.com/deepseek-ai/DeepInfer): one Python
+package split by pipeline stage, native code in its own top-level folder, and
+benchmarks in `eval/` next to the results they produced.
 
 ```text
-marketimmune/   ingest, labels, features, models (splits, evaluation, scorer), agents
-scripts/        backfill, training, export, benchmarks, parity fixtures
-dashboard/      Django API, persistence, audit trail, built SPA host
-frontend/       React + TypeScript terminal
-docs/           benchmark artifacts, performance notes, design contract
+MarketImmune/
+├── marketimmune/              Python package, one sub-package per pipeline stage
+│   ├── sources/               Bronze: fetch and parse external data
+│   │   ├── hyperliquid_info_api.py     public Info API (candles, meta, asset contexts)
+│   │   ├── hyperliquid_l2_archive.py   S3 l2Book archive
+│   │   ├── hyperliquid_asset_ctxs.py   funding / open interest / basis
+│   │   ├── hyperliquid_node_fills.py   node_fills_by_block; pair maker and taker legs
+│   │   ├── hyperliquid_s3.py           requester-pays S3 listing and downloads
+│   │   ├── hyperliquid_replica.py      replica_cmds parser (actions, statuses)
+│   │   ├── hyperliquid_meta.py         asset tick and lot decimals
+│   │   ├── albers_download.py          Albers et al. L4 dataset from Zenodo
+│   │   ├── albers_l4.py                Albers order statuses + book diffs -> timed book
+│   │   └── binance_aggtrades.py        Binance aggTrades (CEX reference price)
+│   ├── lake/                  Silver/Gold parquet: tables.py (layout + writers), gold.py
+│   │                          (markout labels), backfill.py (daily S3 -> Gold), checks.py
+│   ├── labels/                markout.py (the regret label), leakage.py (point-in-time checks)
+│   ├── features/              training_rows.py (as-of join, OFI windows), cex_gap.py
+│   ├── models/                cross_validation.py, evaluation.py, calibration.py, promotion.py
+│   ├── serving/               scorer.py (CatBoost), oblivious_trees.py (no CatBoost), gold_scoring.py
+│   ├── priority/              Price of Priority study: fills.py (priority fees), nonces.py (arrival)
+│   ├── cli/                   python -m marketimmune.cli.<command>
+│   ├── config.py              data paths and configs/*.yaml
+│   └── resilience.py          retries and timeouts for network calls
+├── crates/                    Rust (cargo workspace)
+│   ├── hl-replay/             order book under HyperCore's cancel-first batch order
+│   └── hl-replay-py/          PyO3 bindings, Python module hl_replay
+├── server/                    Django: settings.py, urls.py, manage.py
+│   └── api/                   models, views, services, migrations, static/terminal (built UI)
+├── frontend/                  React + TypeScript + Vite terminal
+├── eval/                      benchmark harnesses and committed results
+│   ├── markout_sol_10s/       the SOL report quoted above
+│   └── pipeline_speed/        bench.py + results.json
+├── tests/                     mirrors marketimmune/, plus server/ and deploy/
+├── configs/                   data windows, episodes, simulator (YAML)
+├── deploy/                    always-on recorder (VPS) and EC2 notes
+├── docs/                      performance, plans (v3, Price of Priority), research notes, images
+├── scripts/                   developer tooling: typecheck.py, check_line_limit.py
+└── data/                      gitignored: bronze/ silver/ gold/ models/ logs/
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the data flow diagram. The standalone
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the data flow. The standalone
 backtesting engine that grew out of this repo lives at
 [Zwc-11/Hindsight](https://github.com/Zwc-11/Hindsight).
 

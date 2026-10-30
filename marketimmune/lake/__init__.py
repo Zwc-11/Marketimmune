@@ -1,1 +1,1 @@
-"""Local Parquet lake utilities."""
+"""Silver and Gold parquet tables: layout, writers, Gold labels, daily backfill, checks."""
