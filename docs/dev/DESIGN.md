@@ -1,197 +1,108 @@
-# MarketImmune — Design System
+# MarketImmune frontend: visual and engineering contract
 
-> Captured from `CLAUDE.md`, `frontend/src/styles/*`, and component patterns.
-> Treat this as the visual contract; change `DESIGN.md` (and `CLAUDE.md`) before
-> code when intentionally shifting look-and-feel.
+This is the one source of truth for how the web app looks and behaves.
+`CLAUDE.md` and `AGENTS.md` in this folder point here. Change this file first when
+a change would break a rule below.
 
-## Identity
+## What the app is
 
-**Geist-based pro terminal** — Vercel's Geist design system
-(`https://vercel.com/design.md`) adapted to MarketImmune: an instrument console
-for adverse-selection monitoring on Hyperliquid BTC-PERP. Near-neutral surfaces,
-10-step intent scales, hairline borders, opaque data surfaces, subtle tonal
-elevation, and calm motion. MarketImmune keeps its **mint accent** (`#97fce4`)
-as the primary/brand colour and **green/red** as PnL/toxicity semantics.
+An exchange-style terminal for one question: **which SOL perp fills will a market
+maker regret 10 seconds later?** It sits next to Hyperliquid and Phoenix in a
+trader's tab bar, so it borrows their conventions instead of a dashboard kit:
+dark, dense, numbers first, green and red with fixed meanings.
 
-**Themes:** light **and** dark, switched by the `data-theme` attribute on
-`<html>` (no-flash init in `index.html`, top-bar `ThemeToggle`, persisted to
-`localStorage` as `mi-theme`).
+## References
 
-**Scene:** Vercel-grade developer terminal — technical readout density,
-traceable agent decisions, equally at home in light or dark. Not glass SaaS, not
-a marketing landing page.
+- **Hyperliquid** (`app.hyperliquid.xyz/trade/SOL`): one font at 12 px for nearly
+  everything, market header of label-over-value pairs, order book with cumulative
+  depth bars, underlined text tabs, a thin status footer.
+- **Phoenix** (`phoenix.trade`): near-black field, panels with small radii and
+  4 px gutters, tabular numerals everywhere, a single strong CTA.
+- **designeer.xyz** (curated interface craft): translucent hairlines instead of
+  grey borders, pill filters, tactile pressed buttons, slightly negative tracking
+  on display type, dot-matrix data marks.
+- **React Bits** (`reactbits.dev`): four vendored components, each with a job
+  (see `frontend/src/components/reactbits/NOTICE.md`). No decorative backgrounds.
 
-**Color strategy:** near-neutral field; mint for the single primary action and
-brand; semantic green/amber/red for toxicity state; colour signals state, not
-decoration.
+## Tokens (`frontend/src/styles/tokens.css`)
 
-See **CLAUDE.md** for the full visual contract (grid schemes A/B/C, type ladder,
-checklist).
-
-## Tokens
-
-Source: `frontend/src/styles/tokens.css` (imported via `frontend/src/styles.css`).
-Theme-agnostic tokens live in `:root`; colours are redefined per theme in
-`:root`/`[data-theme="dark"]` and `[data-theme="light"]`.
-
-### Surfaces + chrome
-
-| Token | Role |
-|---|---|
-| `--bg-0` … `--bg-2` | Page field → recessed (dark `#000`→`#141414`, light `#fff`→`#f2f2f2`) |
-| `--panel`, `--panel-2`, `--panel-3` | Opaque data-panel fills (raised / hover / nested) |
-| `--chrome-bg`, `--chrome-border` | Sidebar / top bar |
-| `--line`, `--line-2`, `--line-strong` | Hairline borders (default / hover / active), translucent |
-| `--glass-bg`, `--glass-border` | Flat chrome fill (no blur — `--glass-blur: 0`) |
-| `--shadow`, `--shadow-lg` | Subtle tonal elevation (Geist) |
-
-### Ink + semantics
-
-| Token | Role |
-|---|---|
-| `--ink`, `--ink-2`, `--muted`, `--faint` | Text ladder (Geist gray 1000 / · / 900 / 700) |
-| `--accent`, `--signal` | Mint **fill** — primary action, brand stroke |
-| `--accent-ink` | Mint **text/links** — bright on dark, darkened teal `#0f766e` on light (AA) |
-| `--accent-contrast` | Label on a mint fill (near-black) |
-| `--accent-border`, `--ring` | Active border / focus ring |
-| `--green`, `--red` | Toxicity / PnL (calm → toxic); darkened on light for AA |
-| `--amber` | Preview badge / warnings |
-| `--cyan`, `--violet`, `--steel` | Secondary / metadata |
-
-**Tone classes:** `tone-green`, `tone-amber`, `tone-red`, etc. Glow (`--glow`)
-only on a single hero metric / brand mark, and only in dark (`none` in light).
-
-### Spacing + shape
-
-- Grid: 12-column (`.grid-12`, `.col-*`), 4px base / `--s1`…`--s24` rhythm
-  (Geist: 4 8 12 16 24 32 40 64 96). Three-step rhythm: 8 in-group / 16 between
-  groups / 32–40 between sections.
-- Radii: `--r-sm` 6, `--r-md` 12, `--r-lg` 16, `--r-xl` 16, `--r-full` 9999.
-- Shell: `--sidebar-w` 220px, collapsed 56px, `--topbar-h` 48px, `--ticker-h`
-  36px, `--maxw` none (full-bleed).
-
-### Type scale
-
-| Token | Use |
-|---|---|
-| `--t-display` | Hero (clamp ~1.75–2.5rem) |
-| `--t-h1` … `--t-h3` | Page / panel titles |
-| `--t-body`, `--t-sm`, `--t-xs`, `--t-2xs` | Body + captions |
-
-## Typography
-
-Loaded through Fontsource imports in `frontend/src/main.tsx`.
-
-| Role | Stack |
-|---|---|
-| Display / UI / body | Geist Sans (600 headings, 400–500 body) |
-| Numerics / code | Geist Mono, `tabular-nums` |
-| Chinese | Noto Sans SC (`.lang-zh`) |
-| Japanese | Noto Sans JP (`.lang-jp`) |
-
-Utilities: `.heading-xl|lg|md|sm`, `.copy-md|sm`, `.label-md`, `.label-mono`,
-`.eyebrow`, `.mono`, `.num`. Headings use zero tracking. Cap prose
-~65–75ch.
-
-**Voice (Geist):** Title Case for labels/buttons/titles/tabs; sentence case for
-body/helper/toasts. Actions are verb + noun (`Run Immune Loop`); in-progress
-uses the ellipsis (`Running…`).
-
-## Layout shell
-
-`AppShell` (`frontend/src/components/shell.tsx`):
-
-- Left **nav rail** with grouped nav (`NAV_GROUPS`)
-- **Top bar** (menu toggle, live UTC clock, **theme toggle**, preview badge,
-  alert badge)
-- **Market ticker strip** (`MarketStrip`) under the top bar
-- Full-bleed scrollable **main canvas** (`.app-main`)
-
-No numbered nav, no breadcrumbs like `01 / 08`.
-
-## Components
-
-| Pattern | Class / component | Notes |
+| Token | Value | Use |
 |---|---|---|
-| Panel | `.data-panel`, `DataPanel` | Default surface, 6px radius; `.t-resize` for height |
-| KPI | `MetricCard`, `MetricBlock`, `MiniMetric` | Live values → `AnimatedNumber` |
-| Status | `StatusBadge`, `StatusLine` | Flat pill, tone-tinted |
-| Buttons | `.primary-action` (mint fill), `.secondary-action`, `.outline-action` | One primary per view |
-| Theme | `ThemeToggle` | Sun/moon in top bar; flips `data-theme` |
-| Tables | `.data-table` | Hairline dividers, row hover, compact |
-| Brand | `BrandMark` | Geometric shield, mint stroke |
-| Empty / load | `EmptyState`, `LoadingState`, `SkeletonBlock` | |
-| Charts | `frontend/src/components/charts.tsx` | Sparklines, bars, mini scales |
-| Tabs | `SlidingTabs` | Agent detail |
-| Reveal | `Reveal`, `.t-reveal` | Page headers |
+| `--ink-0` | `#0c1015` | Page field |
+| `--ink-1` | `#11161c` | Panels |
+| `--ink-2` / `--ink-3` | `#171e25` / `#1e262f` | Hover / selected |
+| `--rule` / `--rule-strong` | white at 7% / 12% | Hairlines |
+| `--fg` / `--fg-2` / `--fg-3` | `#e1e6eb` / `#9ea9b4` / `#67737f` | Text ladder |
+| `--bid` | `#1fb873` | Bids, maker gained, quote |
+| `--ask` | `#f0464f` | Asks, maker regretted, withhold |
+| `--warn` | `#e3a43b` | Sample data, decisions in the audit log |
+| `--cta` | `#f2f5f7` | The one primary button per view |
 
-## Motion
+Colour carries meaning only. The brand is monochrome so green and red stay loud.
+Dark only, like the venues.
 
-CSS: `frontend/src/styles/motion.css` + transitions.dev variables in tokens,
-tuned to **Geist motion** (short, physical, no decoration). Base easing
-`cubic-bezier(0.175, 0.885, 0.32, 1.1)` (`--ease`); ~150/200/300ms; blur and
-bounce removed. Live-data motion is kept (signals real change).
+## Type
 
-React helpers in `frontend/src/components/motion/`: `AnimatedNumber`, `TextSwap`,
-`Reveal`, `ShimmerText`, `SlidingTabs`, `SkeletonBlock`.
+- **IBM Plex Sans** for everything (it is the family BinancePlex grew from);
+  numbers always `tabular-nums` (`.num`). 12 px data, 11 px column heads and
+  labels, 13 px panel titles and tabs, 28 px report headlines with -0.025em
+  tracking.
+- **IBM Plex Mono** only for code, commands, and record IDs. Never for labels.
+- Sentence case everywhere. No all-caps labels, no eyebrow text above headings.
 
-Global: respect `prefers-reduced-motion` (engine slows 1.5s → 4s). Route enter:
-`.route-page` + `--route-dir`.
+## Layout
 
-## Three.js
-
-- `ImmuneCore` via `LazyImmuneCore` — wireframe icosahedron, orbiting agent nodes
-- Pulses green→amber→red with `useLiveRisk()` toxicity; colours read from theme
-  tokens via `useThemePalette()`, so the hero re-tints on light/dark toggle
-- Guardrails: `dpr` cap 1.5, pause offscreen/hidden/reduced motion,
-  `.three-fallback`
-- **One hero per screen maximum** (Command Center today)
-
-## Screen styles
-
-Per-screen CSS under `frontend/src/styles/screens/`:
-
-`command`, `live`, `agentic`, `risk`, `investigation`, `models`, `memory`,
-`audit`, `shared`, `components`.
-
-## Style import order
-
-```text
-tokens → base → typography → shell → primitives → charts → three
-→ screens/* → motion → glass
+```
+┌ top nav: brand · Terminal  Model  Immune loop  Audit ··············· Source ┐
+├ market header: SOL-PERP  mark  oracle  24h  volume  OI  funding  spread  OFI ┤
+├ price (1m candles) ─────────────────┬ order book ──────┬ quote guard ───────┤
+│                                     │ asks / spread /  │ decision           │
+│                                     │ bids, depth bars │ regret matrix      │
+├ regret log | Gold fills | folds | … ┤ fills + 10 s     │ live stats         │
+│                                     │ regret clock     │ held-out benchmark │
+└ status bar: stream state · last message · model artifact · Django API ─────┘
 ```
 
-Keep each partial under 1000 lines (`CLAUDE.md` §7).
+Under 1280 px the guard drops below; under 860 px everything stacks in one column
+with the bottom tables capped at 520 px tall.
 
-## Accessibility + quality bar
+## Signature elements
 
-- Body text ≥4.5:1 **in both themes**; bump `--muted` toward `--ink-2` if
-  contrast fails. Mint is a fill — use `--accent-ink` for text/links on light.
-- Placeholder text same 4.5:1 minimum.
-- Icon buttons need `aria-label`; nav uses `aria-current="page"`.
-- Preview badge explains simulated data (do not remove without real data path).
-- Run `npm run typecheck` and `npm run build` before shipping UI changes.
+1. **Regret clock.** Each pending fill on the tape draws a bar that fills over the
+   10 s label horizon (pure CSS, phase-aligned to the exchange clock at mount),
+   then settles into the realized maker markout. It keeps running under reduced
+   motion because it is a progress readout.
+2. **Regret matrix.** The last 100 resolved fills, one square each: red regretted,
+   green kept with a gain, grey kept but under the 1 bps fee, hollow if the model
+   would have withheld it.
 
-## Anti-patterns (do not introduce)
+Everything else stays quiet.
 
-- Hard-coded hex/rgba in components or CSS partials (use tokens so both themes follow)
-- Mint as text on light surfaces (use `--accent-ink`)
-- Mixing rounded and sharp corners, or more than two font weights, in one view
-- Gradient text (`background-clip: text`)
-- Glass blur on dense tables
-- Numbered section scaffolding without real sequence
-- Nested `.data-panel` inside `.data-panel`
-- Arbitrary z-index (`9999`)
+## Honesty rules
 
-## Dev workflow
+- Live numbers come from Hyperliquid's public API; model numbers come from the
+  committed report in `docs/benchmarks/` or the Django API. Nothing is simulated.
+- With no exported model, fills are labelled but not scored, and the UI says so.
+- The sample immune-loop run appears only after "Show a sample run" and is badged
+  "Sample run, not live output" on every view.
+- The validation scheme is named as it was run (`purged_kfold` for the committed
+  report); the held-out day is the headline because it is the out-of-time number.
 
-```bash
-cd frontend
-npm install
-npm run dev      # http://localhost:5173
-npm run typecheck
-npm run build    # → frontend/dist/
-```
+## Engineering rules
 
-Django static copy (optional): build then copy `frontend/dist/*` →
-`dashboard/static/agentic/`.
+- The feed (`src/market/feed.ts`) mutates private state per WebSocket message and
+  publishes one snapshot per animation frame. Slices keep identity until they
+  change; components select a slice with `useMarket(s => s.book)`.
+- Feature and model code in `src/lib/` mirrors Python and is pinned by
+  `src/lib/parity.test.ts` against fixtures from
+  `python -m scripts.make_frontend_parity_fixtures`.
+- No per-row timers. Animations are CSS; React only renders on data change.
+- Every source file stays under 1000 lines (`scripts/check_line_limit.py`).
+
+## Checklist
+
+- [ ] Colours from tokens; green and red only for side or outcome.
+- [ ] Numbers right-aligned and tabular; labels sentence case.
+- [ ] Empty states say what to run, not that something is missing.
+- [ ] Keyboard focus visible; selectable rows reachable with Enter or Space.
+- [ ] `npm run typecheck`, `npm test`, `npm run build` pass in `frontend/`.

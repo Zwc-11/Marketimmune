@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import json
 import time
+from bisect import bisect_left
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
 from typing import Any, Protocol, cast
+
+from marketimmune.models.oblivious_trees import load_compact
 
 
 class MarkoutScorerError(RuntimeError):
@@ -58,24 +61,24 @@ class IsotonicCalibrator:
         )
 
     def transform_one(self, probability: float) -> float:
-        """Calibrate one raw positive-class probability."""
+        """Calibrate one raw positive-class probability (binary search, O(log k))."""
         probability = _clamp01(probability)
         if not self.enabled or not self.x_thresholds:
             return probability
-        if probability <= self.x_thresholds[0]:
-            return _clamp01(self.y_thresholds[0])
-        if probability >= self.x_thresholds[-1]:
-            return _clamp01(self.y_thresholds[-1])
+        xs, ys = self.x_thresholds, self.y_thresholds
+        if probability <= xs[0]:
+            return _clamp01(ys[0])
+        if probability >= xs[-1]:
+            return _clamp01(ys[-1])
+        # First knot with x >= p; matches the linear scan's "probability <= next_x".
+        right = bisect_left(xs, probability)
+        left = right - 1
+        weight = (probability - xs[left]) / (xs[right] - xs[left])
+        return _clamp01(ys[left] + (ys[right] - ys[left]) * weight)
 
-        previous_x = self.x_thresholds[0]
-        previous_y = self.y_thresholds[0]
-        for next_x, next_y in zip(self.x_thresholds[1:], self.y_thresholds[1:], strict=True):
-            if probability <= next_x:
-                weight = (probability - previous_x) / (next_x - previous_x)
-                return _clamp01(previous_y + (next_y - previous_y) * weight)
-            previous_x = next_x
-            previous_y = next_y
-        return _clamp01(self.y_thresholds[-1])  # pragma: no cover
+    def transform(self, probabilities: Sequence[float]) -> list[float]:
+        """Calibrate many probabilities; identical to mapping ``transform_one``."""
+        return [self.transform_one(probability) for probability in probabilities]
 
 
 @dataclass(frozen=True)
@@ -127,7 +130,7 @@ class HyperliquidMarkoutScorer:
         report = _read_json(report_path)
         calibrator = IsotonicCalibrator.from_path(calibrator_path)
         feature_columns = _feature_columns(report, calibrator)
-        model = _load_catboost_model(model_path)
+        model = _load_model(model_path)
         return cls(
             model=model,
             calibrator=calibrator,
@@ -165,21 +168,40 @@ class HyperliquidMarkoutScorer:
         *,
         fill_missing: float | None = None,
     ) -> MarkoutPrediction:
-        row = self.vectorize(features, fill_missing=fill_missing)
-        raw_score = _positive_class_probability(self.model.predict_proba([row]))
-        calibrated_score = self.calibrator.transform_one(raw_score)
+        return self.predict_batch([features], fill_missing=fill_missing)[0]
+
+    def predict_batch(
+        self,
+        rows: Sequence[Mapping[str, float]],
+        *,
+        fill_missing: float | None = None,
+    ) -> list[MarkoutPrediction]:
+        """Score many fills with one model call.
+
+        Batch-invariant: a fill gets the same score whether it is scored alone or
+        inside any batch (CatBoost evaluates trees per row; calibration is per row).
+        ``tests/models/test_hyperliquid_markout_scorer.py`` pins that property.
+        """
+        if not rows:
+            return []
+        matrix = [self.vectorize(features, fill_missing=fill_missing) for features in rows]
+        raw_scores = _positive_class_probabilities(self.model.predict_proba(matrix), len(rows))
         threshold = self.decision_threshold
-        action = (
-            "withhold_quote"
-            if threshold is not None and calibrated_score >= threshold
-            else "quote"
-        )
-        return MarkoutPrediction(
-            raw_score=raw_score,
-            calibrated_score=calibrated_score,
-            decision_threshold=threshold,
-            action=action,
-        )
+        predictions: list[MarkoutPrediction] = []
+        for raw_score in raw_scores:
+            calibrated_score = self.calibrator.transform_one(raw_score)
+            action = (
+                "withhold_quote"
+                if threshold is not None and calibrated_score >= threshold
+                else "quote"
+            )
+            predictions.append(MarkoutPrediction(
+                raw_score=raw_score,
+                calibrated_score=calibrated_score,
+                decision_threshold=threshold,
+                action=action,
+            ))
+        return predictions
 
     def latency_ms(self, features: Mapping[str, float], *, samples: int = 128) -> dict[str, float]:
         samples = max(1, int(samples))
@@ -197,6 +219,13 @@ class HyperliquidMarkoutScorer:
 
     def zero_feature_sample(self) -> dict[str, float]:
         return {name: 0.0 for name in self.feature_columns}
+
+
+def _load_model(path: Path) -> ProbabilityModel:
+    """Load a compact oblivious-tree JSON (no CatBoost needed) or a CatBoost .cbm."""
+    if path.suffix == ".json":
+        return cast(ProbabilityModel, load_compact(path))
+    return _load_catboost_model(path)
 
 
 def _load_catboost_model(path: Path) -> ProbabilityModel:
@@ -237,13 +266,17 @@ def _decision_threshold(
     return _optional_float(report.get("decision_threshold"))
 
 
-def _positive_class_probability(probabilities: Any) -> float:
+def _positive_class_probabilities(probabilities: Any, expected: int) -> list[float]:
     try:
-        row = probabilities[0]
-        value = row[1] if len(row) > 1 else row[0]
+        scores = [
+            float(row[1] if len(row) > 1 else row[0])
+            for row in probabilities
+        ]
     except (IndexError, KeyError, TypeError) as exc:
         raise MarkoutScorerError("Model predict_proba did not return class probabilities.") from exc
-    return _clamp01(float(value))
+    if len(scores) != expected:
+        raise MarkoutScorerError("Model predict_proba did not return class probabilities.")
+    return [_clamp01(score) for score in scores]
 
 
 def _percentile(values: Sequence[float], percentile: float) -> float:

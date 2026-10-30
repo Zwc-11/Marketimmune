@@ -10,13 +10,8 @@ import pandas as pd
 import pytest
 
 from marketimmune.ingest.hyperliquid_lake import write_parquet_records
-from scripts.train_hyperliquid_markout import (
-    apply_isotonic_calibrator,
-    evaluate_holdout_split,
-    event_ofi_probabilities,
-    fit_isotonic_calibrator,
+from scripts.hyperliquid_markout_data import (
     load_training_panel,
-    metric_deltas,
     parse_date_spec,
     parse_symbol_spec,
     parse_threshold_grid,
@@ -25,8 +20,15 @@ from scripts.train_hyperliquid_markout import (
     requested_training_partitions,
     resolve_training_partitions,
     split_existing_missing_partitions,
-    split_model_calibration_indices,
     training_path,
+)
+from scripts.train_hyperliquid_markout import (
+    apply_isotonic_calibrator,
+    evaluate_holdout_split,
+    event_ofi_probabilities,
+    fit_isotonic_calibrator,
+    metric_deltas,
+    split_model_calibration_indices,
     write_isotonic_calibrator,
 )
 
@@ -188,8 +190,8 @@ def test_split_model_calibration_indices_reserves_tail_by_time() -> None:
         calibration_fraction=0.4,
     )
 
-    assert model_indices == [1, 4, 3]
-    assert calibration_indices == [2, 0]
+    assert model_indices.tolist() == [1, 4, 3]
+    assert calibration_indices.tolist() == [2, 0]
 
 
 def test_isotonic_calibrator_falls_back_for_single_class() -> None:

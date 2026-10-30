@@ -49,5 +49,6 @@ def test_read_records_returns_dicts(tmp_path) -> None:  # type: ignore[no-untype
 def test_duckdb_can_query_lake_file(tmp_path) -> None:  # type: ignore[no-untyped-def]
     path = tmp_path / "events.parquet"
     write_events(path, sample_events())
-    count = duckdb.sql(f"select count(*) from read_parquet('{path.as_posix()}')").fetchone()[0]
+    query = f"select count(*) from read_parquet('{path.as_posix()}')"
+    count = duckdb.sql(query).fetchall()[0][0]
     assert count == 2

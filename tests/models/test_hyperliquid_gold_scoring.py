@@ -32,6 +32,9 @@ class _FakeScorer:
             action=self.action,
         )
 
+    def predict_batch(self, rows: list[dict[str, float]]) -> list[MarkoutPrediction]:
+        return [self.predict(row) for row in rows]
+
 
 def _row(
     ts_ms: int,
