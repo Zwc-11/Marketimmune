@@ -111,6 +111,11 @@ impl Book {
         self.index.is_empty()
     }
 
+    /// Is `oid` resting on the book?
+    pub fn contains(&self, oid: Oid) -> bool {
+        self.index.contains_key(&oid)
+    }
+
     fn alloc(&mut self, n: Node) -> u32 {
         if let Some(i) = self.free.pop() {
             self.nodes[i as usize] = n;
@@ -226,6 +231,9 @@ impl Book {
 
     /// Execute a taker order against the opposite side in price-time priority,
     /// up to `limit`. Appends fills to `out` and returns the unfilled lots.
+    ///
+    /// Each crossed level is entered once and drained from its head in place, so a
+    /// fill costs no map lookup; only an emptied level is removed from the map.
     #[allow(clippy::too_many_arguments)]
     pub fn take(
         &mut self,
@@ -237,39 +245,54 @@ impl Book {
         stp: Stp,
         out: &mut MatchOut,
     ) -> Lots {
+        let Book { nodes, free, index, bids, asks } = self;
         while lots > 0 {
-            let best = match side {
-                Side::Bid => self.asks.first_key_value().filter(|&(&t, _)| t <= limit),
-                Side::Ask => self.bids.last_key_value().filter(|&(&t, _)| t >= limit),
+            let entry = match side {
+                Side::Bid => asks.first_entry().filter(|e| *e.key() <= limit),
+                Side::Ask => bids.last_entry().filter(|e| *e.key() >= limit),
             };
-            let Some((&tick, lvl)) = best else { break };
-            let head = lvl.head;
-            let maker = self.nodes[head as usize];
-            if stp == Stp::ExpireMaker && maker.user == taker {
-                self.unlink(head);
-                out.stp_canceled.push(maker.oid);
-                continue;
+            let Some(mut entry) = entry else { break };
+            let tick = *entry.key();
+            let lvl = entry.get_mut();
+            while lots > 0 && lvl.head != NIL {
+                let head = lvl.head;
+                let maker = nodes[head as usize];
+                let self_trade = stp == Stp::ExpireMaker && maker.user == taker;
+                let q = if self_trade { 0 } else { maker.lots.min(lots) };
+                if q > 0 {
+                    lots -= q;
+                    out.fills.push(Fill {
+                        maker_oid: maker.oid,
+                        maker: maker.user,
+                        taker_oid,
+                        taker,
+                        taker_side: side,
+                        tick,
+                        lots: q,
+                    });
+                }
+                if self_trade || q == maker.lots {
+                    // Pop the head: same bookkeeping as `unlink`, without the map lookup.
+                    lvl.head = maker.next;
+                    if maker.next == NIL {
+                        lvl.tail = NIL;
+                    } else {
+                        nodes[maker.next as usize].prev = NIL;
+                    }
+                    lvl.total -= maker.lots;
+                    lvl.count -= 1;
+                    index.remove(&maker.oid);
+                    free.push(head);
+                    if self_trade {
+                        out.stp_canceled.push(maker.oid);
+                    }
+                } else {
+                    nodes[head as usize].lots -= q;
+                    lvl.total -= q;
+                }
             }
-            let q = maker.lots.min(lots);
-            lots -= q;
-            out.fills.push(Fill {
-                maker_oid: maker.oid,
-                maker: maker.user,
-                taker_oid,
-                taker,
-                taker_side: side,
-                tick,
-                lots: q,
-            });
-            if q == maker.lots {
-                self.unlink(head);
-            } else {
-                self.nodes[head as usize].lots -= q;
-                let levels = match side {
-                    Side::Bid => &mut self.asks,
-                    Side::Ask => &mut self.bids,
-                };
-                levels.get_mut(&tick).expect("level just read").total -= q;
+            if lvl.head == NIL {
+                entry.remove();
             }
         }
         lots

@@ -21,18 +21,35 @@ from __future__ import annotations
 
 import bisect
 import calendar
+import importlib
 import json
+import re
+import zlib
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from functools import lru_cache
+from types import ModuleType
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 
-from marketimmune.lake.tables import L2_DEPTH, silver_l2_book_record
-from marketimmune.sources.hyperliquid_l2_archive import BookSnapshot, L2Level
+from marketimmune.lake.tables import L2_DEPTH
+from marketimmune.sources.hyperliquid_l2_archive import BPS, BookSnapshot, L2Level
 from marketimmune.sources.hyperliquid_node_fills import MatchFill
+
+
+def _fast_zlib() -> ModuleType:
+    """python-isal's zlib when installed (``pip install .[fast]``): it inflates gzip
+    2-3x faster with byte-for-byte the same output. Otherwise the standard zlib."""
+    try:
+        return importlib.import_module("isal.isal_zlib")
+    except ImportError:  # pragma: no cover - optional speedup
+        return zlib
+
+
+_zlib = _fast_zlib()
+
 
 STATUS_DTYPE = np.dtype([
     ("ts", "<u8"),
@@ -76,6 +93,9 @@ REMOVING = frozenset(
         "selfTradeCanceled", "marginCanceled", "vaultWithdrawalCanceled", "liquidatedCanceled",
     )
 )
+_REMOVING_IDS = np.array(sorted(REMOVING), dtype=np.uint8)
+# What a record does to the book in ``replay_hour`` (0: nothing).
+_ADD, _TRIGGER, _FILL, _REMOVE = 1, 2, 3, 4
 PX_DECIMALS = 7  # prices are held as integer ticks of 1e-7
 _VALUE_MASK = 0x1FFFFFFF
 _POW10 = np.array([10.0**k for k in range(8)])
@@ -109,6 +129,12 @@ def read_users_csv(lines: Iterable[str]) -> dict[int, str]:
     return out
 
 
+def gunzip(data: bytes) -> bytes:
+    """``gzip.decompress`` through python-isal when it is installed (2-3x faster)."""
+    out: bytes = _zlib.decompress(data, 16 + _zlib.MAX_WBITS)
+    return out
+
+
 def read_status_records(raw: bytes) -> npt.NDArray[np.void]:
     """Decompressed bytes of one ``<coin>_<HH>.data.gz`` member -> structured array."""
     if len(raw) % STATUS_DTYPE.itemsize:
@@ -134,6 +160,52 @@ def rested_orders(lines: Iterable[str], coin: str) -> dict[int, float]:
         diff = record.get("raw_book_diff")
         if isinstance(diff, Mapping) and isinstance(diff.get("new"), Mapping):
             out[int(record["oid"])] = float(diff["new"]["sz"])
+    return out
+
+
+_CHUNK = 1 << 24
+
+
+def rested_orders_gz(compressed: bytes, coin: str) -> dict[int, float]:
+    """:func:`rested_orders` for one gzipped hourly ``ex<H>.gz`` member, ~2x faster.
+
+    The member holds every coin's diffs (about 1.6 GB of JSON per hour). Lines are
+    written with a fixed key order (``user, oid, coin, side, px, raw_book_diff``),
+    so one regex reads the oid and resting size of each ``new`` diff of ``coin``
+    without ``json.loads``; on 2025-12-01 hour 0 the result equals
+    :func:`rested_orders` for all 1,028,827 SOL diffs. A chunk where a ``coin``
+    line breaks that order is parsed with :func:`rested_orders` instead.
+    """
+    symbol = re.escape(coin.upper().encode())
+    pattern = re.compile(
+        rb'"oid":(\d+),"coin":"' + symbol
+        + rb'","side":"[AB]","px":"[^"]*","raw_book_diff":\{"new":\{"sz":"([^"]+)"\}\}'
+    )
+    any_order = b'"coin":"' + coin.upper().encode() + b'"'
+    in_order = b',"coin":"' + coin.upper().encode() + b'","side":"'
+    out: dict[int, float] = {}
+
+    def scan(buf: bytes, lo: int, hi: int) -> None:
+        if buf.count(any_order, lo, hi) == buf.count(in_order, lo, hi):
+            out.update((int(oid), float(sz)) for oid, sz in pattern.findall(buf, lo, hi))
+        else:  # a line of this coin breaks the key order: parse the chunk as JSON
+            out.update(rested_orders(buf[lo:hi].decode().splitlines(), coin))
+
+    inflater = _zlib.decompressobj(16 + _zlib.MAX_WBITS)
+    tail = b""
+    for start in range(0, len(compressed), _CHUNK):
+        chunk = inflater.decompress(compressed[start : start + _CHUNK])
+        first = chunk.find(b"\n") + 1
+        last = chunk.rfind(b"\n") + 1
+        if first == 0:  # no line ends in this chunk
+            tail += chunk
+            continue
+        head = tail + chunk[:first]
+        scan(head, 0, len(head))
+        scan(chunk, first, last)
+        tail = chunk[last:]
+    tail += inflater.flush()
+    scan(tail, 0, len(tail))
     return out
 
 
@@ -210,22 +282,28 @@ class AlbersBook:
         self.bids = _Side()
         self.asks = _Side()
         self._last_top: tuple[Any, ...] | None = None
+        # False only while the top ``depth`` levels are known to equal the last
+        # top that was computed, so a block that left them alone skips ``top()``.
+        self._dirty = True
 
     def _side(self, is_ask: bool) -> _Side:
         return self.asks if is_ask else self.bids
 
     def add(self, oid: int, is_ask: bool, px: int, sz: float) -> None:
+        self._dirty = True
         if oid in self.orders:
             self.remove(oid)
         self.orders[oid] = (is_ask, px, sz)
         self._side(is_ask).add(px, sz)
 
     def set_size(self, oid: int, sz: float) -> None:
+        self._dirty = True
         is_ask, px, old = self.orders[oid]
         self.orders[oid] = (is_ask, px, sz)
         self._side(is_ask).change(px, sz - old)
 
     def remove(self, oid: int) -> None:
+        self._dirty = True
         entry = self.orders.pop(oid, None)
         if entry is not None:
             is_ask, px, sz = entry
@@ -267,114 +345,266 @@ class AlbersBook:
         (``marketable_at_block_start``) is a race lost inside the block: the
         quote it aimed at was cancelled or taken first. That is the fee-free
         analogue of v3's missed-race feature.
+
+        Only records that can change the book or produce an event run through the
+        Python loop; rejections, opens that never rested and statuses of orders the
+        book never held are counted with NumPy. A block with none of the former
+        leaves the book as it was, so it is counted without being replayed.
         """
         stats = stats or ReplayStats()
         rows: list[dict[str, Any]] = []
-        if records.size == 0:
+        n = int(records.size)
+        if n == 0:
             return rows, stats
+        stats.records += n
         ts = records["ts"].astype(np.int64)
-        cuts = np.flatnonzero(np.diff(ts)) + 1
-        starts = np.concatenate(([0], cuts)).tolist()
-        ends = np.concatenate((cuts, [ts.size])).tolist()
-        status = records["statusId"].tolist()
-        oid = records["oid"].tolist()
-        is_ask = records["isAsk"].tolist()
-        px = fixed_to_ticks(records["limitPx"]).tolist()
-        sz = decode_fixed(records["sz"]).tolist()
-        tif = records["tifId"].tolist()
-        is_trigger = records["isTrigger"].tolist()
-        ts_list = ts.tolist()
-        user = records["userId"].tolist()
-        orig = decode_fixed(records["origSz"]).tolist()
-        stats.records += int(ts.size)
-        for start, end in zip(starts, ends, strict=True):
-            bid0, ask0 = self.best()
-            for i in range(start, end):
-                k = status[i]
-                o = oid[i]
-                if events is not None and (
-                    k == IOC_CANCEL_REJECTED or (k == FILLED and tif[i] == LIQUIDATION_MARKET)
-                ):
-                    opposite = bid0 if is_ask[i] else ask0
-                    marketable = opposite is not None and (
-                        px[i] <= opposite if is_ask[i] else px[i] >= opposite
-                    )
-                    if k == IOC_CANCEL_REJECTED:
-                        stats.ioc_unfilled += 1
-                        stats.ioc_unfilled_marketable += int(marketable)
-                    events.append({
-                        "coin": self.coin,
-                        "ts_ns": ts_list[i],
-                        "ts_ms": ts_list[i] // 1_000_000,
-                        "kind": "ioc_unfilled" if k == IOC_CANCEL_REJECTED else "liquidation",
-                        "oid": o,
-                        "user_id": user[i],
-                        "is_ask": is_ask[i],
-                        "limit_px": ticks_to_px(px[i]),
-                        "sz": sz[i],
-                        "orig_sz": orig[i],
-                        "tif": TIF_LABELS[tif[i]] if tif[i] < len(TIF_LABELS) else str(tif[i]),
-                        "opposite_best_px": None if opposite is None else ticks_to_px(opposite),
-                        "marketable_at_block_start": marketable,
-                    })
-                if k == OPEN:
-                    # A stop / take-profit logs ``open`` while it waits off-book; it
-                    # can only rest once ``triggered``.
-                    if is_trigger[i] or tif[i] == TIF_NULL:
-                        stats.trigger_opens_deferred += 1
-                        continue
-                    rest = rested.get(o)
-                    if rest is None:
-                        stats.opens_not_resting += 1
-                    else:
-                        self.add(o, is_ask[i], px[i], rest)
-                        stats.opens_rested += 1
-                elif k == TRIGGERED:
-                    rest = rested.get(o)
-                    if rest is not None and o not in self.orders:
-                        self.add(o, is_ask[i], px[i], rest)
-                        stats.triggers_rested += 1
-                elif k == FILLED:
-                    if tif[i] == LIQUIDATION_MARKET:
-                        stats.liquidation_fills += 1
-                    entry = self.orders.get(o)
-                    if entry is None:
-                        continue
-                    # Checked at the event, not the block start: post-only orders
-                    # placed earlier in the same block can be hit at a better price.
+        status = records["statusId"]
+        tif = records["tifId"]
+        oids = records["oid"]
+        new_block = np.concatenate(([True], ts[1:] != ts[:-1]))
+        block_ts = ts[new_block].tolist()
+        block_of = np.cumsum(new_block) - 1
+
+        is_open = status == OPEN
+        deferred = is_open & (records["isTrigger"] | (tif == TIF_NULL))
+        opens = is_open & ~deferred
+        in_rested = np.isin(oids, np.fromiter(rested, dtype=np.uint64, count=len(rested)))
+        book_oids = np.fromiter(self.orders, dtype=np.uint64, count=len(self.orders))
+        held = in_rested | np.isin(oids, book_oids)
+        filled = status == FILLED
+        liquidation = filled & (tif == LIQUIDATION_MARKET)
+        stats.trigger_opens_deferred += int(np.count_nonzero(deferred))
+        stats.opens_not_resting += int(np.count_nonzero(opens & ~in_rested))
+        stats.opens_rested += int(np.count_nonzero(opens & in_rested))
+        stats.liquidation_fills += int(np.count_nonzero(liquidation))
+
+        code = np.zeros(n, dtype=np.int8)
+        code[opens & in_rested] = _ADD
+        code[(status == TRIGGERED) & in_rested] = _TRIGGER
+        code[filled & held] = _FILL
+        code[np.isin(status, _REMOVING_IDS) & held] = _REMOVE
+        wants_event = (status == IOC_CANCEL_REJECTED) | liquidation
+        active = (code != 0) | wants_event if events is not None else code != 0
+        idx = np.flatnonzero(active)
+        kinds = code[idx].tolist()
+        event_flags = wants_event[idx].tolist() if events is not None else [False] * idx.size
+        sub_oid = oids[idx].tolist()
+        sub_ask = records["isAsk"][idx].tolist()
+        sub_px = fixed_to_ticks(records["limitPx"][idx]).tolist()
+        sub_sz = decode_fixed(records["sz"][idx]).tolist()
+        sub_block = block_of[idx].tolist()
+
+        bids, asks, depth, orders = self.bids, self.asks, self.depth, self.orders
+        bp, bl, ap, al = bids.prices, bids.levels, asks.prices, asks.levels
+        insort, bisect_left = bisect.insort, bisect.bisect_left
+        raised: list[tuple[int, int | None, bool]] = []  # (position in idx, opposite, marketable)
+        dirty = self._dirty
+        cur = -1
+        bid0 = ask0 = None
+        # The book updates below are AlbersBook.add / set_size / remove inlined
+        # (about 2M calls an hour), plus the check of whether a change touched the
+        # top ``depth`` levels of its side.
+        for j, block in enumerate(sub_block):
+            if block != cur:
+                self._dirty = dirty
+                if cur >= 0:
+                    self._close_blocks(cur, cur + 1, block_ts, rows, stats)
+                self._close_blocks(cur + 1, block, block_ts, rows, stats)  # idle blocks
+                dirty = self._dirty
+                cur = block
+                bid0 = bp[-1] if bp else None
+                ask0 = ap[0] if ap else None
+            o = sub_oid[j]
+            if event_flags[j]:
+                ask = sub_ask[j]
+                opposite = bid0 if ask else ask0
+                marketable = opposite is not None and (
+                    sub_px[j] <= opposite if ask else sub_px[j] >= opposite
+                )
+                raised.append((j, opposite, marketable))
+            kind = kinds[j]
+            if kind == _REMOVE or (kind == _FILL and sub_sz[j] <= 0.0):
+                entry = orders.pop(o, None)
+                if entry is None:
+                    continue
+                is_ask, px, sz = entry
+                if kind == _FILL:  # a resting order filled to zero
                     stats.resting_fills += 1
-                    side = self.asks if entry[0] else self.bids
-                    touch = side.prices[0] if entry[0] else side.prices[-1]
-                    near = side.prices[: self.depth] if entry[0] else side.prices[-self.depth :]
-                    stats.fills_at_touch += int(entry[1] == touch)
-                    stats.fills_in_top_depth += int(entry[1] in near)
-                    if sz[i] > 0.0:
-                        self.set_size(o, sz[i])
-                    else:
-                        self.remove(o)
-                elif k in REMOVING:
+                    stats.fills_at_touch += int(px == (ap[0] if is_ask else bp[-1]))
+                    stats.fills_in_top_depth += int(px in (ap[:depth] if is_ask else bp[-depth:]))
+                prices, levels = (ap, al) if is_ask else (bp, bl)
+                if not dirty and (
+                    len(prices) <= depth
+                    or (px <= prices[depth - 1] if is_ask else px >= prices[-depth])
+                ):
+                    dirty = True
+                level = levels[px]
+                level[1] -= 1.0
+                if level[1] <= 0.0:
+                    del levels[px]
+                    del prices[bisect_left(prices, px)]
+                else:
+                    level[0] -= sz
+            elif kind == _FILL:  # partial fill: shrink in place
+                entry = orders.get(o)
+                if entry is None:
+                    continue
+                is_ask, px, old = entry
+                prices, levels = (ap, al) if is_ask else (bp, bl)
+                # Checked at the event, not the block start: post-only orders
+                # placed earlier in the same block can be hit at a better price.
+                stats.resting_fills += 1
+                stats.fills_at_touch += int(px == (prices[0] if is_ask else prices[-1]))
+                stats.fills_in_top_depth += int(px in (prices[:depth] if is_ask else prices[-depth:]))
+                sz = sub_sz[j]
+                orders[o] = (is_ask, px, sz)
+                levels[px][0] += sz - old
+                if not dirty and (
+                    len(prices) <= depth
+                    or (px <= prices[depth - 1] if is_ask else px >= prices[-depth])
+                ):
+                    dirty = True
+            elif kind == _ADD or (kind == _TRIGGER and o not in orders):
+                if kind == _TRIGGER:
+                    stats.triggers_rested += 1
+                elif o in orders:  # re-opened oid: replace the old entry
                     self.remove(o)
-            stats.blocks += 1
-            bid, ask = self.best()
-            if bid is None or ask is None:
-                stats.one_sided_blocks += 1
-                continue
-            if bid >= ask:
-                stats.crossed_blocks += 1
-            top = (
-                self.bids.top(self.depth, descending=True),
-                self.asks.top(self.depth, descending=False),
-            )
-            if top == self._last_top:
-                continue
-            self._last_top = top
-            ts_ns = ts_list[start]
-            row = silver_l2_book_record(self.snapshot(ts_ns // 1_000_000))
-            row["ts_ns"] = ts_ns
-            rows.append(row)
+                    dirty = True
+                is_ask, px, sz = sub_ask[j], sub_px[j], rested[o]
+                orders[o] = (is_ask, px, sz)
+                prices, levels = (ap, al) if is_ask else (bp, bl)
+                existing = levels.get(px)
+                if existing is None:
+                    levels[px] = [sz, 1.0]
+                    insort(prices, px)
+                else:
+                    existing[0] += sz
+                    existing[1] += 1.0
+                if not dirty and (
+                    len(prices) <= depth
+                    or (px <= prices[depth - 1] if is_ask else px >= prices[-depth])
+                ):
+                    dirty = True
+        self._dirty = dirty
+        if cur >= 0:
+            self._close_blocks(cur, cur + 1, block_ts, rows, stats)
+        self._close_blocks(cur + 1, len(block_ts), block_ts, rows, stats)
+        if events is not None and raised:
+            self._append_events(records, idx, raised, ts, events, stats)
         stats.rows += len(rows)
-        stats.resting_orders_end = len(self.orders)
+        stats.resting_orders_end = len(orders)
         return rows, stats
+
+    def _close_blocks(
+        self,
+        first: int,
+        end: int,
+        block_ts: list[int],
+        rows: list[dict[str, Any]],
+        stats: ReplayStats,
+    ) -> None:
+        """End blocks ``first..end-1``, during which the book did not change after
+        ``first``: the first may emit a row, the rest repeat its classification."""
+        if end <= first:
+            return
+        count = end - first
+        stats.blocks += count
+        bid, ask = self.best()
+        if bid is None or ask is None:
+            stats.one_sided_blocks += count
+            return
+        if bid >= ask:
+            stats.crossed_blocks += count
+        if not self._dirty:
+            return  # the top levels equal the last computed top, so no new row
+        self._dirty = False
+        top = (
+            self.bids.top(self.depth, descending=True),
+            self.asks.top(self.depth, descending=False),
+        )
+        if top == self._last_top:
+            return
+        self._last_top = top
+        rows.append(_l2_row(self.coin, top, block_ts[first]))
+
+    def _append_events(
+        self,
+        records: npt.NDArray[np.void],
+        idx: npt.NDArray[np.intp],
+        raised: list[tuple[int, int | None, bool]],
+        ts: npt.NDArray[np.int64],
+        events: list[dict[str, Any]],
+        stats: ReplayStats,
+    ) -> None:
+        at = idx[[j for j, _, _ in raised]]
+        status = records["statusId"][at].tolist()
+        ts_ns = ts[at].tolist()
+        oid = records["oid"][at].tolist()
+        user = records["userId"][at].tolist()
+        is_ask = records["isAsk"][at].tolist()
+        px = fixed_to_ticks(records["limitPx"][at]).tolist()
+        sz = decode_fixed(records["sz"][at]).tolist()
+        orig = decode_fixed(records["origSz"][at]).tolist()
+        tif = records["tifId"][at].tolist()
+        for k, (_, opposite, marketable) in enumerate(raised):
+            unfilled = status[k] == IOC_CANCEL_REJECTED
+            if unfilled:
+                stats.ioc_unfilled += 1
+                stats.ioc_unfilled_marketable += int(marketable)
+            events.append({
+                "coin": self.coin,
+                "ts_ns": ts_ns[k],
+                "ts_ms": ts_ns[k] // 1_000_000,
+                "kind": "ioc_unfilled" if unfilled else "liquidation",
+                "oid": oid[k],
+                "user_id": user[k],
+                "is_ask": is_ask[k],
+                "limit_px": ticks_to_px(px[k]),
+                "sz": sz[k],
+                "orig_sz": orig[k],
+                "tif": TIF_LABELS[tif[k]] if tif[k] < len(TIF_LABELS) else str(tif[k]),
+                "opposite_best_px": None if opposite is None else ticks_to_px(opposite),
+                "marketable_at_block_start": marketable,
+            })
+
+
+def _l2_row(coin: str, top: tuple[Any, ...], ts_ns: int) -> dict[str, Any]:
+    """``silver_l2_book_record`` of the book's top levels plus ``ts_ns``, without
+    building a :class:`BookSnapshot` (same keys, order and arithmetic)."""
+    bids, asks = top
+    (bid_t, bid_sz, bid_n), (ask_t, ask_sz, ask_n) = bids[0], asks[0]
+    bid_px, ask_px = ticks_to_px(bid_t), ticks_to_px(ask_t)
+    mid = (bid_px + ask_px) / 2.0
+    total = bid_sz + ask_sz
+    if total <= 0.0:
+        raise ValueError("top-of-book size is zero")
+    row: dict[str, Any] = {
+        "coin": coin,
+        "ts_ms": ts_ns // 1_000_000,
+        "bid_px": bid_px,
+        "bid_sz": bid_sz,
+        "bid_n": bid_n,
+        "ask_px": ask_px,
+        "ask_sz": ask_sz,
+        "ask_n": ask_n,
+        "mid": mid,
+        "spread_bps": (ask_px - bid_px) / mid * BPS,
+        "microprice": (bid_px * ask_sz + ask_px * bid_sz) / total,
+        "top_imbalance": (bid_sz - ask_sz) / total,
+    }
+    for name, levels in (("bid", bids), ("ask", asks)):
+        for i in range(L2_DEPTH):
+            if i < len(levels):
+                t, sz, cnt = levels[i]
+                row[f"{name}_px_{i + 1}"] = ticks_to_px(t)
+                row[f"{name}_sz_{i + 1}"] = sz
+                row[f"{name}_n_{i + 1}"] = cnt
+            else:
+                row[f"{name}_px_{i + 1}"] = None
+                row[f"{name}_sz_{i + 1}"] = None
+                row[f"{name}_n_{i + 1}"] = None
+    row["ts_ns"] = ts_ns
+    return row
 
 
 @lru_cache(maxsize=1 << 16)
@@ -439,6 +669,32 @@ def albers_trades_to_matches(
         trade = json.loads(line)
         if trade.get("coin") == symbol:
             out.append(match_from_albers_trade(trade, liquidation_oids))
+    return out
+
+
+def albers_trades_member_to_matches(
+    data: bytes,
+    coin: str,
+    liquidation_oids: frozenset[int] | set[int] = frozenset(),
+) -> list[MatchFill]:
+    """:func:`albers_trades_to_matches` for one decompressed hourly member.
+
+    Finds ``coin``'s lines with ``bytes.find`` instead of walking every line of
+    every coin in Python, then parses only those.
+    """
+    symbol = coin.upper()
+    needle = f'"{symbol}"'.encode()
+    out: list[MatchFill] = []
+    pos = data.find(needle)
+    while pos != -1:
+        start = data.rfind(b"\n", 0, pos) + 1
+        end = data.find(b"\n", pos)
+        if end == -1:
+            end = len(data)
+        trade = json.loads(data[start:end])
+        if trade.get("coin") == symbol:
+            out.append(match_from_albers_trade(trade, liquidation_oids))
+        pos = data.find(needle, end)
     return out
 
 

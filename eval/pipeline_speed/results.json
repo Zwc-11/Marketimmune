@@ -5,24 +5,25 @@
     "fills": 190000,
     "repeats": 3,
     "seed": 7,
-    "out": "docs/benchmarks/perf_pipeline.json"
+    "out": "eval/pipeline_speed/results.json"
   },
   "machine": {
-    "python": "3.13.18",
-    "numpy": "2.5.3",
-    "platform": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+    "python": "3.12.15",
+    "numpy": "2.2.6",
+    "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.35",
     "processor": "x86_64"
   },
   "seconds": {
-    "temporal_folds_purged_kfold": 0.01568,
-    "temporal_folds_walk_forward": 0.00283,
-    "fold_local_thresholds": 0.49351,
-    "select_threshold": 0.10744,
-    "evaluate_oof_report": 0.19311,
-    "l2_rows_with_ofi": 0.67598,
-    "training_rows_asof_join": 1.75611,
-    "gold_markout_labels": 1.51657,
-    "oblivious_trees_batch_100000": 0.34663,
-    "oblivious_trees_single_row": 2e-05
+    "temporal_folds_purged_kfold": 0.00466,
+    "temporal_folds_walk_forward": 0.00083,
+    "fold_local_thresholds": 0.25193,
+    "select_threshold": 0.05853,
+    "evaluate_oof_report": 0.09997,
+    "l2_rows_with_ofi": 0.33295,
+    "training_rows_asof_join": 0.86743,
+    "gold_markout_labels": 0.581,
+    "leakage_check_200_fills": 0.74277,
+    "oblivious_trees_batch_100000": 0.09917,
+    "oblivious_trees_single_row": 1e-05
   }
 }

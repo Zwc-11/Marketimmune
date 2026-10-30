@@ -15,10 +15,14 @@ import argparse
 import json
 import platform
 import statistics
+import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+# A standalone script: make the repo importable without an install.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import numpy as np
 
@@ -26,6 +30,7 @@ from marketimmune.features.training_rows import (
     HYPERLIQUID_MARKOUT_FEATURE_COLUMNS,
     build_hyperliquid_training_rows,
     l2_rows_with_ofi,
+    verify_training_rows_no_lookahead,
 )
 from marketimmune.lake.gold import build_markout_gold_rows
 from marketimmune.models.cross_validation import temporal_fold_arrays
@@ -136,6 +141,10 @@ def feature_stages(rng: np.random.Generator, snapshots: int, fills: int) -> dict
         lambda: build_hyperliquid_training_rows(label_rows, l2_rows, asset_rows), 1
     )
     out["gold_markout_labels"], _ = timed(lambda: build_markout_gold_rows(node_fills, books), 1)
+    out["leakage_check_200_fills"], report = timed(
+        lambda: verify_training_rows_no_lookahead(label_rows, l2_rows, asset_rows, sample=200), 1
+    )
+    assert report.passed, report.to_dict()
     return out
 
 

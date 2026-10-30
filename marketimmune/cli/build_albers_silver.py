@@ -16,21 +16,28 @@ Order statuses are a sequential ``.tar.xz``, so a run always decompresses from
 Dec 1 up to its last date; book diffs are an uncompressed tar read by seek. The
 book starts empty, so rows from the first ``--warmup-minutes`` of a run are
 dropped (orders resting from before the run never appear).
+
+Each hourly diff member holds every coin (about 1.6 GB of JSON), and parsing it
+costs about as much as replaying the hour. ``--diff-workers`` processes parse the
+next hours' diffs while this one replays (default 1; 0 parses in-process).
 """
 
 from __future__ import annotations
 
 import argparse
-import gzip
 import io
 import json
 import tarfile
 import time
 from collections.abc import Iterator
+from concurrent.futures import Executor, Future, ProcessPoolExecutor
 from datetime import UTC, datetime, timedelta
+from multiprocessing import get_context
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+import numpy.typing as npt
 import pyarrow as pa
 import pyarrow.parquet as pq
 
@@ -39,9 +46,10 @@ from marketimmune.lake.tables import L2_DEPTH, HyperliquidLakeLayout
 from marketimmune.sources.albers_l4 import (
     AlbersBook,
     ReplayStats,
+    gunzip,
     read_status_records,
     read_users_csv,
-    rested_orders,
+    rested_orders_gz,
 )
 
 SOURCE = "albers-l4 doi:10.5281/zenodo.18184441"
@@ -62,6 +70,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--lake-root", type=Path, default=Path("data"))
     parser.add_argument("--warmup-minutes", type=float, default=10.0)
+    parser.add_argument(
+        "--diff-workers", type=int, default=1, help="processes parsing book diffs ahead (0: none)"
+    )
     return parser.parse_args(argv)
 
 
@@ -88,31 +99,70 @@ def iter_status_members(path: Path, coin: str, wanted: set[str]) -> Iterator[tup
             if member.name in wanted:
                 handle = tf.extractfile(member)
                 assert handle is not None
-                yield member.name, gzip.decompress(handle.read())
+                yield member.name, gunzip(handle.read())
                 wanted.discard(member.name)
                 if not wanted:
                     return
 
 
-class DiffReader:
-    """Random access to ``book_diffs_202512.tar`` members, with the rested-set cache."""
+RestedArrays = tuple[npt.NDArray[np.uint64], npt.NDArray[np.float64]]
+_PREFETCH_HOURS = 3
 
-    def __init__(self, tar: tarfile.TarFile, coin: str) -> None:
-        self.tar = tar
+
+def parse_diff_member(tar_path: str, name: str, coin: str) -> RestedArrays:
+    """``(oids, sizes)`` of ``coin``'s ``new`` diffs in one hourly member; empty if absent.
+
+    Module-level so a worker process can run it; arrays pickle as one buffer each.
+    """
+    with tarfile.open(tar_path, mode="r:") as tar:
+        try:
+            member = tar.getmember(name)
+        except KeyError:
+            return np.zeros(0, dtype=np.uint64), np.zeros(0, dtype=np.float64)
+        handle = tar.extractfile(member)
+        assert handle is not None
+        rested = rested_orders_gz(handle.read(), coin)
+    oids = np.fromiter(rested.keys(), dtype=np.uint64, count=len(rested))
+    sizes = np.fromiter(rested.values(), dtype=np.float64, count=len(rested))
+    return oids, sizes
+
+
+class DiffReader:
+    """``rested`` sets per hour from ``book_diffs_202512.tar``, parsed ahead of use.
+
+    ``names`` is every member the run will ask for, in order; up to
+    ``_PREFETCH_HOURS`` of them are parsed by ``executor`` while earlier hours replay.
+    """
+
+    def __init__(
+        self, tar_path: Path, coin: str, names: list[str], executor: Executor | None = None
+    ) -> None:
+        self.tar_path = str(tar_path)
         self.coin = coin
+        self.executor = executor
+        self._todo = list(dict.fromkeys(names))
+        self._pending: dict[str, Future[RestedArrays]] = {}
         self._cache: dict[str, dict[int, float]] = {}
+
+    def _load(self, name: str) -> RestedArrays:
+        if self.executor is None:
+            return parse_diff_member(self.tar_path, name, self.coin)
+        while self._todo and len(self._pending) < _PREFETCH_HOURS:
+            nxt = self._todo.pop(0)
+            if nxt not in self._cache and nxt not in self._pending:
+                self._pending[nxt] = self.executor.submit(
+                    parse_diff_member, self.tar_path, nxt, self.coin
+                )
+        future = self._pending.pop(name, None)
+        if future is None:
+            return parse_diff_member(self.tar_path, name, self.coin)
+        return future.result()
 
     def rested(self, date: str, hour: int) -> dict[int, float]:
         name = f"{date}/ex{hour}.gz"
         if name not in self._cache:
-            try:
-                member = self.tar.getmember(name)
-            except KeyError:
-                return {}
-            handle = self.tar.extractfile(member)
-            assert handle is not None
-            with io.TextIOWrapper(gzip.GzipFile(fileobj=handle), encoding="utf-8") as lines:
-                self._cache[name] = rested_orders(lines, self.coin)
+            oids, sizes = self._load(name)
+            self._cache[name] = dict(zip(oids.tolist(), sizes.tolist(), strict=True))
         return self._cache[name]
 
     def forget(self, date: str, hour: int) -> None:
@@ -169,8 +219,16 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
     hours = parse_hours(args.hours)
     plan = [(d, h) for d in dates for h in hours]
     status_path = args.albers_dir / f"{coin.lower()}_orders_202512.tar.xz"
-    diff_tar = tarfile.open(args.albers_dir / "book_diffs_202512.tar", mode="r:")  # noqa: SIM115
-    diffs = DiffReader(diff_tar, coin)
+    diff_names: list[str] = []
+    for d, h in plan:
+        nd, nh = next_hour(d, h)
+        diff_names += [f"{d}/ex{h}.gz", f"{nd}/ex{nh}.gz"]
+    executor = (
+        ProcessPoolExecutor(args.diff_workers, mp_context=get_context("spawn"))
+        if args.diff_workers > 0
+        else None
+    )
+    diffs = DiffReader(args.albers_dir / "book_diffs_202512.tar", coin, diff_names, executor)
     layout = HyperliquidLakeLayout(args.lake_root)
     wanted = {f"{d}/{coin.lower()}_{h:02d}.data.gz": (d, h) for d, h in plan}
     book = AlbersBook(coin)
@@ -221,7 +279,8 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
                 flush=True,
             )
     finally:
-        diff_tar.close()
+        if executor is not None:
+            executor.shutdown(cancel_futures=True)
         for writer in (*writers.values(), *event_writers.values()):
             writer.close()
     for date, hours_report in report.items():

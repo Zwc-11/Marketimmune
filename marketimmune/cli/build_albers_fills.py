@@ -13,8 +13,6 @@ Albers trades carry no fees, so the fee columns are null.
 from __future__ import annotations
 
 import argparse
-import gzip
-import io
 import json
 import tarfile
 import time
@@ -25,7 +23,7 @@ import pyarrow.parquet as pq
 
 from marketimmune.cli._train_data import parse_date_spec
 from marketimmune.lake.tables import HyperliquidLakeLayout, write_silver_fills
-from marketimmune.sources.albers_l4 import albers_trades_to_matches
+from marketimmune.sources.albers_l4 import albers_trades_member_to_matches, gunzip
 from marketimmune.sources.hyperliquid_node_fills import MatchFill
 
 
@@ -64,8 +62,8 @@ def build(args: argparse.Namespace) -> list[dict[str, Any]]:
                     continue
                 handle = tar.extractfile(name)
                 assert handle is not None
-                with io.TextIOWrapper(gzip.GzipFile(fileobj=handle), encoding="utf-8") as lines:
-                    matches.extend(albers_trades_to_matches(lines, coin, liq or set()))
+                raw = gunzip(handle.read())
+                matches.extend(albers_trades_member_to_matches(raw, coin, liq or set()))
             if not matches:
                 continue
             matches.sort(key=lambda m: m.ts_ms)

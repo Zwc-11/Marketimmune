@@ -89,6 +89,7 @@ def check_no_lookahead(
     ts_key: str = "ts_ms",
     lookback_ms: float | None = None,
     atol: float = 1e-9,
+    batch_full: bool = True,
 ) -> LookaheadReport:
     """Recompute features with the future deleted and compare.
 
@@ -98,24 +99,44 @@ def check_no_lookahead(
     kept in both). A feature that changes, or a row that disappears, means the
     builder read information from at or after the fill.
 
-    ``lookback_ms`` bounds both runs to source rows in ``[t - lookback_ms, ...)`` so
+    ``lookback_ms`` bounds the cut run to source rows in ``[t - lookback_ms, t)`` so
     the check stays linear in the sample size. Set it above the longest feature
     window; a window longer than ``lookback_ms`` shows up as a mismatch, never as
     a false pass. ``None`` keeps the full history.
+
+    With ``batch_full`` (the default) the uncut run is one ``build`` call for all
+    sampled labels over every source row from the earliest sample's lookback on,
+    instead of one call per label over ``[t - lookback_ms, end)``; the label rows
+    are tagged so each output finds its label. That needs a row-wise builder (each
+    output depends only on its own label and the sources, as in an as-of join); a
+    builder that drops the tag falls back to one call per label.
     """
     if not labels:
         return LookaheadReport(0, 0, 0, tuple(columns), 0.0)
     rng = random.Random(seed)
     picks = sorted(rng.sample(range(len(labels)), min(sample, len(labels))))
     indexed = [_TimeIndex.build(src, ts_key) for src in sources]
+    lows = {
+        i: -math.inf if lookback_ms is None else float(labels[i][ts_key]) - lookback_ms
+        for i in picks
+    }
+    full_by_label = (
+        _full_rows_in_one_call(build, labels, picks, indexed, min(lows.values()))
+        if batch_full and picks
+        else None
+    )
     n_checked = n_mismatched = n_dropped = 0
     max_diff = 0.0
     examples: list[dict[str, Any]] = []
     for i in picks:
         label = labels[i]
         t = float(label[ts_key])
-        lo = -math.inf if lookback_ms is None else t - lookback_ms
-        full = build([label], *(ix.window(lo, math.inf) for ix in indexed))
+        lo = lows[i]
+        full = (
+            full_by_label.get(i, [])
+            if full_by_label is not None
+            else build([label], *(ix.window(lo, math.inf) for ix in indexed))
+        )
         if not full:
             continue  # the builder skips this label even with all data: nothing to compare
         cut = build([label], *(ix.window(lo, t) for ix in indexed))
@@ -141,6 +162,25 @@ def check_no_lookahead(
         max_abs_diff=max_diff,
         examples=tuple(examples),
     )
+
+
+_TAG = "__lookahead_label__"
+
+
+def _full_rows_in_one_call(
+    build: FeatureBuilder,
+    labels: Sequence[Row],
+    picks: Sequence[int],
+    indexed: Sequence[_TimeIndex],
+    lo: float,
+) -> dict[int, list[Row]] | None:
+    """``{label index: [output row]}`` from one uncut ``build`` call, or ``None`` when
+    the builder does not carry the tag through (then each label is built alone)."""
+    tagged = [{**labels[i], _TAG: i} for i in picks]
+    out = build(tagged, *(ix.window(lo, math.inf) for ix in indexed))
+    if any(_TAG not in row for row in out):
+        return None
+    return {int(row[_TAG]): [row] for row in out}
 
 
 @dataclass(frozen=True, slots=True)

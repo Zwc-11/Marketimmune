@@ -24,6 +24,8 @@ dependencies = [
 [project.optional-dependencies]
 # Model training and the web-model export.
 training = ["catboost>=1.2.10"]
+# Faster gzip for the Albers archives (python-isal); everything works without it.
+fast = ["isal>=1.7"]
 # Requester-pays Hyperliquid S3 (node fills, L2 archive, replica_cmds).
 aws = ["boto3>=1.34"]
 # Django API that serves the terminal and the scored-fill decisions.
@@ -63,6 +65,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 "server/api/migrations/*.py" = ["E501", "I001"]
+"eval/**/*.py" = ["E402"]  # standalone scripts put the repo on sys.path first
 
 [tool.mypy]
 python_version = "3.12"

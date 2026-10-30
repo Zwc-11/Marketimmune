@@ -105,8 +105,10 @@ pub fn apply_batch(book: &mut Book, actions: &[Action], cfg: &EngineConfig, out:
     out.statuses.resize(actions.len(), Status::CancelMissing);
     out.matched.clear();
     out.order.clear();
-    out.order.extend(0..actions.len() as u32);
-    out.order.sort_by_key(|&i| actions[i as usize].cls()); // stable: keeps proposer order
+    // Three passes instead of a sort: O(n), and each class keeps proposer order.
+    for cls in [Cls::PostOnly, Cls::Cancel, Cls::Taker] {
+        out.order.extend((0..actions.len() as u32).filter(|&i| actions[i as usize].cls() == cls));
+    }
 
     for &i in &out.order {
         let a = &actions[i as usize];
@@ -116,7 +118,7 @@ pub fn apply_batch(book: &mut Book, actions: &[Action], cfg: &EngineConfig, out:
                 None => Status::CancelMissing,
             },
             Op::Order { lots: 0, .. } => Status::ZeroSize,
-            Op::Order { oid, .. } if book.order(oid).is_some() => Status::DuplicateOid,
+            Op::Order { oid, .. } if book.contains(oid) => Status::DuplicateOid,
             Op::Order { oid, side, tick, lots, tif: Tif::Alo } => {
                 if book.crosses(side, tick) {
                     Status::AloRejected

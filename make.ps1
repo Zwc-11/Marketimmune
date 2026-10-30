@@ -14,7 +14,7 @@ function Run([string]$Exe, [string[]]$Arguments) {
 }
 
 switch ($Target) {
-    "install" { Run $Python @("-m", "pip", "install", "-e", ".[training,server,aws,dev]") }
+    "install" { Run $Python @("-m", "pip", "install", "-e", ".[training,server,aws,fast,dev]") }
     "lint" { Run $Python @("-m", "ruff", "check", "."); Run $Python @("scripts/check_line_limit.py") }
     "typecheck" { Run $Python @("scripts/typecheck.py") }
     "test" { Run $Python @("-m", "pytest") }
