@@ -15,8 +15,8 @@ jobs:
           enable-cache: true
       - name: Lock is current
         run: uv lock --check
-      - name: Install (training, server, aws, recorder, dev)
-        run: uv sync --frozen --extra training --extra server --extra aws --extra recorder --extra dev
+      - name: Install (training, server, aws, recorder, fast, dev)
+        run: uv sync --frozen --extra training --extra server --extra aws --extra recorder --extra fast --extra dev
       - name: Lint
         run: |
           uv run --frozen ruff check .

@@ -11,7 +11,7 @@ help:  ## list targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-18s %s\n", $$1, $$2}'
 
 install:  ## editable install with training, server and dev extras
-	$(PYTHON) -m pip install -e ".[training,server,aws,dev]"
+	$(PYTHON) -m pip install -e ".[training,server,aws,fast,dev]"
 
 lint:  ## ruff + 1000-line limit
 	$(PYTHON) -m ruff check .

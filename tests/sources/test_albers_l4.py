@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 from typing import Any
 
@@ -21,6 +22,7 @@ from marketimmune.sources.albers_l4 import (
     read_status_records,
     read_users_csv,
     rested_orders,
+    rested_orders_gz,
 )
 from marketimmune.sources.hyperliquid_node_fills import MatchFill
 
@@ -193,3 +195,25 @@ def test_match_from_albers_trade_orients_by_aggressor() -> None:
 def test_albers_trades_to_matches_filters_coin() -> None:
     lines = [json.dumps({**TRADE, "coin": c}) for c in ("SOL", "SOLX", "BTC")]
     assert len(albers_trades_to_matches(lines, "sol")) == 1
+
+
+def test_rested_orders_gz_matches_the_json_parser() -> None:
+    def line(oid: int, coin: str, kind: str, sz: str) -> str:
+        diff = {"new": {"sz": sz}} if kind == "new" else {kind: {}}
+        return json.dumps(
+            {"user": "0xabc", "oid": oid, "coin": coin, "side": "B", "px": "1.5",
+             "raw_book_diff": diff},
+            separators=(",", ":"),
+        )
+
+    lines = [line(1, "SOL", "new", "2.5"), line(2, "BTC", "new", "1"), line(3, "SOL", "remove", "0"),
+             line(4, "SOLX", "new", "9"), line(5, "SOL", "new", "0.25")] * 3
+    text = "\n".join(lines) + "\n"
+    assert rested_orders_gz(gzip.compress(text.encode()), "sol") == rested_orders(lines, "SOL")
+    assert rested_orders_gz(gzip.compress(text.encode()), "SOL") == {1: 2.5, 5: 0.25}
+
+
+def test_rested_orders_gz_falls_back_when_key_order_differs() -> None:
+    reordered = json.dumps({"coin": "SOL", "oid": 7, "side": "A", "px": "2",
+                            "raw_book_diff": {"new": {"sz": "3"}}}, separators=(",", ":"))
+    assert rested_orders_gz(gzip.compress((reordered + "\n").encode()), "SOL") == {7: 3.0}

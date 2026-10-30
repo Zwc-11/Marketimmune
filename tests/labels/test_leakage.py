@@ -90,3 +90,34 @@ def test_check_no_lookahead_keeps_static_rows_and_handles_empty() -> None:
     assert check_no_lookahead(from_static, LABELS, [static], columns=["x"]).passed
     empty = check_no_lookahead(from_static, [], [static], columns=["x"])
     assert empty.n_checked == 0 and not empty.passed
+
+
+def _carrying(build):  # type: ignore[no-untyped-def]
+    """Wrap a builder so each output keeps its label's fields (a row-wise join)."""
+    def wrapped(labels, src):  # type: ignore[no-untyped-def]
+        out = []
+        for label in labels:
+            rows = build([label], src)
+            out.extend({**label, **row} for row in rows)
+        return out
+    return wrapped
+
+
+@pytest.mark.parametrize("inclusive", [False, True])
+def test_batched_uncut_run_gives_the_same_verdict(inclusive: bool) -> None:
+    build = _carrying(_asof_builder(inclusive))
+    batched = check_no_lookahead(build, LABELS, [SRC], columns=["x"], lookback_ms=30.0)
+    single = check_no_lookahead(
+        build, LABELS, [SRC], columns=["x"], lookback_ms=30.0, batch_full=False
+    )
+    assert batched.passed is single.passed is (not inclusive)
+    assert batched.n_checked == single.n_checked == len(LABELS)
+
+
+def test_batched_run_flags_a_window_longer_than_the_lookback() -> None:
+    # One call per label cuts both runs at the same lookback, so this passed there.
+    def counts_all_history(labels, src):  # type: ignore[no-untyped-def]
+        return [{**lab, "n": sum(r["ts_ms"] < lab["ts_ms"] for r in src)} for lab in labels]
+
+    report = check_no_lookahead(counts_all_history, LABELS, [SRC], columns=["n"], lookback_ms=12.0)
+    assert not report.passed and report.n_mismatched > 0

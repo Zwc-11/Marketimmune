@@ -97,11 +97,13 @@ within 2e-13. Details and methodology in [docs/performance.md](docs/performance.
 | As-of feature join, 190K fills | 8.7 s | 2.0 s |
 | Score 2,000 fills | 0.35 s one by one | 0.012 s batched |
 | Full training run (CatBoost fits unchanged at ~94 s) | 200 s | 99 s |
+| Albers SOL day to Silver book (real data, 24 h) | 134 s | 58 to 74 s |
+| No-look-ahead check, 200 fills on a real day | 103 s | 1.5 s |
 
 ## Quickstart
 
 ```powershell
-python -m pip install -e ".[training,server,aws,dev]"    # or: uv sync --extra training --extra server --extra dev
+python -m pip install -e ".[training,server,aws,fast,dev]"    # or: uv sync --extra training --extra server --extra dev
 
 # Terminal only (no backend needed): http://127.0.0.1:5173/#/terminal
 npm --prefix frontend install
