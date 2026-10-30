@@ -1,8 +1,14 @@
 """Evaluation reports for markout-based toxicity models.
 
-The trainer should own fitting. This module owns the honest accounting: given
+The trainer owns fitting. This module owns the honest accounting: given
 out-of-fold probabilities, timestamps, labels, and realized markout, it reports
-purged-walk-forward fold metrics plus the quoting-policy markout lift.
+temporal fold metrics plus the quoting-policy markout lift.
+
+Everything here is vectorized with NumPy. The quoting policy is "skip the fill when
+``p(toxic) >= threshold``", so for a sorted probability vector the kept set for any
+threshold is a prefix. A threshold sweep is therefore one sort, one cumulative sum,
+and one ``searchsorted`` over the grid: ``O(n log n + g log n)`` instead of the
+``O(n * g)`` Python loop it replaced.
 """
 
 from __future__ import annotations
@@ -12,11 +18,18 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
+import numpy.typing as npt
 from sklearn.metrics import average_precision_score  # type: ignore[import-untyped]
 
 from marketimmune.models.calibration import brier_score, expected_calibration_error
 from marketimmune.models.promotion import ModelMetrics
-from marketimmune.models.walk_forward import purged_walk_forward_splits
+from marketimmune.models.walk_forward import CvScheme, FoldArrays, temporal_fold_arrays
+
+FloatArray = npt.NDArray[np.float64]
+BoolArray = npt.NDArray[np.bool_]
+IndexArray = npt.NDArray[np.intp]
+FORWARD_HOLDOUT = "forward_holdout"
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +80,7 @@ class MarkoutEvaluationReport:
     embargo_ms: float
     decision_threshold: float | None
     leakage_safe: bool = True
+    cv_scheme: str = "walk_forward"
 
     @property
     def pr_auc(self) -> float:
@@ -88,6 +102,11 @@ class MarkoutEvaluationReport:
     def quote_rate(self) -> float:
         return _weighted_mean((fold.quote_rate for fold in self.folds), self._weights())
 
+    @property
+    def n_evaluated(self) -> int:
+        """Rows that landed in a test fold (walk-forward never tests its first block)."""
+        return sum(fold.n_test for fold in self.folds)
+
     def promotion_metrics(self, *, latency_p95_ms: float) -> ModelMetrics:
         """Return the compact metric shape consumed by ``PromotionPolicy``."""
         return ModelMetrics(
@@ -101,7 +120,9 @@ class MarkoutEvaluationReport:
     def to_dict(self) -> dict[str, Any]:
         return {
             "model_name": self.model_name,
+            "cv_scheme": self.cv_scheme,
             "n_rows": self.n_rows,
+            "n_evaluated": self.n_evaluated,
             "n_splits": self.n_splits,
             "purge_ms": self.purge_ms,
             "embargo_ms": self.embargo_ms,
@@ -142,82 +163,69 @@ class ThresholdSelection:
 
 
 def evaluate_markout_predictions(
-    timestamps_ms: Sequence[float],
-    y_true: Sequence[bool],
-    probabilities: Sequence[float],
-    markout_bps: Sequence[float],
+    timestamps_ms: Sequence[float] | npt.ArrayLike,
+    y_true: Sequence[bool] | npt.ArrayLike,
+    probabilities: Sequence[float] | npt.ArrayLike,
+    markout_bps: Sequence[float] | npt.ArrayLike,
     *,
     model_name: str,
     n_splits: int = 5,
     purge_ms: float = 0.0,
     embargo_ms: float = 0.0,
     decision_threshold: float | None = 0.5,
-    decision_thresholds: Sequence[float] | None = None,
+    decision_thresholds: Sequence[float] | npt.ArrayLike | None = None,
     calibration_bin_count: int = 10,
+    scheme: CvScheme = "walk_forward",
+    folds: Sequence[FoldArrays] | None = None,
 ) -> MarkoutEvaluationReport:
-    """Evaluate already-produced probabilities under purged walk-forward folds.
+    """Evaluate already-produced probabilities under temporal folds.
 
-    ``probabilities`` should be out-of-fold predictions from the same fold protocol.
-    A probability at or above ``decision_threshold`` means "skip this maker quote".
-    Skipped fills contribute zero markout to opportunity-level policy PnL.
+    ``probabilities`` should be out-of-fold predictions. A probability at or above
+    the decision threshold means "skip this maker quote"; skipped fills contribute
+    zero markout to opportunity-level policy PnL. Pass the original training
+    ``folds`` and full row arrays for OOF evaluation; NaN predictions mark rows
+    without a fitted model and are excluded without changing fold boundaries.
     """
-    ts = tuple(float(value) for value in timestamps_ms)
-    labels = tuple(bool(value) for value in y_true)
-    probs = tuple(float(value) for value in probabilities)
-    markouts = tuple(float(value) for value in markout_bps)
-    _validate_inputs(
-        ts,
-        labels,
-        probs,
-        markouts,
-        decision_threshold,
-        decision_thresholds,
-        calibration_bin_count,
-    )
-    thresholds = (
-        tuple(float(value) for value in decision_thresholds)
-        if decision_thresholds is not None
-        else None
-    )
-
-    folds = purged_walk_forward_splits(
-        ts,
-        n_splits=n_splits,
-        purge_ms=purge_ms,
-        embargo_ms=embargo_ms,
+    ts, labels, probs, markouts = _arrays(timestamps_ms, y_true, probabilities, markout_bps)
+    _validate_inputs(ts, labels, probs, markouts, calibration_bin_count)
+    thresholds = _row_thresholds(decision_threshold, decision_thresholds, ts.size)
+    folds = folds if folds is not None else temporal_fold_arrays(
+        ts, n_splits=n_splits, purge_ms=purge_ms, embargo_ms=embargo_ms, scheme=scheme
     )
     fold_reports = tuple(
         _evaluate_fold(
             fold_id=idx,
-            train_count=len(fold.train_indices),
-            test_indices=fold.test_indices,
+            train_count=int(fold.train.size),
+            test=test,
             test_start_ms=fold.test_start_ms,
             test_end_ms=fold.test_end_ms,
             labels=labels,
             probabilities=probs,
             markout_bps=markouts,
-            decision_threshold=decision_threshold,
-            decision_thresholds=thresholds,
+            thresholds=thresholds,
             calibration_bin_count=calibration_bin_count,
         )
         for idx, fold in enumerate(folds, start=1)
+        for test in (fold.test[np.isfinite(probs[fold.test])],)
+        if test.size
     )
     return MarkoutEvaluationReport(
         model_name=model_name,
         folds=fold_reports,
-        n_rows=len(ts),
+        n_rows=int(ts.size),
         n_splits=n_splits,
         purge_ms=purge_ms,
         embargo_ms=embargo_ms,
-        decision_threshold=decision_threshold if thresholds is None else None,
+        decision_threshold=decision_threshold if decision_thresholds is None else None,
+        cv_scheme=scheme,
     )
 
 
 def evaluate_holdout_predictions(
-    timestamps_ms: Sequence[float],
-    y_true: Sequence[bool],
-    probabilities: Sequence[float],
-    markout_bps: Sequence[float],
+    timestamps_ms: Sequence[float] | npt.ArrayLike,
+    y_true: Sequence[bool] | npt.ArrayLike,
+    probabilities: Sequence[float] | npt.ArrayLike,
+    markout_bps: Sequence[float] | npt.ArrayLike,
     *,
     model_name: str,
     train_rows: int,
@@ -225,73 +233,85 @@ def evaluate_holdout_predictions(
     calibration_bin_count: int = 10,
 ) -> MarkoutEvaluationReport:
     """Evaluate one fully held-out partition with no internal re-splitting."""
-    ts = tuple(float(value) for value in timestamps_ms)
-    labels = tuple(bool(value) for value in y_true)
-    probs = tuple(float(value) for value in probabilities)
-    markouts = tuple(float(value) for value in markout_bps)
-    _validate_inputs(
-        ts,
-        labels,
-        probs,
-        markouts,
-        decision_threshold,
-        None,
-        calibration_bin_count,
-    )
+    ts, labels, probs, markouts = _arrays(timestamps_ms, y_true, probabilities, markout_bps)
+    _validate_inputs(ts, labels, probs, markouts, calibration_bin_count)
+    thresholds = _row_thresholds(decision_threshold, None, ts.size)
     fold = _evaluate_fold(
         fold_id=1,
         train_count=train_rows,
-        test_indices=tuple(range(len(ts))),
-        test_start_ms=min(ts),
-        test_end_ms=max(ts),
+        test=np.arange(ts.size, dtype=np.intp),
+        test_start_ms=float(ts.min()),
+        test_end_ms=float(ts.max()),
         labels=labels,
         probabilities=probs,
         markout_bps=markouts,
-        decision_threshold=decision_threshold,
-        decision_thresholds=None,
+        thresholds=thresholds,
         calibration_bin_count=calibration_bin_count,
     )
     return MarkoutEvaluationReport(
         model_name=model_name,
         folds=(fold,),
-        n_rows=len(ts),
+        n_rows=int(ts.size),
         n_splits=1,
         purge_ms=0.0,
         embargo_ms=0.0,
         decision_threshold=decision_threshold,
+        cv_scheme=FORWARD_HOLDOUT,
+    )
+
+
+def threshold_sweep(
+    probabilities: Sequence[float] | npt.ArrayLike,
+    markout_bps: Sequence[float] | npt.ArrayLike,
+    thresholds: Sequence[float],
+    *,
+    min_quote_rate: float = 0.0,
+    max_quote_rate: float = 1.0,
+) -> tuple[ThresholdSelection, ...]:
+    """Evaluate every threshold in one pass (sorted prefix sums)."""
+    probs = np.asarray(probabilities, dtype=np.float64)
+    markouts = np.asarray(markout_bps, dtype=np.float64)
+    grid = _validate_threshold_grid(thresholds)
+    _validate_quote_rate_bounds(min_quote_rate, max_quote_rate)
+    if probs.size == 0 or probs.shape != markouts.shape:
+        raise ValueError("probabilities and markout_bps must be non-empty and aligned")
+    order = np.argsort(probs, kind="stable")
+    prefix = np.concatenate(([0.0], np.cumsum(markouts[order])))
+    kept = np.searchsorted(probs[order], np.asarray(grid), side="left")
+    n = float(probs.size)
+    baseline = float(markouts.mean())
+    policy = prefix[kept] / n
+    quote_rate = kept / n
+    return tuple(
+        ThresholdSelection(
+            threshold=threshold,
+            baseline_markout_bps=baseline,
+            policy_markout_bps=float(policy[i]),
+            markout_lift_bps=float(policy[i]) - baseline,
+            quote_rate=float(quote_rate[i]),
+            eligible=bool(min_quote_rate <= quote_rate[i] <= max_quote_rate),
+        )
+        for i, threshold in enumerate(grid)
     )
 
 
 def select_markout_threshold(
-    probabilities: Sequence[float],
-    markout_bps: Sequence[float],
+    probabilities: Sequence[float] | npt.ArrayLike,
+    markout_bps: Sequence[float] | npt.ArrayLike,
     thresholds: Sequence[float],
     *,
     min_quote_rate: float = 0.0,
     max_quote_rate: float = 1.0,
 ) -> ThresholdSelection:
     """Select the skip threshold with the best markout lift inside a quote budget."""
-    probs = tuple(float(value) for value in probabilities)
-    markouts = tuple(float(value) for value in markout_bps)
-    grid = _validate_threshold_grid(thresholds)
-    _validate_quote_rate_bounds(min_quote_rate, max_quote_rate)
-    if not probs or len(probs) != len(markouts):
-        raise ValueError("probabilities and markout_bps must be non-empty and aligned")
-
-    baseline = _mean(markouts)
-    selections = tuple(
-        _threshold_selection(
-            probs,
-            markouts,
-            threshold=threshold,
-            baseline_markout_bps=baseline,
-            min_quote_rate=min_quote_rate,
-            max_quote_rate=max_quote_rate,
-        )
-        for threshold in grid
+    selections = threshold_sweep(
+        probabilities,
+        markout_bps,
+        thresholds,
+        min_quote_rate=min_quote_rate,
+        max_quote_rate=max_quote_rate,
     )
-    eligible = tuple(selection for selection in selections if selection.eligible)
-    pool = eligible or selections
+    pool = tuple(selection for selection in selections if selection.eligible) or selections
     target_quote_rate = (min_quote_rate + max_quote_rate) / 2.0
     return max(
         pool,
@@ -304,9 +324,9 @@ def select_markout_threshold(
 
 
 def fold_local_markout_thresholds(
-    timestamps_ms: Sequence[float],
-    probabilities: Sequence[float],
-    markout_bps: Sequence[float],
+    timestamps_ms: Sequence[float] | npt.ArrayLike,
+    probabilities: Sequence[float] | npt.ArrayLike,
+    markout_bps: Sequence[float] | npt.ArrayLike,
     *,
     n_splits: int = 5,
     purge_ms: float = 0.0,
@@ -314,111 +334,99 @@ def fold_local_markout_thresholds(
     threshold_grid: Sequence[float],
     min_quote_rate: float = 0.0,
     max_quote_rate: float = 1.0,
+    scheme: CvScheme = "walk_forward",
+    folds: Sequence[FoldArrays] | None = None,
 ) -> tuple[tuple[float, ...], tuple[dict[str, Any], ...]]:
-    """Choose one policy threshold per test fold from that fold's train rows."""
-    ts = tuple(float(value) for value in timestamps_ms)
-    probs = tuple(float(value) for value in probabilities)
-    markouts = tuple(float(value) for value in markout_bps)
-    lengths = {len(ts), len(probs), len(markouts)}
-    if len(lengths) != 1:
+    """Choose thresholds from available OOF predictions in each original train slice.
+
+    The first walk-forward fold has no earlier OOF predictions. It uses the
+    middle grid threshold, fixed independently of its test outcomes.
+    """
+    ts = np.asarray(timestamps_ms, dtype=np.float64)
+    probs = np.asarray(probabilities, dtype=np.float64)
+    markouts = np.asarray(markout_bps, dtype=np.float64)
+    if not (ts.shape == probs.shape == markouts.shape):
         raise ValueError("timestamps, probabilities, and markout_bps must align")
     grid = _validate_threshold_grid(threshold_grid)
     _validate_quote_rate_bounds(min_quote_rate, max_quote_rate)
-    thresholds = [grid[len(grid) // 2]] * len(ts)
+    thresholds = np.full(ts.size, grid[len(grid) // 2], dtype=np.float64)
     summaries: list[dict[str, Any]] = []
-    folds = purged_walk_forward_splits(
-        ts,
-        n_splits=n_splits,
-        purge_ms=purge_ms,
-        embargo_ms=embargo_ms,
+    folds = folds if folds is not None else temporal_fold_arrays(
+        ts, n_splits=n_splits, purge_ms=purge_ms, embargo_ms=embargo_ms, scheme=scheme
     )
     for fold_id, fold in enumerate(folds, start=1):
+        if not np.any(np.isfinite(probs[fold.test])):
+            continue
+        train = fold.train[np.isfinite(probs[fold.train])]
+        if train.size == 0:
+            summaries.append({
+                "fold_id": fold_id,
+                "n_train": int(fold.train.size),
+                "n_threshold_train": 0,
+                "n_test": int(fold.test.size),
+                "threshold": grid[len(grid) // 2],
+                "fallback": "no training-side OOF predictions",
+            })
+            continue
         selection = select_markout_threshold(
-            _take(probs, fold.train_indices),
-            _take(markouts, fold.train_indices),
+            probs[train],
+            markouts[train],
             grid,
             min_quote_rate=min_quote_rate,
             max_quote_rate=max_quote_rate,
         )
-        for idx in fold.test_indices:
-            thresholds[idx] = selection.threshold
+        thresholds[fold.test] = selection.threshold
         summaries.append({
             "fold_id": fold_id,
-            "n_train": len(fold.train_indices),
-            "n_test": len(fold.test_indices),
+            "n_train": int(fold.train.size),
+            "n_threshold_train": int(train.size),
+            "n_test": int(fold.test.size),
             **selection.to_dict(),
         })
-    return tuple(thresholds), tuple(summaries)
+    return tuple(thresholds.tolist()), tuple(summaries)
 
 
 def _evaluate_fold(
     *,
     fold_id: int,
     train_count: int,
-    test_indices: Sequence[int],
+    test: IndexArray,
     test_start_ms: float,
     test_end_ms: float,
-    labels: Sequence[bool],
-    probabilities: Sequence[float],
-    markout_bps: Sequence[float],
-    decision_threshold: float | None,
-    decision_thresholds: Sequence[float] | None,
+    labels: BoolArray,
+    probabilities: FloatArray,
+    markout_bps: FloatArray,
+    thresholds: FloatArray,
     calibration_bin_count: int,
 ) -> MarkoutFoldReport:
-    fold_labels = _take(labels, test_indices)
-    fold_probs = _take(probabilities, test_indices)
-    fold_markouts = _take(markout_bps, test_indices)
-    fold_thresholds = _fold_thresholds(
-        decision_threshold=decision_threshold,
-        decision_thresholds=decision_thresholds,
-        test_indices=test_indices,
-    )
-    baseline = _mean(fold_markouts)
-    policy = _policy_markout(fold_probs, fold_markouts, fold_thresholds)
+    fold_labels = labels[test]
+    fold_probs = probabilities[test]
+    fold_markouts = markout_bps[test]
+    fold_thresholds = thresholds[test]
+    kept = fold_probs < fold_thresholds
+    n = float(test.size)
+    baseline = float(fold_markouts.mean())
+    policy = float(np.where(kept, fold_markouts, 0.0).sum()) / n
     return MarkoutFoldReport(
         fold_id=fold_id,
         n_train=train_count,
-        n_test=len(test_indices),
+        n_test=int(test.size),
         test_start_ms=test_start_ms,
         test_end_ms=test_end_ms,
-        decision_threshold=_mean(fold_thresholds),
+        decision_threshold=float(fold_thresholds.mean()),
         pr_auc=_pr_auc(fold_labels, fold_probs),
         brier=brier_score(fold_labels, fold_probs),
-        ece=expected_calibration_error(
-            fold_labels,
-            fold_probs,
-            bins=calibration_bin_count,
-        ),
+        ece=expected_calibration_error(fold_labels, fold_probs, bins=calibration_bin_count),
         baseline_markout_bps=baseline,
         policy_markout_bps=policy,
         markout_lift_bps=policy - baseline,
-        quote_rate=sum(
-            1 for prob, threshold in zip(fold_probs, fold_thresholds, strict=True)
-            if prob < threshold
-        )
-        / len(fold_probs),
+        quote_rate=float(np.count_nonzero(kept)) / n,
     )
 
 
-def _policy_markout(
-    probabilities: Sequence[float],
-    markout_bps: Sequence[float],
-    decision_thresholds: Sequence[float],
-) -> float:
-    kept_or_zero = (
-        markout if prob < threshold else 0.0
-        for prob, markout, threshold in zip(
-            probabilities,
-            markout_bps,
-            decision_thresholds,
-            strict=True,
-        )
-    )
-    return sum(kept_or_zero) / len(markout_bps)
-
-
-def _pr_auc(labels: Sequence[bool], probabilities: Sequence[float]) -> float:
-    if len(set(labels)) < 2:
+def _pr_auc(labels: BoolArray, probabilities: FloatArray) -> float:
+    positives = int(np.count_nonzero(labels))
+    if positives == 0 or positives == labels.size:
         return float("nan")
     return float(average_precision_score(labels, probabilities))
 
@@ -435,81 +443,54 @@ def _weighted_mean(values: Iterable[float], weights: Sequence[int]) -> float:
     return sum(value * weight for value, weight in pairs) / weight_sum
 
 
-def _mean(values: Sequence[float]) -> float:
-    return sum(values) / len(values)
+def _arrays(
+    timestamps_ms: Sequence[float] | npt.ArrayLike,
+    y_true: Sequence[bool] | npt.ArrayLike,
+    probabilities: Sequence[float] | npt.ArrayLike,
+    markout_bps: Sequence[float] | npt.ArrayLike,
+) -> tuple[FloatArray, BoolArray, FloatArray, FloatArray]:
+    return (
+        np.asarray(timestamps_ms, dtype=np.float64),
+        np.asarray(y_true, dtype=np.bool_),
+        np.asarray(probabilities, dtype=np.float64),
+        np.asarray(markout_bps, dtype=np.float64),
+    )
 
 
-def _take[T](values: Sequence[T], indices: Sequence[int]) -> tuple[T, ...]:
-    return tuple(values[idx] for idx in indices)
+def _row_thresholds(
+    decision_threshold: float | None,
+    decision_thresholds: Sequence[float] | npt.ArrayLike | None,
+    n_rows: int,
+) -> FloatArray:
+    if decision_thresholds is not None:
+        values = np.asarray(decision_thresholds, dtype=np.float64)
+        if values.shape != (n_rows,):
+            raise ValueError("decision_thresholds must align with timestamps")
+        if np.any((values < 0.0) | (values > 1.0)):
+            raise ValueError("decision_thresholds must be in [0, 1]")
+        return values
+    if decision_threshold is None:
+        raise ValueError("decision_threshold is required without decision_thresholds")
+    if not 0.0 <= decision_threshold <= 1.0:
+        raise ValueError("decision_threshold must be in [0, 1]")
+    return np.full(n_rows, float(decision_threshold), dtype=np.float64)
 
 
 def _validate_inputs(
-    timestamps_ms: Sequence[float],
-    y_true: Sequence[bool],
-    probabilities: Sequence[float],
-    markout_bps: Sequence[float],
-    decision_threshold: float | None,
-    decision_thresholds: Sequence[float] | None,
+    timestamps_ms: FloatArray,
+    y_true: BoolArray,
+    probabilities: FloatArray,
+    markout_bps: FloatArray,
     calibration_bin_count: int,
 ) -> None:
-    if not timestamps_ms:
+    if timestamps_ms.size == 0:
         raise ValueError("evaluation inputs must be non-empty")
-    lengths = {len(timestamps_ms), len(y_true), len(probabilities), len(markout_bps)}
-    if len(lengths) != 1:
+    if not (timestamps_ms.shape == y_true.shape == probabilities.shape == markout_bps.shape):
         raise ValueError("timestamps, labels, probabilities, and markout_bps must align")
-    if decision_thresholds is None and decision_threshold is None:
-        raise ValueError("decision_threshold is required without decision_thresholds")
-    if decision_threshold is not None and (
-        decision_threshold < 0.0 or decision_threshold > 1.0
-    ):
-        raise ValueError("decision_threshold must be in [0, 1]")
-    if decision_thresholds is not None:
-        if len(decision_thresholds) != len(timestamps_ms):
-            raise ValueError("decision_thresholds must align with timestamps")
-        if any(threshold < 0.0 or threshold > 1.0 for threshold in decision_thresholds):
-            raise ValueError("decision_thresholds must be in [0, 1]")
     if calibration_bin_count < 1:
         raise ValueError("calibration_bin_count must be >= 1")
-    if any(prob < 0.0 or prob > 1.0 for prob in probabilities):
+    if np.any((probabilities < 0.0) | (probabilities > 1.0)):
         raise ValueError("probabilities must be in [0, 1]")
-
-
-def _fold_thresholds(
-    *,
-    decision_threshold: float | None,
-    decision_thresholds: Sequence[float] | None,
-    test_indices: Sequence[int],
-) -> tuple[float, ...]:
-    if decision_thresholds is not None:
-        return _take(decision_thresholds, test_indices)
-    if decision_threshold is None:
-        raise ValueError("decision_threshold is required without decision_thresholds")
-    return tuple(float(decision_threshold) for _idx in test_indices)
-
-
-def _threshold_selection(
-    probabilities: Sequence[float],
-    markout_bps: Sequence[float],
-    *,
-    threshold: float,
-    baseline_markout_bps: float,
-    min_quote_rate: float,
-    max_quote_rate: float,
-) -> ThresholdSelection:
-    thresholds = tuple(threshold for _prob in probabilities)
-    policy = _policy_markout(probabilities, markout_bps, thresholds)
-    quote_rate = sum(
-        1 for prob, threshold_value in zip(probabilities, thresholds, strict=True)
-        if prob < threshold_value
-    ) / len(probabilities)
-    return ThresholdSelection(
-        threshold=threshold,
-        baseline_markout_bps=baseline_markout_bps,
-        policy_markout_bps=policy,
-        markout_lift_bps=policy - baseline_markout_bps,
-        quote_rate=quote_rate,
-        eligible=min_quote_rate <= quote_rate <= max_quote_rate,
-    )
 
 
 def _validate_threshold_grid(thresholds: Sequence[float]) -> tuple[float, ...]:

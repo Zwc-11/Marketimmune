@@ -115,6 +115,7 @@ def test_live_candles_use_api_values() -> None:
         return CANDLES
 
     series = live_hyperliquid_candles(
+        coin="BTC",
         api=HyperliquidInfoAPI(post=post),
         now=Clock(),
         wall_time_ms=lambda: 1_700_000_060_000,
@@ -166,3 +167,9 @@ def test_live_candles_validate_inputs(interval: str, lookback: int) -> None:
             lookback_minutes=lookback,
             api=HyperliquidInfoAPI(post=lambda _payload: CANDLES),
         )
+
+
+def test_default_instrument_is_the_sol_perp_the_model_was_trained_on() -> None:
+    from dashboard.services.hyperliquid_service import DEFAULT_COIN
+
+    assert DEFAULT_COIN == "SOL"

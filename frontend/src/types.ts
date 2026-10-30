@@ -1,6 +1,6 @@
 // Mirrors the JSON the Django service emits at /api/agentic/state/.
-// Kept hand-written (not auto-generated from Pydantic) because the surface
-// is small and we want explicit, recruiter-readable typings.
+// Hand-written because the surface is small; keep in sync with dashboard/serializers.py
+// and the service payloads under dashboard/services/.
 
 export interface AgentRunSummary {
     run_id: string;
@@ -147,70 +147,6 @@ export interface LLMStatus {
     model: string;
 }
 
-export interface HyperliquidAssetContext {
-    funding: number;
-    open_interest: number;
-    oracle_px: number;
-    mark_px: number;
-    mid_px: number;
-    premium: number;
-    basis_bps: number;
-}
-
-export interface HyperliquidBookLevel {
-    px: number;
-    sz: number;
-    n: number;
-}
-
-export interface HyperliquidLiveSnapshot {
-    source: string;
-    coin: string;
-    symbol: string;
-    ts_ms: number;
-    mid: number;
-    bid_px: number;
-    bid_sz: number;
-    ask_px: number;
-    ask_sz: number;
-    bids: HyperliquidBookLevel[];
-    asks: HyperliquidBookLevel[];
-    spread_bps: number;
-    microprice: number;
-    top_imbalance: number;
-    asset_context: HyperliquidAssetContext | null;
-    cache_hit: boolean;
-    elapsed_ms: number;
-    client_elapsed_ms?: number;
-}
-
-export interface HyperliquidCandle {
-    coin: string;
-    interval: string;
-    open_ts_ms: number;
-    close_ts_ms: number;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-    volume: number;
-    trade_count: number;
-}
-
-export interface HyperliquidCandleSeries {
-    source: string;
-    coin: string;
-    symbol: string;
-    interval: string;
-    lookback_minutes: number;
-    start_time_ms: number;
-    end_time_ms: number;
-    candles: HyperliquidCandle[];
-    cache_hit: boolean;
-    elapsed_ms: number;
-    client_elapsed_ms?: number;
-}
-
 export interface HyperliquidBackfillJob {
     job_id: string;
     status: 'running' | 'succeeded' | 'failed' | 'planned';
@@ -271,6 +207,7 @@ export interface MarkoutModelHealth {
     instrument?: string;
     horizon?: string;
     dataset_label?: string;
+    cv_scheme?: string;
     decision_threshold?: number | null;
     feature_count?: number;
     feature_columns?: string[];
@@ -352,156 +289,3 @@ export interface MarkoutFillDecisionPayload {
     decisions: MarkoutFillDecision[];
 }
 
-export interface SimulatorScenario {
-    name: string;
-    label: string;
-    family: string;
-    description: string;
-}
-
-export interface SimulatorEvent {
-    id: string;
-    event_type: string;
-    timestamp: string;
-    symbol: string;
-    price: number;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-    quantity: number;
-    bid: number | null;
-    ask: number | null;
-    mid_price: number | null;
-    spread: number | null;
-    volume: number;
-    source: string;
-    depth_levels: Array<{ percentage: number; depth: number; notional: number }>;
-}
-
-export interface SimulatorOrder {
-    id: string;
-    agent_id: string;
-    strategy: string;
-    timestamp: string;
-    side: string;
-    price: number;
-    quantity: number;
-    remaining_quantity: number;
-    status: string;
-}
-
-export interface SimulatorPrediction {
-    timestamp: string;
-    model_name: string;
-    risk_score: number;
-    risk_label: string;
-    explanation: string;
-    confidence: number;
-}
-
-export interface SimulatorFeatureSnapshot {
-    timestamp: string;
-    features: Record<string, number>;
-}
-
-export interface SimulatorDecisionTrace {
-    timestamp: string;
-    observation: string;
-    feature_evidence: Record<string, number>;
-    model_interpretation: string;
-    policy_decision: string;
-    recommended_control: string;
-    linked_event_id: string;
-    linked_prediction_id: number;
-}
-
-export interface SimulatorCoverage {
-    symbol: string;
-    source: string;
-    aligned_dates: string[];
-    available_start: string | null;
-    available_end: string | null;
-    aligned_date_count: number;
-    kline_date_count: number;
-    depth_date_count: number;
-    default_limit: number;
-}
-
-export interface SimulatorAlert {
-    id: number;
-    timestamp: string;
-    severity: string;
-    message: string;
-    metric_name: string;
-    metric_value: number;
-}
-
-export interface SimulatorTrade {
-    id: string;
-    order_id: string;
-    agent_id: string;
-    timestamp: string;
-    price: number;
-    quantity: number;
-    side: string;
-    notional: number;
-    pnl?: number;
-}
-
-export interface SimulatorState {
-    session_id: string;
-    scenario_name: string;
-    symbol: string;
-    speed: number;
-    status: string;
-    event_count: number;
-    session_start: string | null;
-    session_end: string | null;
-    session_date: string | null;
-    duration_ms: number;
-    market_coverage: SimulatorCoverage;
-    scenarios: SimulatorScenario[];
-    events: SimulatorEvent[];
-    agent_orders: SimulatorOrder[];
-    agent_trades: SimulatorTrade[];
-    feature_snapshots: SimulatorFeatureSnapshot[];
-    predictions: SimulatorPrediction[];
-    alerts: SimulatorAlert[];
-    decision_traces: SimulatorDecisionTrace[];
-}
-
-export interface ModelMetric {
-    id: number;
-    model_name: string;
-    model_display: string;
-    task_name: string;
-    pr_auc: number;
-    auroc: number | null;
-    inference_latency_ms: number | null;
-    extra_metrics: Record<string, unknown>;
-    phase: number;
-    rank: number;
-}
-
-export interface BenchmarkMetric {
-    phase: number;
-    title: string;
-    data: Record<string, unknown>;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface TrainingRun {
-    id: number;
-    model_name: string;
-    dataset_version: string;
-    split_summary: string;
-    pr_auc: number;
-    f1: number;
-    precision: number;
-    recall: number;
-    lead_time_ms: number;
-    artifact_path: string;
-    created_at: string;
-}

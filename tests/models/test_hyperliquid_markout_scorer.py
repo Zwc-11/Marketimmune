@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -18,7 +19,7 @@ from marketimmune.models.hyperliquid_markout_scorer import (
     _decision_threshold,
     _feature_columns,
     _percentile,
-    _positive_class_probability,
+    _positive_class_probabilities,
     _read_json,
     _require_file,
 )
@@ -290,10 +291,12 @@ def test_decision_threshold_can_fall_back_to_report_field() -> None:
 
 
 def test_probability_parser_accepts_single_column_and_rejects_bad_shape() -> None:
-    assert _positive_class_probability([[0.8]]) == pytest.approx(0.8)
+    assert _positive_class_probabilities([[0.8]], 1) == pytest.approx([0.8])
 
     with pytest.raises(MarkoutScorerError, match="predict_proba"):
-        _positive_class_probability([])
+        _positive_class_probabilities([], 1)
+    with pytest.raises(MarkoutScorerError, match="predict_proba"):
+        _positive_class_probabilities([[]], 1)
 
 
 def test_percentile_helpers_cover_edge_cases() -> None:
@@ -317,3 +320,129 @@ def test_json_and_file_guards(tmp_path: Path) -> None:
     bad_json.write_text("[]", encoding="utf-8")
     with pytest.raises(MarkoutScorerError, match="JSON object"):
         _read_json(bad_json)
+
+
+def _linear_scan_reference(calibrator: IsotonicCalibrator, probability: float) -> float:
+    xs, ys = calibrator.x_thresholds, calibrator.y_thresholds
+    probability = min(1.0, max(0.0, probability))
+    if probability <= xs[0]:
+        return ys[0]
+    if probability >= xs[-1]:
+        return ys[-1]
+    for i in range(1, len(xs)):
+        if probability <= xs[i]:
+            weight = (probability - xs[i - 1]) / (xs[i] - xs[i - 1])
+            return ys[i - 1] + (ys[i] - ys[i - 1]) * weight
+    raise AssertionError("unreachable")
+
+
+def test_isotonic_binary_search_matches_linear_scan() -> None:
+    calibrator = IsotonicCalibrator(
+        enabled=True,
+        x_thresholds=(0.0, 0.1, 0.1, 0.35, 0.5, 0.8, 1.0),
+        y_thresholds=(0.0, 0.05, 0.2, 0.3, 0.45, 0.7, 0.95),
+        feature_columns=("a",),
+        deployment_decision_threshold=0.4,
+    )
+    probes = [i / 200 for i in range(201)] + [0.1, 0.35, 0.5000001]
+    for probe in probes:
+        assert calibrator.transform_one(probe) == pytest.approx(
+            _linear_scan_reference(calibrator, probe), abs=0.0
+        )
+    assert calibrator.transform(probes) == [calibrator.transform_one(p) for p in probes]
+
+
+class RowDependentModel:
+    """Score depends only on the row, so batching must not change it."""
+
+    def predict_proba(self, rows: Sequence[Sequence[float]]) -> list[list[float]]:
+        out = []
+        for row in rows:
+            score = (sum(row) % 1.0) * 0.9 + 0.05
+            out.append([1.0 - score, score])
+        return out
+
+
+def test_predict_batch_is_batch_invariant() -> None:
+    base = scorer()
+    batch_scorer = HyperliquidMarkoutScorer(
+        model=RowDependentModel(),
+        calibrator=base.calibrator,
+        report=base.report,
+        model_path=base.model_path,
+        calibrator_path=base.calibrator_path,
+        report_path=base.report_path,
+        model_name=base.model_name,
+        feature_columns=base.feature_columns,
+        decision_threshold=base.decision_threshold,
+    )
+    rows = [
+        {name: (i * 0.37 + j * 0.11) for j, name in enumerate(base.feature_columns)}
+        for i in range(25)
+    ]
+    singles = [batch_scorer.predict(row) for row in rows]
+    assert batch_scorer.predict_batch(rows) == singles
+    assert batch_scorer.predict_batch(rows[7:19]) == singles[7:19]
+    assert batch_scorer.predict_batch([]) == []
+
+
+def test_predict_batch_is_batch_invariant_with_real_catboost() -> None:
+    catboost = pytest.importorskip("catboost")
+    import numpy as np
+
+    rng = np.random.default_rng(3)
+    x = rng.normal(size=(400, 3))
+    y = (x[:, 0] + rng.normal(size=400) > 0).astype(int)
+    model = catboost.CatBoostClassifier(
+        iterations=20, depth=3, verbose=False, random_seed=1, allow_writing_files=False
+    )
+    model.fit(x, y)
+    base = scorer()
+    real = HyperliquidMarkoutScorer(
+        model=model,
+        calibrator=IsotonicCalibrator(
+            enabled=True,
+            x_thresholds=(0.0, 0.5, 1.0),
+            y_thresholds=(0.0, 0.4, 1.0),
+            feature_columns=("a", "b", "c"),
+            deployment_decision_threshold=0.3,
+        ),
+        report=base.report,
+        model_path=base.model_path,
+        calibrator_path=base.calibrator_path,
+        report_path=base.report_path,
+        model_name="real",
+        feature_columns=("a", "b", "c"),
+        decision_threshold=0.3,
+    )
+    rows = [dict(zip(("a", "b", "c"), map(float, row), strict=True)) for row in x[:64]]
+    assert real.predict_batch(rows) == [real.predict(row) for row in rows]
+
+
+def test_scorer_loads_compact_json_without_catboost(tmp_path: Path) -> None:
+    compact = {
+        "format": "marketimmune.oblivious.v1",
+        "feature_columns": ["a", "b"],
+        "scale": 1.0,
+        "bias": 0.0,
+        "trees": [{"f": [0], "b": [0.5], "v": [-2.0, 2.0]}],
+    }
+    model_path = tmp_path / "markout.json"
+    model_path.write_text(json.dumps(compact), encoding="utf-8")
+    calibrator_path = tmp_path / "markout.isotonic.json"
+    calibrator_path.write_text(
+        json.dumps({"enabled": False, "feature_columns": ["a", "b"]}), encoding="utf-8"
+    )
+    report_path = tmp_path / "report.json"
+    report_path.write_text(
+        json.dumps({"model_name": "compact", "policy": {"deployment_decision_threshold": 0.5}}),
+        encoding="utf-8",
+    )
+
+    loaded = HyperliquidMarkoutScorer.load(model_path, calibrator_path, report_path)
+
+    high = loaded.predict({"a": 1.0, "b": 0.0})
+    low = loaded.predict({"a": 0.0, "b": 0.0})
+    assert high.raw_score == pytest.approx(1.0 / (1.0 + math.exp(-2.0)))
+    assert high.action == "withhold_quote"
+    assert low.action == "quote"

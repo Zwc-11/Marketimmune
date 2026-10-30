@@ -1,38 +1,22 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark light" />
-    <script>
-      /* No-flash theme init: honor saved choice, else OS, else dark (terminal heritage). */
-      (function () {
-        try {
-          var saved = localStorage.getItem("mi-theme");
-          var theme =
-            saved ||
-            (window.matchMedia &&
-            window.matchMedia("(prefers-color-scheme: light)").matches
-              ? "light"
-              : "dark");
-          var root = document.documentElement;
-          root.setAttribute("data-theme", theme);
-          root.style.colorScheme = theme;
-        } catch (e) {}
-      })();
-    </script>
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0c1015" />
     <meta
       name="description"
-      content="MarketImmune - an autonomous immune system for adverse selection on Hyperliquid perpetuals. Detect toxic order flow, investigate, decide, and remember."
+      content="MarketImmune predicts which SOL perp fills a market maker will regret 10 seconds later. Live Hyperliquid book, fill tape with realized 10 s markouts, and the CatBoost markout model."
     />
-    <meta property="og:title" content="MarketImmune - Adverse-Selection Immune System" />
+    <meta property="og:title" content="MarketImmune: SOL-PERP maker regret terminal" />
     <meta
       property="og:description"
-      content="Detect toxic order flow on Hyperliquid BTC-PERP, investigate with agentic loops, and improve markout under honest walk-forward evaluation."
+      content="Trained on 724,150 Hyperliquid SOL maker fills; +0.109 bps per fill over an order-flow baseline on a held-out day."
     />
     <meta property="og:type" content="website" />
-    <meta name="theme-color" content="#000000" />
-    <title>MarketImmune - Adverse-Selection Immune System</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='3' width='9' height='4' rx='1' fill='%231fb873'/%3E%3Crect x='6' y='9' width='9' height='4' rx='1' fill='%23f0464f'/%3E%3C/svg%3E" />
+    <title>MarketImmune</title>
   </head>
   <body>
     <div id="root"></div>

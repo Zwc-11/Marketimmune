@@ -9,7 +9,7 @@ import pytest
 from marketimmune.models import evaluate_markout_predictions
 from marketimmune.models.markout_evaluation import (
     MarkoutEvaluationReport,
-    _fold_thresholds,
+    _row_thresholds,
     evaluate_holdout_predictions,
     fold_local_markout_thresholds,
     select_markout_threshold,
@@ -25,6 +25,7 @@ def test_markout_report_aggregates_temporal_fold_metrics() -> None:
         markout_bps=[1.0, -5.0, 2.0, -4.0],
         model_name="out-of-fold-catboost-candidate",
         n_splits=2,
+        scheme="purged_kfold",
         decision_threshold=0.5,
         calibration_bin_count=2,
     )
@@ -59,6 +60,7 @@ def test_markout_report_accepts_row_level_thresholds() -> None:
         markout_bps=[1.0, -5.0, 2.0, -4.0],
         model_name="fold-local-policy",
         n_splits=2,
+        scheme="purged_kfold",
         decision_threshold=None,
         decision_thresholds=[0.5, 0.5, 0.1, 0.9],
         calibration_bin_count=2,
@@ -79,6 +81,7 @@ def test_markout_report_serializes_and_feeds_promotion_policy() -> None:
         markout_bps=[1.0, -5.0, 2.0, -4.0],
         model_name="candidate",
         n_splits=2,
+        scheme="purged_kfold",
     )
 
     payload = report.to_dict()
@@ -125,6 +128,7 @@ def test_one_class_folds_keep_pr_auc_nan_without_breaking_other_metrics() -> Non
         markout_bps=[-4.0, -2.0],
         model_name="one-class",
         n_splits=2,
+        scheme="purged_kfold",
     )
 
     assert all(math.isnan(fold.pr_auc) for fold in report.folds)
@@ -141,6 +145,7 @@ def test_rejects_misaligned_inputs() -> None:
             markout_bps=[-1.0, 2.0],
             model_name="bad",
             n_splits=2,
+            scheme="purged_kfold",
         )
 
 
@@ -153,6 +158,7 @@ def test_rejects_bad_threshold_bins_and_probability() -> None:
             [-1.0, 2.0],
             model_name="bad",
             n_splits=2,
+            scheme="purged_kfold",
             decision_threshold=None,
         )
     with pytest.raises(ValueError, match="decision_threshold"):
@@ -163,6 +169,7 @@ def test_rejects_bad_threshold_bins_and_probability() -> None:
             [-1.0, 2.0],
             model_name="bad",
             n_splits=2,
+            scheme="purged_kfold",
             decision_threshold=1.1,
         )
     with pytest.raises(ValueError, match="calibration_bin_count"):
@@ -173,6 +180,7 @@ def test_rejects_bad_threshold_bins_and_probability() -> None:
             [-1.0, 2.0],
             model_name="bad",
             n_splits=2,
+            scheme="purged_kfold",
             calibration_bin_count=0,
         )
     with pytest.raises(ValueError, match=r"\[0, 1\]"):
@@ -183,6 +191,7 @@ def test_rejects_bad_threshold_bins_and_probability() -> None:
             [-1.0, 2.0],
             model_name="bad",
             n_splits=2,
+            scheme="purged_kfold",
         )
     with pytest.raises(ValueError, match="decision_thresholds"):
         evaluate_markout_predictions(
@@ -192,6 +201,7 @@ def test_rejects_bad_threshold_bins_and_probability() -> None:
             [-1.0, 2.0],
             model_name="bad",
             n_splits=2,
+            scheme="purged_kfold",
             decision_threshold=None,
             decision_thresholds=[0.5],
         )
@@ -203,6 +213,7 @@ def test_rejects_bad_threshold_bins_and_probability() -> None:
             [-1.0, 2.0],
             model_name="bad",
             n_splits=2,
+            scheme="purged_kfold",
             decision_threshold=None,
             decision_thresholds=[0.5, 1.2],
         )
@@ -259,6 +270,7 @@ def test_fold_local_markout_thresholds_use_train_rows_for_each_fold() -> None:
         probabilities=[0.1, 0.2, 0.3, 0.7, 0.8, 0.9],
         markout_bps=[2.0, 1.0, 0.5, -0.5, -3.0, -4.0],
         n_splits=3,
+        scheme="purged_kfold",
         threshold_grid=[0.25, 0.5, 0.85],
         min_quote_rate=0.2,
         max_quote_rate=0.8,
@@ -276,14 +288,41 @@ def test_fold_local_markout_thresholds_reject_misaligned_inputs() -> None:
             probabilities=[0.1],
             markout_bps=[1.0, 2.0],
             n_splits=2,
+            scheme="purged_kfold",
             threshold_grid=[0.5],
         )
 
 
-def test_fold_thresholds_requires_a_fixed_threshold_or_row_thresholds() -> None:
+def test_row_thresholds_requires_a_fixed_threshold_or_row_thresholds() -> None:
     with pytest.raises(ValueError, match="decision_threshold is required"):
-        _fold_thresholds(
-            decision_threshold=None,
-            decision_thresholds=None,
-            test_indices=[0],
+        _row_thresholds(None, None, 1)
+
+
+def test_walk_forward_evaluation_never_tests_the_first_block() -> None:
+    report = evaluate_markout_predictions(
+        timestamps_ms=[0, 1, 2, 3, 4, 5],
+        y_true=[False, True, False, True, False, True],
+        probabilities=[0.1, 0.9, 0.2, 0.8, 0.3, 0.7],
+        markout_bps=[1.0, -5.0, 2.0, -4.0, 1.5, -3.0],
+        model_name="walk-forward",
+        n_splits=2,
+        decision_threshold=0.5,
+    )
+
+    assert report.cv_scheme == "walk_forward"
+    assert [fold.n_train for fold in report.folds] == [2, 4]
+    assert report.n_evaluated == 4
+    assert report.to_dict()["cv_scheme"] == "walk_forward"
+
+
+def test_threshold_sweep_matches_bruteforce_policy() -> None:
+    probabilities = [0.05, 0.4, 0.4, 0.61, 0.9, 0.2, 0.75]
+    markouts = [1.0, -2.0, 0.5, -1.5, -6.0, 2.5, 0.25]
+    grid = [0.0, 0.2, 0.4, 0.6, 0.9, 1.0]
+    for threshold in grid:
+        selection = select_markout_threshold(probabilities, markouts, [threshold])
+        kept = [m if p < threshold else 0.0 for p, m in zip(probabilities, markouts, strict=True)]
+        assert selection.policy_markout_bps == pytest.approx(sum(kept) / len(kept))
+        assert selection.quote_rate == pytest.approx(
+            sum(p < threshold for p in probabilities) / len(probabilities)
         )

@@ -17,6 +17,7 @@ from marketimmune.ingest.hyperliquid_lake import (
     bronze_fill_record,
     gold_markout_record,
     read_parquet_records,
+    read_parquet_window,
     silver_asset_ctx_record,
     silver_candle_record,
     silver_fill_record,
@@ -215,3 +216,13 @@ def test_write_gold_training_rows(tmp_path: Path) -> None:
     records = read_parquet_records(result.path)
     assert result.rows == 1
     assert records[0]["l2_mid"] == pytest.approx(100.0)
+
+
+def test_read_parquet_window_sorts_then_slices_latest_or_head(tmp_path: Path) -> None:
+    path = tmp_path / "rows.parquet"
+    write_parquet_records(path, [{"ts_ms": ts, "v": ts * 2} for ts in (30, 10, 50, 20, 40)])
+
+    assert [row["ts_ms"] for row in read_parquet_window(path, limit=2)] == [40, 50]
+    assert [row["ts_ms"] for row in read_parquet_window(path, limit=2, latest=False)] == [10, 20]
+    assert [row["ts_ms"] for row in read_parquet_window(path, limit=0)] == [10, 20, 30, 40, 50]
+    assert read_parquet_window(path, limit=9)[-1] == {"ts_ms": 50, "v": 100}
