@@ -52,10 +52,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--cv-scheme",
         choices=CV_SCHEMES,
-        default="walk_forward",
+        default="rolling_daily",
         help=(
-            "walk_forward trains every fold strictly on earlier rows; purged_kfold "
-            "reproduces reports produced before cv_scheme was recorded."
+            "rolling_daily (default) tests each UTC day on the --train-days before it; "
+            "walk_forward is anchored on row-count blocks; purged_kfold reproduces "
+            "reports produced before cv_scheme was recorded."
+        ),
+    )
+    parser.add_argument(
+        "--train-days",
+        type=int,
+        default=7,
+        help="Training window in days for --cv-scheme rolling_daily.",
+    )
+    parser.add_argument(
+        "--feature-set",
+        choices=["l0", "l0_book", "l1", "l1_book", "v2"],
+        default="l0",
+        help=(
+            "l0: v3 rung L0 (fixed v2 features); l0_book: L0 without asset contexts or "
+            "fees (Albers Dec 2025); l1/l1_book: plus the CEX-gap control; "
+            "v2: the deployed model's list."
         ),
     )
     parser.add_argument("--n-splits", type=int, default=5)

@@ -8,6 +8,13 @@ Two schemes, both purged around each test window:
     only on rows strictly before ``test_start - purge_ms``. No fold ever sees the
     future, so this is the scheme to quote as "walk-forward".
 
+``rolling_daily``
+    Rolling walk-forward by calendar day (UTC), the scheme v3 reports (fix B5).
+    Each fold tests one whole day ``d`` and trains on the ``train_days`` days
+    before it, ending ``purge_ms`` before ``d`` starts. Days without a full
+    ``train_days`` of history before them are never tested. ``n_splits`` and
+    ``embargo_ms`` are ignored: nothing after the test day is ever used.
+
 ``purged_kfold``
     Purged k-fold with a post-test embargo (Lopez de Prado). Rows are cut into
     ``n_splits`` blocks; each fold tests one block and trains on every row outside
@@ -29,9 +36,11 @@ from typing import Literal
 import numpy as np
 import numpy.typing as npt
 
-CvScheme = Literal["walk_forward", "purged_kfold"]
-CV_SCHEMES: tuple[CvScheme, ...] = ("walk_forward", "purged_kfold")
+CvScheme = Literal["walk_forward", "purged_kfold", "rolling_daily"]
+CV_SCHEMES: tuple[CvScheme, ...] = ("walk_forward", "purged_kfold", "rolling_daily")
 IndexArray = npt.NDArray[np.intp]
+DAY_MS = 86_400_000.0
+DEFAULT_ROLLING_TRAIN_DAYS = 7
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,13 +74,18 @@ def temporal_fold_arrays(
     purge_ms: float = 0.0,
     embargo_ms: float = 0.0,
     scheme: CvScheme = "walk_forward",
+    train_days: int | None = None,
 ) -> tuple[FoldArrays, ...]:
     """Build temporal folds as ``np.intp`` index arrays.
 
     Ties in time keep input order (stable sort), so the output is deterministic for
-    a given input regardless of how the caller batches rows.
+    a given input regardless of how the caller batches rows. ``train_days`` applies
+    to ``rolling_daily`` only (default ``DEFAULT_ROLLING_TRAIN_DAYS``).
     """
     ts = np.asarray(timestamps_ms, dtype=np.float64)
+    if scheme == "rolling_daily":
+        days = DEFAULT_ROLLING_TRAIN_DAYS if train_days is None else train_days
+        return _rolling_daily_folds(ts, train_days=days, purge_ms=purge_ms)
     _validate_inputs(ts.size, n_splits, purge_ms, embargo_ms, scheme)
     order = np.argsort(ts, kind="stable")
     ordered_ts = ts[order]
@@ -165,6 +179,50 @@ def purged_kfold_splits(
 # Backwards-compatible name. It always meant purged k-fold, which is why the new
 # code spells the scheme out; keep the alias so older notebooks still import.
 purged_walk_forward_splits = purged_kfold_splits
+
+
+def _rolling_daily_folds(
+    ts: npt.NDArray[np.float64],
+    *,
+    train_days: int,
+    purge_ms: float,
+) -> tuple[FoldArrays, ...]:
+    if train_days < 1:
+        raise ValueError("train_days must be >= 1")
+    if purge_ms < 0.0:
+        raise ValueError("purge_ms must be non-negative")
+    if ts.size == 0:
+        raise ValueError("need at least one row")
+    order = np.argsort(ts, kind="stable")
+    ordered = ts[order]
+    days = np.unique(np.floor(ordered / DAY_MS))
+    first_day = float(days[0])
+    folds: list[FoldArrays] = []
+    for day in days.tolist():
+        if day - first_day < train_days:
+            continue
+        day_start = day * DAY_MS
+        a = int(np.searchsorted(ordered, day_start, side="left"))
+        b = int(np.searchsorted(ordered, day_start + DAY_MS, side="left"))
+        purge_start = day_start - purge_ms
+        lo = int(np.searchsorted(ordered, day_start - train_days * DAY_MS, side="left"))
+        hi = int(np.searchsorted(ordered, purge_start, side="left"))
+        if b <= a or hi <= lo:
+            continue
+        folds.append(FoldArrays(
+            train=order[lo:hi],
+            test=order[a:b],
+            test_start_ms=float(ordered[a]),
+            test_end_ms=float(ordered[b - 1]),
+            purge_start_ms=purge_start,
+            embargo_end_ms=float(ordered[b - 1]),
+        ))
+    if not folds:
+        raise ValueError(
+            f"rolling_daily needs more than {train_days} day(s) of data; "
+            f"got {days.size} distinct day(s)"
+        )
+    return tuple(folds)
 
 
 def _fold_bounds(total: int, n_blocks: int) -> list[tuple[int, int]]:

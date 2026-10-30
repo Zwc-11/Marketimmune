@@ -19,10 +19,13 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from marketimmune.features.hyperliquid_features import build_hyperliquid_training_rows
+from marketimmune.features.hyperliquid_features import (
+    build_hyperliquid_training_rows,
+    verify_training_rows_no_lookahead,
+)
 from marketimmune.ingest.hyperliquid_archive import BookSnapshot, HyperliquidArchive
 from marketimmune.ingest.hyperliquid_asset_ctxs import AssetCtx, load_asset_ctxs
-from marketimmune.ingest.hyperliquid_fills import HyperliquidNodeFills, NodeFill
+from marketimmune.ingest.hyperliquid_fills import HyperliquidNodeFills, NodeFill, pair_fill_legs
 from marketimmune.ingest.hyperliquid_gold import (
     DEFAULT_MARKOUT_CONFIG,
     MarkoutGoldRow,
@@ -37,6 +40,7 @@ from marketimmune.ingest.hyperliquid_lake import (
     write_bronze_fills,
     write_gold_markout,
     write_gold_training_rows,
+    write_leakage_report,
     write_silver_asset_ctxs,
     write_silver_fills,
     write_silver_l2_book,
@@ -87,19 +91,25 @@ class HyperliquidDailyBackfill:
         emit(f"loaded {len(fills):,} raw fills")
         coin_fills = [fill for fill in fills if fill.coin == coin]
         emit(f"filtered {len(coin_fills):,} {coin} fills")
+        matches = pair_fill_legs(coin_fills)
+        emit(f"paired into {len(matches):,} matches")
         gold_rows = build_markout_gold_rows(
-            coin_fills,
+            matches,
             snapshots,
             self.markout_config,
             coin=coin,
         )
         emit(f"built {len(gold_rows):,} Gold markout rows")
-        training_rows = build_hyperliquid_training_rows(
-            [gold_markout_record(row) for row in gold_rows],
-            [silver_l2_book_record(snapshot) for snapshot in snapshots],
-            [silver_asset_ctx_record(ctx) for ctx in contexts],
-        )
+        label_records = [gold_markout_record(row) for row in gold_rows]
+        l2_records = [silver_l2_book_record(snapshot) for snapshot in snapshots]
+        asset_records = [silver_asset_ctx_record(ctx) for ctx in contexts]
+        training_rows = build_hyperliquid_training_rows(label_records, l2_records, asset_records)
         emit(f"built {len(training_rows):,} Gold training rows")
+        leakage = verify_training_rows_no_lookahead(label_records, l2_records, asset_records)
+        emit(
+            f"no-look-ahead check: passed={leakage.passed} "
+            f"checked={leakage.n_checked} mismatched={leakage.n_mismatched}"
+        )
         writes = self._write_outputs(
             coin=coin,
             date=date,
@@ -109,6 +119,8 @@ class HyperliquidDailyBackfill:
             gold_rows=gold_rows,
             training_rows=training_rows,
         )
+        if training_rows:
+            write_leakage_report(self.layout, coin=coin, date=date, report=leakage.to_dict())
         emit(f"wrote {len(writes):,} parquet artifacts")
         return HyperliquidBackfillResult(
             coin=coin,

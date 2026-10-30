@@ -3,8 +3,10 @@
 The parser modules stay pure and schema-focused. This module owns only filesystem
 layout and Parquet serialization for Hyperliquid-derived records:
 
-* Bronze fills: parsed records plus raw JSON payload for audit/debug.
-* Silver fills: conformed typed fields used by label/feature joins.
+* Bronze fills: parsed records plus raw JSON payload for audit/debug, one row per leg.
+* Silver fills: one row per match (both legs merged, fix B2) with maker and taker
+  wallets, fees and start positions promoted out of raw JSON (fix L3).
+* Silver L2: the top ``L2_DEPTH`` levels per side (fix L4), not only the touch.
 * Gold markout: flattened horizon label columns ready for model training.
 """
 
@@ -22,8 +24,10 @@ import pyarrow.parquet as pq
 from marketimmune.ingest.hyperliquid_api import Candle
 from marketimmune.ingest.hyperliquid_archive import BookSnapshot
 from marketimmune.ingest.hyperliquid_asset_ctxs import AssetCtx
-from marketimmune.ingest.hyperliquid_fills import NodeFill
+from marketimmune.ingest.hyperliquid_fills import MatchFill, NodeFill, pair_fill_legs
 from marketimmune.ingest.hyperliquid_gold import MarkoutGoldRow
+
+L2_DEPTH = 5
 
 # pyarrow ships stubs in some releases and not others; route calls through Any so
 # strict mypy is stable across versions without version-specific ignores.
@@ -55,6 +59,14 @@ class HyperliquidLakeLayout:
     def silver_fills_path(self, coin: str, date: str) -> Path:
         symbol = _coin_dir(coin)
         return self.root / "silver" / "hyperliquid" / "fills" / symbol / f"{symbol}-{date}.parquet"
+
+    def silver_order_events_path(self, coin: str, date: str) -> Path:
+        """Forced-liquidation fills and unfilled IOCs (Albers order statuses)."""
+        symbol = _coin_dir(coin)
+        return (
+            self.root / "silver" / "hyperliquid" / "order_events" / symbol
+            / f"{symbol}-{date}.parquet"
+        )
 
     def silver_l2_book_path(self, coin: str, date: str) -> Path:
         symbol = _coin_dir(coin)
@@ -115,9 +127,20 @@ def write_parquet_records(path: Path, records: Sequence[Mapping[str, Any]]) -> L
     return LakeWrite(path=path, rows=len(records))
 
 
-def read_parquet_records(path: Path) -> list[dict[str, Any]]:
-    """Read a parquet artifact back into dictionaries."""
-    table = _read_table(path)
+def read_parquet_records(
+    path: Path,
+    columns: Sequence[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Read a parquet artifact back into dictionaries.
+
+    ``columns`` reads only those that exist in the file (the rest are skipped), so
+    a wide Silver L2 day can be joined without building a 70-key dict per row.
+    """
+    if columns is None:
+        table = _read_table(path)
+    else:
+        names = set(_parquet.read_schema(path).names)
+        table = _parquet.read_table(path, columns=[c for c in columns if c in names])
     return [dict(record) for record in table.to_pylist()]
 
 
@@ -178,7 +201,16 @@ def silver_fill_record(fill: NodeFill) -> dict[str, Any]:
         "tid": fill.tid,
         "hash": fill.trade_hash,
         "direction": fill.direction,
+        "user": fill.user,
+        "start_position": fill.start_position,
+        "priority_gas": fill.priority_gas,
+        "liquidation": fill.liquidation,
     }
+
+
+def silver_match_record(match: MatchFill) -> dict[str, Any]:
+    """Silver row: one match, maker and taker sides merged."""
+    return match.to_dict()
 
 
 def silver_l2_book_record(snapshot: BookSnapshot) -> dict[str, Any]:
@@ -197,7 +229,20 @@ def silver_l2_book_record(snapshot: BookSnapshot) -> dict[str, Any]:
         "spread_bps": features["spread_bps"],
         "microprice": features["microprice"],
         "top_imbalance": features["top_imbalance"],
+        **_depth_columns(snapshot),
     }
+
+
+def _depth_columns(snapshot: BookSnapshot, depth: int = L2_DEPTH) -> dict[str, Any]:
+    """``bid_px_1..depth`` etc.; levels the snapshot lacks are ``None``."""
+    out: dict[str, Any] = {}
+    for name, levels in (("bid", snapshot.bids), ("ask", snapshot.asks)):
+        for i in range(depth):
+            level = levels[i] if i < len(levels) else None
+            out[f"{name}_px_{i + 1}"] = level.px if level else None
+            out[f"{name}_sz_{i + 1}"] = level.sz if level else None
+            out[f"{name}_n_{i + 1}"] = level.n if level else None
+    return out
 
 
 def silver_asset_ctx_record(ctx: AssetCtx) -> dict[str, Any]:
@@ -239,6 +284,15 @@ def gold_markout_record(row: MarkoutGoldRow) -> dict[str, Any]:
         record[f"markout_bps_{horizon}"] = value
     for horizon, value in row.toxic.items():
         record[f"toxic_{horizon}"] = value
+    record["mid_before"] = row.mid_before
+    for horizon, value in row.markout_px_bps.items():
+        record[f"markout_px_bps_{horizon}"] = value
+    record["maker_user"] = row.maker_user
+    record["taker_user"] = row.taker_user
+    record["maker_fee_bps"] = row.maker_fee_bps
+    record["taker_fee_bps"] = row.taker_fee_bps
+    record["priority_gas"] = row.priority_gas
+    record["liquidation"] = row.liquidation
     return record
 
 
@@ -261,12 +315,15 @@ def write_silver_fills(
     *,
     coin: str,
     date: str,
-    fills: Sequence[NodeFill],
+    fills: Sequence[NodeFill] | Sequence[MatchFill],
 ) -> LakeWrite:
-    """Write conformed Silver fill rows."""
+    """Write Silver fill rows, one per match. ``NodeFill`` legs are paired first."""
+    matches = [f for f in fills if isinstance(f, MatchFill)]
+    legs = [f for f in fills if isinstance(f, NodeFill)]
+    matches.extend(pair_fill_legs(legs))
     return write_parquet_records(
         layout.silver_fills_path(coin, date),
-        [silver_fill_record(fill) for fill in fills],
+        [silver_match_record(match) for match in matches],
     )
 
 
@@ -324,6 +381,24 @@ def write_gold_markout(
         layout.gold_markout_path(coin, date),
         [gold_markout_record(row) for row in rows],
     )
+
+
+def leakage_report_path(layout: HyperliquidLakeLayout, coin: str, date: str) -> Path:
+    """``<training partition>.leakage.json``: the no-look-ahead check for that partition."""
+    return layout.gold_training_path(coin, date).with_suffix(".leakage.json")
+
+
+def write_leakage_report(
+    layout: HyperliquidLakeLayout,
+    *,
+    coin: str,
+    date: str,
+    report: Mapping[str, Any],
+) -> Path:
+    path = leakage_report_path(layout, coin, date)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(dict(report), indent=2, default=str) + "\n", encoding="utf-8")
+    return path
 
 
 def write_gold_training_rows(

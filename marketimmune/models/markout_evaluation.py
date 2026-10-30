@@ -79,7 +79,9 @@ class MarkoutEvaluationReport:
     purge_ms: float
     embargo_ms: float
     decision_threshold: float | None
-    leakage_safe: bool = True
+    # False unless the caller shows a passing no-look-ahead check (fix B3); the
+    # field used to default to True without any test behind it.
+    leakage_safe: bool = False
     cv_scheme: str = "walk_forward"
 
     @property
@@ -177,6 +179,8 @@ def evaluate_markout_predictions(
     calibration_bin_count: int = 10,
     scheme: CvScheme = "walk_forward",
     folds: Sequence[FoldArrays] | None = None,
+    train_days: int | None = None,
+    leakage_safe: bool = False,
 ) -> MarkoutEvaluationReport:
     """Evaluate already-produced probabilities under temporal folds.
 
@@ -190,7 +194,12 @@ def evaluate_markout_predictions(
     _validate_inputs(ts, labels, probs, markouts, calibration_bin_count)
     thresholds = _row_thresholds(decision_threshold, decision_thresholds, ts.size)
     folds = folds if folds is not None else temporal_fold_arrays(
-        ts, n_splits=n_splits, purge_ms=purge_ms, embargo_ms=embargo_ms, scheme=scheme
+        ts,
+        n_splits=n_splits,
+        purge_ms=purge_ms,
+        embargo_ms=embargo_ms,
+        scheme=scheme,
+        train_days=train_days,
     )
     fold_reports = tuple(
         _evaluate_fold(
@@ -217,6 +226,7 @@ def evaluate_markout_predictions(
         purge_ms=purge_ms,
         embargo_ms=embargo_ms,
         decision_threshold=decision_threshold if decision_thresholds is None else None,
+        leakage_safe=leakage_safe,
         cv_scheme=scheme,
     )
 
@@ -336,6 +346,7 @@ def fold_local_markout_thresholds(
     max_quote_rate: float = 1.0,
     scheme: CvScheme = "walk_forward",
     folds: Sequence[FoldArrays] | None = None,
+    train_days: int | None = None,
 ) -> tuple[tuple[float, ...], tuple[dict[str, Any], ...]]:
     """Choose thresholds from available OOF predictions in each original train slice.
 
@@ -352,7 +363,12 @@ def fold_local_markout_thresholds(
     thresholds = np.full(ts.size, grid[len(grid) // 2], dtype=np.float64)
     summaries: list[dict[str, Any]] = []
     folds = folds if folds is not None else temporal_fold_arrays(
-        ts, n_splits=n_splits, purge_ms=purge_ms, embargo_ms=embargo_ms, scheme=scheme
+        ts,
+        n_splits=n_splits,
+        purge_ms=purge_ms,
+        embargo_ms=embargo_ms,
+        scheme=scheme,
+        train_days=train_days,
     )
     for fold_id, fold in enumerate(folds, start=1):
         if not np.any(np.isfinite(probs[fold.test])):

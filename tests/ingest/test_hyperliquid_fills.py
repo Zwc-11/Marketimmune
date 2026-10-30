@@ -8,9 +8,11 @@ import pytest
 
 from marketimmune.ingest.hyperliquid_fills import (
     HyperliquidNodeFills,
+    MatchFill,
     iter_fill_mappings,
     node_fills_by_block_key,
     normalize_side,
+    pair_fill_legs,
     parse_fill_row,
     parse_node_fills_json,
     side_sign,
@@ -161,3 +163,69 @@ def test_loader_uses_injected_io() -> None:
     fills = loader.load_by_block_suffix("part-000.json.lz4")
     assert captured["key"] == "node_fills_by_block/part-000.json.lz4"
     assert len(fills) == 1
+
+
+# --- v3 Phase 0: fields promoted from raw (L3) and leg pairing (B2) ---------------
+
+
+def _leg(**overrides: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "coin": "SOL", "px": "150.0", "sz": "4.0", "side": "B", "crossed": True,
+        "time": 5_000, "tid": 77, "oid": 1, "fee": "0.27", "user": "0xa",
+        "startPosition": "0.0",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_parse_fill_row_promotes_user_position_priority_and_liquidation() -> None:
+    fill = parse_fill_row(_leg(
+        priorityGas="12",
+        liquidation={"liquidatedUser": "0xb", "markPx": "149.9", "method": "market"},
+    ))
+    assert fill.user == "0xa"
+    assert fill.start_position == 0.0
+    assert fill.priority_gas == 12.0
+    assert fill.liquidation is True
+    assert parse_fill_row(_leg(liquidation=None)).liquidation is False
+    assert fill.to_dict()["user"] == "0xa"
+
+
+def test_pair_fill_legs_merges_two_legs_into_one_match() -> None:
+    taker = parse_fill_row(_leg(priorityGas="5"))
+    maker = parse_fill_row(_leg(side="A", crossed=False, oid=2, fee="-0.03", user="0xm",
+                                startPosition="10.0"))
+    other = parse_fill_row(_leg(tid=78, side="A", crossed=True, user="0xc"))
+    matches = pair_fill_legs([taker, other, maker])
+    assert [m.tid for m in matches] == [77, 78]
+    m = matches[0]
+    assert isinstance(m, MatchFill)
+    assert (m.taker_user, m.maker_user) == ("0xa", "0xm")
+    assert (m.taker_oid, m.maker_oid) == (1, 2)
+    assert m.maker_side == -1 and m.side == "B" and m.crossed is True and m.oid == 1
+    assert m.maker_fee_bps == pytest.approx(-0.03 / 600.0 * 1e4)
+    assert m.taker_fee_bps == pytest.approx(0.27 / 600.0 * 1e4)
+    assert m.maker_start_position == 10.0 and m.taker_start_position == 0.0
+    assert m.priority_gas == 5.0 and m.n_legs == 2
+    assert m.to_maker_fill().side == -1
+    lone = matches[1]
+    assert lone.n_legs == 1 and lone.maker_user is None and lone.maker_side == 1
+
+
+def test_pair_fill_legs_lone_maker_leg_and_missing_crossed() -> None:
+    maker = parse_fill_row(_leg(side="A", crossed=False, user="0xm"))
+    (m,) = pair_fill_legs([maker])
+    assert m.taker_side == "B" and m.maker_user == "0xm" and m.taker_user is None
+    unknown = parse_fill_row(_leg(crossed=None, tid=None, hash="0xh"))
+    (u,) = pair_fill_legs([unknown])
+    # Same orientation NodeFill.maker_side uses when ``crossed`` is missing.
+    assert u.maker_side == unknown.maker_side == 1
+
+
+def test_pair_fill_legs_rejects_ambiguous_keys() -> None:
+    with pytest.raises(ValueError, match="disagree"):
+        pair_fill_legs([parse_fill_row(_leg()), parse_fill_row(_leg(sz="5.0", crossed=False))])
+    with pytest.raises(ValueError, match="3 fill legs"):
+        pair_fill_legs([parse_fill_row(_leg()) for _ in range(3)])
+    with pytest.raises(ValueError, match="2 takers"):
+        pair_fill_legs([parse_fill_row(_leg()), parse_fill_row(_leg(user="0xz"))])

@@ -46,7 +46,7 @@ def _fill(coin: str = "BTC") -> dict[str, object]:
 def test_daily_backfill_writes_nonempty_artifacts(tmp_path: Path) -> None:
     archive_payloads = {
         "market_data/20260101/0/l2Book/BTC.lz4": (
-            _book_line(1_000, 99.0, 101.0) + "\n" + _book_line(2_000, 98.0, 100.0)
+            _book_line(999, 99.0, 101.0) + "\n" + _book_line(2_000, 98.0, 100.0)
         ).encode("utf-8"),
         "asset_ctxs/20260101.csv.lz4": (
             b"coin,funding,openInterest,oraclePx,markPx,midPx,premium\n"
@@ -104,7 +104,7 @@ def test_daily_backfill_writes_nonempty_artifacts(tmp_path: Path) -> None:
 def test_daily_backfill_reports_progress(tmp_path: Path) -> None:
     archive_payloads = {
         "market_data/20260101/0/l2Book/BTC.lz4": (
-            _book_line(1_000, 99.0, 101.0) + "\n" + _book_line(2_000, 98.0, 100.0)
+            _book_line(999, 99.0, 101.0) + "\n" + _book_line(2_000, 98.0, 100.0)
         ).encode("utf-8"),
         "asset_ctxs/20260101.csv.lz4": (
             b"coin,funding,openInterest,oraclePx,markPx,midPx,premium\n"
@@ -144,10 +144,15 @@ def test_daily_backfill_reports_progress(tmp_path: Path) -> None:
         "loaded 1 asset-context rows",
         "loaded 1 raw fills",
         "filtered 1 BTC fills",
+        "paired into 1 matches",
         "built 1 Gold markout rows",
         "built 1 Gold training rows",
+        "no-look-ahead check: passed=True checked=1 mismatched=0",
         "wrote 6 parquet artifacts",
     ]
+    layout = HyperliquidLakeLayout(tmp_path)
+    sidecar = layout.gold_training_path("BTC", "20260101").with_suffix(".leakage.json")
+    assert json.loads(sidecar.read_text())["passed"] is True
 
 
 def test_daily_backfill_skips_empty_inputs(tmp_path: Path) -> None:

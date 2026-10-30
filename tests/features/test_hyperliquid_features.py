@@ -189,8 +189,10 @@ def test_build_training_rows_indexes_large_asof_inputs() -> None:
     rows = build_hyperliquid_training_rows(labels, l2_rows, asset_rows)
 
     assert len(rows) == 5
-    assert rows[-1]["l2_mid"] == pytest.approx(1104.0)
-    assert rows[-1]["asset_basis_bps"] == pytest.approx(1004.0)
+    # Strict as-of (fix L1): the label at 2_004 sees the 2_003 rows, not 2_004's.
+    assert rows[-1]["l2_mid"] == pytest.approx(1103.0)
+    assert rows[-1]["asset_basis_bps"] == pytest.approx(1003.0)
+    assert rows[-1]["feature_ts_ms"] < rows[-1]["ts_ms"]
 
 
 def test_build_training_rows_ignores_other_coin_asset_context() -> None:

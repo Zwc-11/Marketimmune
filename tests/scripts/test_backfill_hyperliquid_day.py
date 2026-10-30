@@ -69,7 +69,7 @@ def test_main_runs_with_injected_fetchers(
 ) -> None:
     archive_payloads = {
         "market_data/20260101/0/l2Book/BTC.lz4": (
-            _book_line(1_000, 99.0, 101.0) + "\n" + _book_line(2_000, 98.0, 100.0)
+            _book_line(999, 99.0, 101.0) + "\n" + _book_line(2_000, 98.0, 100.0)
         ).encode("utf-8"),
         "asset_ctxs/20260101.csv.lz4": (
             b"coin,funding,openInterest,oraclePx,markPx,midPx,premium\n"

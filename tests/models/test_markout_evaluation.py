@@ -82,6 +82,7 @@ def test_markout_report_serializes_and_feeds_promotion_policy() -> None:
         model_name="candidate",
         n_splits=2,
         scheme="purged_kfold",
+        leakage_safe=True,
     )
 
     payload = report.to_dict()
@@ -326,3 +327,18 @@ def test_threshold_sweep_matches_bruteforce_policy() -> None:
         assert selection.quote_rate == pytest.approx(
             sum(p < threshold for p in probabilities) / len(probabilities)
         )
+
+
+def test_markout_report_does_not_claim_leakage_safety_by_default() -> None:
+    # Fix B3: the flag used to default to True with no check behind it.
+    report = evaluate_markout_predictions(
+        timestamps_ms=[0, 1, 2, 3],
+        y_true=[False, True, False, True],
+        probabilities=[0.1, 0.9, 0.2, 0.8],
+        markout_bps=[1.0, -5.0, 2.0, -4.0],
+        model_name="candidate",
+        n_splits=2,
+        scheme="purged_kfold",
+    )
+    assert report.leakage_safe is False
+    assert report.promotion_metrics(latency_p95_ms=0.7).leakage_safe is False
