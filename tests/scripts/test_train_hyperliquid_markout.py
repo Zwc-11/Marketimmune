@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from marketimmune.ingest.hyperliquid_lake import write_parquet_records
+from marketimmune.models.walk_forward import CvScheme, temporal_fold_arrays
+from scripts import train_hyperliquid_markout as trainer
 from scripts.hyperliquid_markout_data import (
     load_training_panel,
     parse_date_spec,
@@ -313,3 +317,82 @@ def _training_record(
         "asset_open_interest": 10_000.0,
         "asset_premium": 0.001,
     }
+
+
+@pytest.mark.parametrize("scheme", ["walk_forward", "purged_kfold"])
+@pytest.mark.parametrize("fixed_threshold", [False, True])
+@pytest.mark.parametrize("skip_first", [False, True])
+def test_cli_preserves_fitted_folds_through_reporting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    scheme: CvScheme,
+    fixed_threshold: bool,
+    skip_first: bool,
+) -> None:
+    # Replace only CatBoost's external fitting boundary; exercise the real split,
+    # OOF, threshold-selection, baseline, and report-writing pipeline.
+    class Classifier:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def fit(self, _pool: object) -> None:
+            pass
+
+        def predict_proba(self, rows: np.ndarray) -> np.ndarray:
+            risk = np.where(rows[:, 1] > 0, 0.8, 0.2)
+            return np.column_stack((1 - risk, risk))
+
+        def save_model(self, path: str) -> None:
+            Path(path).write_text("stub model", encoding="utf-8")
+
+    monkeypatch.setitem(sys.modules, "catboost", SimpleNamespace(
+        CatBoostClassifier=Classifier,
+        Pool=lambda x, y, **kwargs: (x, y),
+    ))
+    records = [
+        _training_record(
+            float(i * 1000),
+            toxic=bool(i % 2) if not skip_first or i >= 20 else False,
+            maker_side=1 if i % 2 else -1,
+            markout=-4.0 if i % 2 else 1.0,
+        )
+        for i in range(120)
+    ]
+    write_parquet_records(training_path(tmp_path, "SOL", "20260601"), records)
+    report_path = tmp_path / "report.json"
+    argv = [
+        "train_hyperliquid_markout", "--lake-root", str(tmp_path),
+        "--report", str(report_path), "--model-out", str(tmp_path / "model.cbm"),
+        "--n-splits", "5", "--purge-ms", "1000", "--embargo-ms", "1000",
+        "--cv-scheme", scheme, "--disable-calibration",
+    ]
+    if fixed_threshold:
+        argv.extend(["--decision-threshold", "0.5"])
+    monkeypatch.setattr(sys, "argv", argv)
+    assert trainer.main() == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    timestamps = [record["ts_ms"] for record in records]
+    original = temporal_fold_arrays(
+        timestamps, n_splits=5, purge_ms=1000, embargo_ms=1000, scheme=scheme,
+    )
+    trained = [fold for fold in payload["fold_training"] if "skipped" not in fold]
+    expected_rows = sum(fold["n_test"] for fold in trained)
+    assert payload["oof_rows"] == expected_rows
+    for report in (payload, payload["uncalibrated"], payload["baselines"]["event_ofi"]):
+        assert report["n_evaluated"] == expected_rows
+        assert len(report["folds"]) == len(trained)
+        for actual, fitted in zip(report["folds"], trained, strict=True):
+            fold = original[fitted["fold_id"] - 1]
+            assert actual["fold_id"] == fitted["fold_id"]
+            assert actual["n_train"] == fitted["n_train"]
+            assert actual["n_test"] == fitted["n_test"]
+            assert actual["test_start_ms"] == fold.test_start_ms
+            assert actual["test_end_ms"] == fold.test_end_ms
+    if not fixed_threshold:
+        for key in ("candidate_threshold_folds", "baseline_threshold_folds"):
+            summaries = payload["policy"][key]
+            assert [fold["fold_id"] for fold in summaries] == [f["fold_id"] for f in trained]
+            assert [fold["n_test"] for fold in summaries] == [f["n_test"] for f in trained]
+            if scheme == "walk_forward":
+                assert summaries[0]["n_threshold_train"] == 0
+                assert summaries[0]["threshold"] == pytest.approx(0.5)

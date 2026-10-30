@@ -24,7 +24,7 @@ from sklearn.metrics import average_precision_score  # type: ignore[import-untyp
 
 from marketimmune.models.calibration import brier_score, expected_calibration_error
 from marketimmune.models.promotion import ModelMetrics
-from marketimmune.models.walk_forward import CvScheme, temporal_fold_arrays
+from marketimmune.models.walk_forward import CvScheme, FoldArrays, temporal_fold_arrays
 
 FloatArray = npt.NDArray[np.float64]
 BoolArray = npt.NDArray[np.bool_]
@@ -176,24 +176,27 @@ def evaluate_markout_predictions(
     decision_thresholds: Sequence[float] | npt.ArrayLike | None = None,
     calibration_bin_count: int = 10,
     scheme: CvScheme = "walk_forward",
+    folds: Sequence[FoldArrays] | None = None,
 ) -> MarkoutEvaluationReport:
     """Evaluate already-produced probabilities under temporal folds.
 
     ``probabilities`` should be out-of-fold predictions. A probability at or above
     the decision threshold means "skip this maker quote"; skipped fills contribute
-    zero markout to opportunity-level policy PnL.
+    zero markout to opportunity-level policy PnL. Pass the original training
+    ``folds`` and full row arrays for OOF evaluation; NaN predictions mark rows
+    without a fitted model and are excluded without changing fold boundaries.
     """
     ts, labels, probs, markouts = _arrays(timestamps_ms, y_true, probabilities, markout_bps)
     _validate_inputs(ts, labels, probs, markouts, calibration_bin_count)
     thresholds = _row_thresholds(decision_threshold, decision_thresholds, ts.size)
-    folds = temporal_fold_arrays(
+    folds = folds if folds is not None else temporal_fold_arrays(
         ts, n_splits=n_splits, purge_ms=purge_ms, embargo_ms=embargo_ms, scheme=scheme
     )
     fold_reports = tuple(
         _evaluate_fold(
             fold_id=idx,
             train_count=int(fold.train.size),
-            test=fold.test,
+            test=test,
             test_start_ms=fold.test_start_ms,
             test_end_ms=fold.test_end_ms,
             labels=labels,
@@ -203,6 +206,8 @@ def evaluate_markout_predictions(
             calibration_bin_count=calibration_bin_count,
         )
         for idx, fold in enumerate(folds, start=1)
+        for test in (fold.test[np.isfinite(probs[fold.test])],)
+        if test.size
     )
     return MarkoutEvaluationReport(
         model_name=model_name,
@@ -330,8 +335,13 @@ def fold_local_markout_thresholds(
     min_quote_rate: float = 0.0,
     max_quote_rate: float = 1.0,
     scheme: CvScheme = "walk_forward",
+    folds: Sequence[FoldArrays] | None = None,
 ) -> tuple[tuple[float, ...], tuple[dict[str, Any], ...]]:
-    """Choose one policy threshold per test fold from that fold's train rows only."""
+    """Choose thresholds from available OOF predictions in each original train slice.
+
+    The first walk-forward fold has no earlier OOF predictions. It uses the
+    middle grid threshold, fixed independently of its test outcomes.
+    """
     ts = np.asarray(timestamps_ms, dtype=np.float64)
     probs = np.asarray(probabilities, dtype=np.float64)
     markouts = np.asarray(markout_bps, dtype=np.float64)
@@ -341,15 +351,26 @@ def fold_local_markout_thresholds(
     _validate_quote_rate_bounds(min_quote_rate, max_quote_rate)
     thresholds = np.full(ts.size, grid[len(grid) // 2], dtype=np.float64)
     summaries: list[dict[str, Any]] = []
-    folds = temporal_fold_arrays(
+    folds = folds if folds is not None else temporal_fold_arrays(
         ts, n_splits=n_splits, purge_ms=purge_ms, embargo_ms=embargo_ms, scheme=scheme
     )
     for fold_id, fold in enumerate(folds, start=1):
-        if fold.train.size == 0:
+        if not np.any(np.isfinite(probs[fold.test])):
+            continue
+        train = fold.train[np.isfinite(probs[fold.train])]
+        if train.size == 0:
+            summaries.append({
+                "fold_id": fold_id,
+                "n_train": int(fold.train.size),
+                "n_threshold_train": 0,
+                "n_test": int(fold.test.size),
+                "threshold": grid[len(grid) // 2],
+                "fallback": "no training-side OOF predictions",
+            })
             continue
         selection = select_markout_threshold(
-            probs[fold.train],
-            markouts[fold.train],
+            probs[train],
+            markouts[train],
             grid,
             min_quote_rate=min_quote_rate,
             max_quote_rate=max_quote_rate,
@@ -358,6 +379,7 @@ def fold_local_markout_thresholds(
         summaries.append({
             "fold_id": fold_id,
             "n_train": int(fold.train.size),
+            "n_threshold_train": int(train.size),
             "n_test": int(fold.test.size),
             **selection.to_dict(),
         })

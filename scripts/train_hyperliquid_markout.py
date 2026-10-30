@@ -53,6 +53,7 @@ class CatBoostTrainingResult:
     fold_summaries: list[dict[str, Any]]
     model: Any
     calibrator: Any | None
+    folds: tuple[FoldArrays, ...]
 
 
 def feature_matrix(frame: pd.DataFrame) -> np.ndarray:
@@ -147,6 +148,7 @@ def train_oof_catboost(
         fold_summaries=fold_summaries,
         model=final_model,
         calibrator=final_calibrator,
+        folds=folds,
     )
 
 
@@ -249,12 +251,17 @@ def evaluate_baseline(
     decision_threshold: float | None = 0.5,
     decision_thresholds: Sequence[float] | None = None,
     scheme: CvScheme = "walk_forward",
+    folds: Sequence[FoldArrays] | None = None,
+    prediction_mask: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """Evaluate the deterministic event-level OFI baseline."""
+    probabilities = event_ofi_probabilities(frame)
+    if prediction_mask is not None:
+        probabilities[~prediction_mask] = np.nan
     report = evaluate_markout_predictions(
         frame["ts_ms"].to_numpy(dtype=np.float64),
         frame[f"toxic_{horizon}"].to_numpy(dtype=bool),
-        event_ofi_probabilities(frame),
+        probabilities,
         frame[f"markout_bps_{horizon}"].to_numpy(dtype=np.float64),
         model_name=f"{BASELINE_NAME}_{horizon}",
         n_splits=n_splits,
@@ -263,6 +270,7 @@ def evaluate_baseline(
         decision_threshold=decision_threshold,
         decision_thresholds=decision_thresholds,
         scheme=scheme,
+        folds=folds,
     )
     return {
         **report.to_dict(),
@@ -462,10 +470,12 @@ def main() -> int:
     model = training_result.model
     valid = ~np.isnan(probabilities)
     eval_frame = frame.loc[valid].reset_index(drop=True)
-    eval_timestamps = eval_frame["ts_ms"].to_numpy(dtype=np.float64)
-    eval_labels = eval_frame[f"toxic_{args.horizon}"].to_numpy(dtype=bool)
-    eval_markouts = eval_frame[f"markout_bps_{args.horizon}"].to_numpy(dtype=np.float64)
-    eval_probabilities = probabilities[valid]
+    # Keep the training row order and fold assignments, including unscored blocks.
+    eval_timestamps = frame["ts_ms"].to_numpy(dtype=np.float64)
+    eval_labels = frame[f"toxic_{args.horizon}"].to_numpy(dtype=bool)
+    eval_markouts = frame[f"markout_bps_{args.horizon}"].to_numpy(dtype=np.float64)
+    eval_probabilities = probabilities
+    folds = training_result.folds
     threshold_grid = parse_threshold_grid(args.threshold_grid)
     if args.decision_threshold is None:
         decision_threshold = None
@@ -480,10 +490,11 @@ def main() -> int:
             min_quote_rate=args.min_quote_rate,
             max_quote_rate=args.max_quote_rate,
             scheme=args.cv_scheme,
+            folds=folds,
         )
         candidate_deployment_selection = select_markout_threshold(
-            eval_probabilities,
-            eval_markouts,
+            eval_probabilities[valid],
+            eval_markouts[valid],
             threshold_grid,
             min_quote_rate=args.min_quote_rate,
             max_quote_rate=args.max_quote_rate,
@@ -493,13 +504,14 @@ def main() -> int:
         candidate_thresholds = None
         candidate_threshold_folds = ()
         candidate_deployment_selection = select_markout_threshold(
-            eval_probabilities,
-            eval_markouts,
+            eval_probabilities[valid],
+            eval_markouts[valid],
             (decision_threshold,),
             min_quote_rate=0.0,
             max_quote_rate=1.0,
         )
-    baseline_probabilities = event_ofi_probabilities(eval_frame)
+    baseline_probabilities = event_ofi_probabilities(frame)
+    baseline_probabilities[~valid] = np.nan
     if args.decision_threshold is None:
         baseline_thresholds, baseline_threshold_folds = fold_local_markout_thresholds(
             eval_timestamps,
@@ -512,10 +524,11 @@ def main() -> int:
             min_quote_rate=args.min_quote_rate,
             max_quote_rate=args.max_quote_rate,
             scheme=args.cv_scheme,
+            folds=folds,
         )
         baseline_deployment_selection = select_markout_threshold(
-            baseline_probabilities,
-            eval_markouts,
+            baseline_probabilities[valid],
+            eval_markouts[valid],
             threshold_grid,
             min_quote_rate=args.min_quote_rate,
             max_quote_rate=args.max_quote_rate,
@@ -524,8 +537,8 @@ def main() -> int:
         baseline_thresholds = None
         baseline_threshold_folds = ()
         baseline_deployment_selection = select_markout_threshold(
-            baseline_probabilities,
-            eval_markouts,
+            baseline_probabilities[valid],
+            eval_markouts[valid],
             (decision_threshold,),
             min_quote_rate=0.0,
             max_quote_rate=1.0,
@@ -542,11 +555,12 @@ def main() -> int:
         decision_threshold=decision_threshold,
         decision_thresholds=candidate_thresholds,
         scheme=args.cv_scheme,
+        folds=folds,
     )
     raw_report = evaluate_markout_predictions(
         eval_timestamps,
         eval_labels,
-        raw_probabilities[valid],
+        raw_probabilities,
         eval_markouts,
         model_name=f"catboost_markout_{label}_{args.horizon}_raw",
         n_splits=args.n_splits,
@@ -555,9 +569,10 @@ def main() -> int:
         decision_threshold=decision_threshold,
         decision_thresholds=candidate_thresholds,
         scheme=args.cv_scheme,
+        folds=folds,
     )
     baseline_report = evaluate_baseline(
-        eval_frame,
+        frame,
         horizon=args.horizon,
         n_splits=args.n_splits,
         purge_ms=args.purge_ms,
@@ -565,6 +580,8 @@ def main() -> int:
         decision_threshold=decision_threshold,
         decision_thresholds=baseline_thresholds,
         scheme=args.cv_scheme,
+        folds=folds,
+        prediction_mask=valid,
     )
     holdout_payload = None
     if holdout_future is not None:
