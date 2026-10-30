@@ -1,47 +1,30 @@
+# Windows twin of the Makefile: .\make.ps1 <target>
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("install", "lint", "typecheck", "test", "coverage", "phase-metrics", "phase46", "phase79", "ci")]
+    [ValidateSet("install", "lint", "typecheck", "test", "coverage", "rust-test", "bench", "frontend-test", "frontend-build", "server", "ci")]
     [string]$Target = "ci"
 )
 
 $ErrorActionPreference = "Stop"
 $Python = if ($env:PYTHON) { $env:PYTHON } else { "python" }
 
-function Assert-LastExitCode {
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
-    }
+function Run([string]$Exe, [string[]]$Arguments) {
+    & $Exe @Arguments
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 switch ($Target) {
-    "install" { & $Python -m pip install -e ".[dev]"; Assert-LastExitCode }
-    "lint" { & $Python -m ruff check .; Assert-LastExitCode }
-    "typecheck" { & $Python scripts/typecheck.py; Assert-LastExitCode }
-    "test" { & $Python -m pytest; Assert-LastExitCode }
-    "coverage" {
-        & $Python -m coverage run -m pytest; Assert-LastExitCode
-        & $Python -m coverage report; Assert-LastExitCode
-    }
-    "phase-metrics" { & $Python scripts/phase_metrics.py; Assert-LastExitCode }
-    "phase46" {
-        & $Python scripts/run_replay.py; Assert-LastExitCode
-        & $Python scripts/generate_scenarios.py; Assert-LastExitCode
-        & $Python scripts/run_rule_baseline.py; Assert-LastExitCode
-        & $Python scripts/phase46_metrics.py; Assert-LastExitCode
-    }
-    "phase79" {
-        & $Python scripts/generate_scenarios.py --count 600 --events-per-scenario 30 --clean; Assert-LastExitCode
-        & $Python scripts/run_benchmark.py; Assert-LastExitCode
-        & $Python scripts/train_order_mtpp.py; Assert-LastExitCode
-        & $Python scripts/train_order_s2p2.py; Assert-LastExitCode
-        & $Python scripts/phase79_metrics.py; Assert-LastExitCode
-    }
+    "install" { Run $Python @("-m", "pip", "install", "-e", ".[training,server,aws,dev]") }
+    "lint" { Run $Python @("-m", "ruff", "check", "."); Run $Python @("scripts/check_line_limit.py") }
+    "typecheck" { Run $Python @("scripts/typecheck.py") }
+    "test" { Run $Python @("-m", "pytest") }
+    "coverage" { Run $Python @("-m", "coverage", "run", "-m", "pytest"); Run $Python @("-m", "coverage", "report") }
+    "rust-test" { Run "cargo" @("test", "--workspace", "--release") }
+    "bench" { Run $Python @("eval/pipeline_speed/bench.py", "--out", "eval/pipeline_speed/results.json"); Run "cargo" @("bench", "-p", "hl-replay", "--bench", "replay") }
+    "frontend-test" { Run "npm" @("--prefix", "frontend", "run", "typecheck"); Run "npm" @("--prefix", "frontend", "test") }
+    "frontend-build" { Run "npm" @("--prefix", "frontend", "run", "build:server") }
+    "server" { Run $Python @("server/manage.py", "migrate"); Run $Python @("server/manage.py", "runserver") }
     "ci" {
-        & $Python -m ruff check .; Assert-LastExitCode
-        & $Python scripts/typecheck.py; Assert-LastExitCode
-        & $Python -m pytest; Assert-LastExitCode
-        & $Python -m coverage run -m pytest; Assert-LastExitCode
-        & $Python -m coverage report; Assert-LastExitCode
-        & $Python scripts/phase_metrics.py; Assert-LastExitCode
+        foreach ($t in @("lint", "typecheck", "coverage", "rust-test", "frontend-test")) { & $PSCommandPath $t }
     }
 }

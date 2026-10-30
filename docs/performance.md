@@ -37,7 +37,7 @@ report:
 CatBoost now dominates; the remaining 4 s is parquet decode and the six
 `predict_proba` calls.
 
-`python -m scripts.bench_pipeline --out docs/benchmarks/perf_pipeline.json` reruns
+`python eval/pipeline_speed/bench.py --out eval/pipeline_speed/results.json` reruns
 the after-column stages on any machine; the before column came from the same
 harness pointed at commit `087b1fd`.
 
@@ -82,7 +82,7 @@ inference engine; three of its ideas carry over to a tabular scorer.
 | Asynchronous scheduling overlaps CPU batch scheduling with device execution | The holdout parquet loads while CatBoost trains; partitions decode in parallel |
 | Decoder SWA bounded replay: recompute only a bounded suffix instead of the whole prompt | Browser OFI keeps only the last 10 s of book events (`frontend/src/lib/ofi.ts`) and still matches the full-day Python prefix sums to 1e-12 |
 | Batch-invariant inference: identical results whatever the batch composition | `predict_batch` returns exactly the per-fill result; pinned by a test with a real CatBoost model, because an audited decision must not depend on what else was in the batch |
-| Benchmark sweep script and methodology | `scripts/bench_pipeline.py` writes machine info and per-stage medians to JSON |
+| Benchmark sweep script and methodology | `eval/pipeline_speed/bench.py` writes machine info and per-stage medians to JSON |
 
 ## The browser
 

@@ -40,8 +40,8 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--lake-root",
-            default="data/hyperliquid",
-            help="Output lake root. Default: data/hyperliquid",
+            default="data",
+            help="Output lake root. Default: data",
         )
         parser.add_argument(
             "--skip-asset-ctxs",

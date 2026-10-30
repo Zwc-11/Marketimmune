@@ -1,0 +1,2 @@
+# Recorder VPS only. Mirrors the `recorder` extra in pyproject.toml.
+websockets==17.3

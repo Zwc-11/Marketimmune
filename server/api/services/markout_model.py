@@ -8,7 +8,7 @@ from typing import Any
 
 from django.conf import settings
 
-from marketimmune.models import HyperliquidMarkoutScorer, MarkoutScorerError
+from marketimmune.serving.scorer import HyperliquidMarkoutScorer, MarkoutScorerError
 
 ScorerLoader = Callable[[Path, Path, Path], HyperliquidMarkoutScorer]
 

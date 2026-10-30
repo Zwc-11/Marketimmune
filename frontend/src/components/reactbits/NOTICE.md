@@ -1,6 +1,6 @@
 # React Bits components
 
-`Counter`, `CountUp`, `DecryptedText`, and `StatusMark` are vendored from
+`Counter`, `CountUp`, and `StatusMark` are vendored from
 [React Bits](https://reactbits.dev) (TypeScript + CSS variants,
 `github.com/DavidHDev/react-bits`).
 
@@ -14,5 +14,4 @@ Where each is used in MarketImmune:
 |---|---|---|
 | `Counter` | Market header mark price, Quote guard p(regret) | Rolling digits keep a fast-changing number readable instead of flickering |
 | `CountUp` | Model report headline metrics | One count-up when the report opens; static afterwards |
-| `DecryptedText` | Audit drawer IDs | Reveals the opened record's ID once, to mark which row the drawer belongs to |
-| `StatusMark` | Loop runs, backfill jobs, feed status | Pending / running / done / failed glyphs for long-running jobs |
+| `StatusMark` | Backfill jobs, feed status | Pending / running / done / failed glyphs for long-running jobs |

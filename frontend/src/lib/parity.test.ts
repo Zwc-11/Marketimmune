@@ -3,7 +3,7 @@ import fixture from './__fixtures__/parity.json';
 import { calibrate, ObliviousModel } from './obliviousTrees';
 import { OfiWindows } from './ofi';
 
-// Fixture written by `python -m scripts.make_frontend_parity_fixtures` from the
+// Fixture written by `python -m marketimmune.cli.make_parity_fixtures` from the
 // Python feature and model code this file must agree with.
 
 describe('OfiWindows matches l2_rows_with_ofi', () => {

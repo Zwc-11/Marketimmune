@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc ae25f2d59e6c885506e3d7b79f4fe4175ae855ea251a9b0328108cb1d6b6dcea # shrinks to batches = [[Order { user: 0, side: Bid, tick: 95, lots: 1, tif: Gtc, reuse: None }, Order { user: 0, side: Bid, tick: 95, lots: 1, tif: Alo, reuse: Some(0) }, Cancel { pick: 0 }]]
+cc 0923b1e6f2eb4a53c97b95618e7ff0b0713fb219f09884c441960be4d0aba119 # shrinks to batches = [[Order { user: 0, side: Bid, tick: 95, lots: 1, tif: Alo, reuse: None }, Order { user: 0, side: Bid, tick: 95, lots: 0, tif: Alo, reuse: None }, Order { user: 0, side: Bid, tick: 95, lots: 0, tif: Alo, reuse: None }, Order { user: 0, side: Bid, tick: 95, lots: 0, tif: Alo, reuse: None }, Order { user: 0, side: Bid, tick: 95, lots: 1, tif: Gtc, reuse: Some(223217724499538612) }, Cancel { pick: 2424893591382768328 }]]

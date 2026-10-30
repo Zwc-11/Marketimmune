@@ -114,8 +114,8 @@ export function BackfillJobs() {
     if (status !== 'online') {
         return (
             <Empty title="Backfill jobs live in the Django API">
-                Start it with <code>python manage.py runserver</code>, then queue a day with{' '}
-                <code>python manage.py run_hyperliquid_backfill --coin SOL --date 20260601</code>.
+                Start it with <code>python server/manage.py runserver</code>, then queue a day with{' '}
+                <code>python server/manage.py run_hyperliquid_backfill --coin SOL --date 20260601</code>.
             </Empty>
         );
     }

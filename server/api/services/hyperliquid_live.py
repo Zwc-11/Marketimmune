@@ -7,9 +7,9 @@ from collections.abc import Callable
 from copy import deepcopy
 from typing import Any
 
-from marketimmune.ingest.hyperliquid_api import HyperliquidInfoAPI
-from marketimmune.ingest.hyperliquid_archive import L2Level
-from marketimmune.ingest.hyperliquid_asset_ctxs import AssetCtx
+from marketimmune.sources.hyperliquid_asset_ctxs import AssetCtx
+from marketimmune.sources.hyperliquid_info_api import HyperliquidInfoAPI
+from marketimmune.sources.hyperliquid_l2_archive import L2Level
 
 DEFAULT_COIN = "SOL"
 DEFAULT_CACHE_TTL_MS = 1_000.0

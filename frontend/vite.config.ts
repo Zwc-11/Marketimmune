@@ -52,7 +52,7 @@ export default defineConfig({
     envDir: resolve(__dirname, '..'),
     server: {
         port: 5173,
-        // The model page imports the committed benchmark JSON from ../docs.
+        // The model page imports the committed benchmark report from ../eval.
         fs: { allow: [resolve(__dirname, '..')] },
         proxy: {
             '/api': { target: `http://${API_HOST}:${API_PORT}`, changeOrigin: true },

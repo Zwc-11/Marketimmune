@@ -1,5 +1,5 @@
 // Streaming order-flow imbalance, numerically identical to
-// marketimmune.features.hyperliquid_features.l2_rows_with_ofi.
+// marketimmune.features.training_rows.l2_rows_with_ofi.
 //
 // Python computes each window as a difference of prefix sums over the whole day.
 // Here only the last 10 s of events are kept (bounded replay): a window value is
