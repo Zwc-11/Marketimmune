@@ -5,8 +5,6 @@ import { pageForHash, type PageDef } from './routes';
 
 const TerminalPage = lazy(() => import('./pages/Terminal'));
 const ModelPage = lazy(() => import('./pages/ModelReport'));
-const LoopPage = lazy(() => import('./pages/Loop'));
-const AuditPage = lazy(() => import('./pages/Audit'));
 
 function useHashPage(): PageDef {
     const [page, setPage] = useState(() => pageForHash(window.location.hash));
@@ -36,8 +34,6 @@ export function App() {
                 <Suspense fallback={<div className="page-loading" aria-busy="true" />}>
                     {page.id === 'terminal' && <TerminalPage />}
                     {page.id === 'model' && <ModelPage />}
-                    {page.id === 'loop' && <LoopPage />}
-                    {page.id === 'audit' && <AuditPage />}
                 </Suspense>
             </main>
             <StatusBar />

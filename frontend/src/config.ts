@@ -36,10 +36,10 @@ export const DEFAULT_CANDLE_INTERVAL: CandleInterval = '1m';
 export const CANDLE_HISTORY_BARS = 360;
 
 /**
- * Exported by `python -m scripts.export_markout_web_model` into frontend/public/model/.
+ * Exported by `python -m marketimmune.cli.export_web_model` into frontend/public/model/.
  * Resolved against this module's URL so it works from Vite, a static host, and
- * Django's /static/agentic/ alike (the path is built at runtime so Vite does not
+ * Django's /static/terminal/ alike (the path is built at runtime so Vite does not
  * try to bundle a file that only exists after training).
  */
 export const MODEL_URL = new URL(['..', 'model', 'markout.json'].join('/'), import.meta.url).href;
-export const DJANGO_POLL_MS = 30_000;
+export const SERVER_POLL_MS = 30_000;

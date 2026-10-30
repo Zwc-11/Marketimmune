@@ -1,4 +1,4 @@
-export type PageId = 'terminal' | 'model' | 'loop' | 'audit';
+export type PageId = 'terminal' | 'model';
 
 export interface PageDef {
     id: PageId;
@@ -10,8 +10,6 @@ export interface PageDef {
 export const PAGES: PageDef[] = [
     { id: 'terminal', path: '/terminal', label: 'Terminal', title: 'SOL-PERP terminal' },
     { id: 'model', path: '/model', label: 'Model', title: 'Markout model report' },
-    { id: 'loop', path: '/loop', label: 'Immune loop', title: 'Immune loop' },
-    { id: 'audit', path: '/audit', label: 'Audit', title: 'Decision audit trail' },
 ];
 
 // Hash routes from the previous dashboard keep working (bookmarks, Django links).
@@ -20,9 +18,6 @@ const LEGACY: Record<string, PageId> = {
     '/live': 'terminal',
     '/risk': 'terminal',
     '/models': 'model',
-    '/agentic': 'loop',
-    '/investigations': 'loop',
-    '/memory': 'loop',
 };
 
 export function pageForHash(hash: string): PageDef {

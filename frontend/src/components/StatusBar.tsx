@@ -1,4 +1,4 @@
-import { useDjango } from '../data/django';
+import { useServerApi } from '../data/serverApi';
 import { SYMBOL } from '../config';
 import { useMarket, useNow } from '../market/useMarket';
 import StatusMark, { type StatusMarkStatus } from './reactbits/StatusMark';
@@ -15,7 +15,7 @@ function feedMark(status: string, ageMs: number | null): { mark: StatusMarkStatu
 export function StatusBar() {
     const feed = useMarket((s) => s.feed);
     const model = useMarket((s) => s.model);
-    const api = useDjango();
+    const api = useServerApi();
     const now = useNow();
     const age = feed.lastMessageAt === null ? null : now - feed.lastMessageAt;
     const { mark, text } = feedMark(feed.status, age);
@@ -36,7 +36,7 @@ export function StatusBar() {
                       : 'No web model artifact; fills are labelled but not scored'}
             </span>
             <span className="status-item status-right">
-                {api.status === 'online' ? 'Django API connected' : api.status === 'checking' ? 'Checking Django API' : 'Django API offline'}
+                {api.status === 'online' ? 'API connected' : api.status === 'checking' ? 'Checking API' : 'API offline'}
             </span>
         </footer>
     );
