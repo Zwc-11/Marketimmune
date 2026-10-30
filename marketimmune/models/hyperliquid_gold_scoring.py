@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from marketimmune.features.hyperliquid_features import prepare_markout_feature_row
-from marketimmune.ingest.hyperliquid_lake import read_parquet_records
+from marketimmune.ingest.hyperliquid_lake import read_parquet_window
 from marketimmune.models.hyperliquid_markout_scorer import HyperliquidMarkoutScorer
 
 
@@ -72,7 +72,7 @@ def score_gold_training_rows(
     limit: int = 0,
     latest: bool = True,
 ) -> tuple[GoldFillScore, ...]:
-    """Score Gold feature rows with the promoted model.
+    """Score Gold feature rows with the promoted model in one batched model call.
 
     ``latest=True`` keeps the most recent ``limit`` rows, which is what the app
     wants for replay/live evidence. Set it false for deterministic head samples.
@@ -80,7 +80,7 @@ def score_gold_training_rows(
     ordered = sorted(rows, key=lambda row: _float(row["ts_ms"]))
     if limit > 0:
         ordered = ordered[-limit:] if latest else ordered[:limit]
-    return tuple(_score_one(row, scorer, horizon=horizon) for row in ordered)
+    return _score_batch(ordered, scorer, horizon=horizon)
 
 
 def score_gold_training_file(
@@ -91,46 +91,50 @@ def score_gold_training_file(
     limit: int = 100,
     latest: bool = True,
 ) -> tuple[GoldFillScore, ...]:
-    """Load and score a local Gold training parquet artifact."""
-    return score_gold_training_rows(
-        read_parquet_records(path),
-        scorer,
-        horizon=horizon,
-        limit=limit,
-        latest=latest,
-    )
+    """Load and score a local Gold training parquet artifact.
+
+    Only the requested window is materialized as Python rows; the sort and slice
+    run on the Arrow table.
+    """
+    rows = read_parquet_window(path, limit=limit, latest=latest)
+    return _score_batch(rows, scorer, horizon=horizon)
 
 
-def _score_one(
-    row: Mapping[str, Any],
+def _score_batch(
+    rows: Sequence[Mapping[str, Any]],
     scorer: HyperliquidMarkoutScorer,
     *,
     horizon: str,
-) -> GoldFillScore:
-    features = prepare_markout_feature_row(row)
-    prediction = scorer.predict(features)
-    return GoldFillScore(
-        coin=str(row.get("coin", "")),
-        ts_ms=_float(row["ts_ms"]),
-        px=_float(row["px"]),
-        sz=_float(row["sz"]),
-        side=str(row.get("side", "")),
-        maker_side=int(_float(row["maker_side"])),
-        model_name=scorer.model_name,
-        raw_score=prediction.raw_score,
-        calibrated_score=prediction.calibrated_score,
-        decision_threshold=prediction.decision_threshold,
-        action=prediction.action,
-        feature_values=features,
-        markout_bps=_optional_float(row.get(f"markout_bps_{horizon}")),
-        toxic=_optional_bool(row.get(f"toxic_{horizon}")),
-        tid=_optional_int(row.get("tid")),
-        oid=_optional_int(row.get("oid")),
+) -> tuple[GoldFillScore, ...]:
+    features = [prepare_markout_feature_row(row) for row in rows]
+    predictions = scorer.predict_batch(features)
+    return tuple(
+        GoldFillScore(
+            coin=str(row.get("coin", "")),
+            ts_ms=_float(row["ts_ms"]),
+            px=_float(row["px"]),
+            sz=_float(row["sz"]),
+            side=str(row.get("side", "")),
+            maker_side=int(_float(row["maker_side"])),
+            model_name=scorer.model_name,
+            raw_score=prediction.raw_score,
+            calibrated_score=prediction.calibrated_score,
+            decision_threshold=prediction.decision_threshold,
+            action=prediction.action,
+            feature_values=feature_row,
+            markout_bps=_optional_float(row.get(f"markout_bps_{horizon}")),
+            toxic=_optional_bool(row.get(f"toxic_{horizon}")),
+            tid=_optional_int(row.get("tid")),
+            oid=_optional_int(row.get("oid")),
+        )
+        for row, feature_row, prediction in zip(rows, features, predictions, strict=True)
     )
 
 
 def _float(value: object) -> float:
-    return float(str(value))
+    if type(value) is float:
+        return value
+    return float(cast(Any, value))
 
 
 def _optional_float(value: object) -> float | None:

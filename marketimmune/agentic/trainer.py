@@ -60,6 +60,7 @@ class HyperliquidTrainingSpec:
     depth: int = 6
     calibration_fraction: float = 0.2
     max_rows: int = 0
+    cv_scheme: str = "walk_forward"
 
     @property
     def dataset_version(self) -> str:
@@ -505,6 +506,8 @@ class ModelTrainerAgent(Agent):
             str(spec.depth),
             "--calibration-fraction",
             str(spec.calibration_fraction),
+            "--cv-scheme",
+            spec.cv_scheme,
             "--report",
             str(candidate_report),
             "--model-out",

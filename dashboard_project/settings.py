@@ -85,7 +85,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # instrument; change these in `.env` rather than editing frontend code.
 MARKETIMMUNE_HYPERLIQUID_COIN = os.environ.get(
     'MARKETIMMUNE_HYPERLIQUID_COIN',
-    'BTC',
+    'SOL',
 ).strip()
 MARKETIMMUNE_HYPERLIQUID_BUDGET_MS = float(
     os.environ.get('MARKETIMMUNE_HYPERLIQUID_BUDGET_MS', '2000')

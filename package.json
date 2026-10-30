@@ -1,7 +1,7 @@
 {
   "name": "marketimmune-dashboard",
   "version": "1.0.0",
-  "description": "Agentic market-safety research platform for crypto perps with a terminal dashboard, audited immune loop, and markout evaluation roadmap.",
+  "description": "MarketImmune: predicts which SOL perp fills a market maker will regret 10 seconds later. Django API, CatBoost markout model, and an exchange-style React terminal.",
   "private": true,
   "scripts": {
     "dev": "python manage.py runserver",
@@ -17,23 +17,24 @@
     "load-data": "python manage.py load_metrics",
     "setup:frontend": "npm install --prefix frontend",
     "setup:backend": "pip install -r dashboard/requirements.txt",
-    "setup": "npm run setup:frontend && npm run setup:backend && python manage.py migrate && python manage.py load_metrics"
+    "setup": "npm run setup:frontend && npm run setup:backend && python manage.py migrate && python manage.py load_metrics",
+    "test:frontend": "npm test --prefix frontend"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
   },
   "keywords": [
-    "benchmark",
-    "dashboard",
-    "django",
-    "visualization",
-    "trading",
-    "market-immune",
     "hyperliquid",
+    "market-making",
     "adverse-selection",
-    "agentic-ai"
+    "toxic-flow",
+    "markout",
+    "catboost",
+    "solana",
+    "django",
+    "react"
   ],
-  "author": "MarketImmune Team",
+  "author": "Caesar (Zwc-11)",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0",

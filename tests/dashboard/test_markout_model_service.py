@@ -88,6 +88,7 @@ def test_promoted_markout_model_health_reports_loaded_artifact(
     assert payload["smoke_prediction"]["action"] == "quote"
     assert payload["smoke_latency"]["p95_ms"] == 0.2
     assert payload["artifacts"]["model"]["path"] == "model.cbm"
+    assert payload["cv_scheme"] == "purged_kfold"  # legacy report without cv_scheme
 
 
 def test_promoted_markout_model_health_reports_missing_artifacts(

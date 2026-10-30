@@ -63,6 +63,8 @@ def promoted_markout_model_health(
         "instrument": _instrument_label(report),
         "horizon": report.get("horizon"),
         "dataset_label": report.get("dataset_label"),
+        # Reports written before cv_scheme existed were produced with purged k-fold.
+        "cv_scheme": report.get("cv_scheme", "purged_kfold"),
         "decision_threshold": scorer.decision_threshold,
         "feature_count": len(scorer.feature_columns),
         "feature_columns": list(scorer.feature_columns),

@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from marketimmune.models.walk_forward import CV_SCHEMES
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -46,6 +48,15 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("data/hyperliquid"),
         help="Hyperliquid lake root.",
+    )
+    parser.add_argument(
+        "--cv-scheme",
+        choices=CV_SCHEMES,
+        default="walk_forward",
+        help=(
+            "walk_forward trains every fold strictly on earlier rows; purged_kfold "
+            "reproduces reports produced before cv_scheme was recorded."
+        ),
     )
     parser.add_argument("--n-splits", type=int, default=5)
     parser.add_argument("--purge-ms", type=float, default=60_000.0)

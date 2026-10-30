@@ -1,9 +1,14 @@
-"""Calibration metrics for model-evaluation reports."""
+"""Calibration metrics for model-evaluation reports (vectorized)."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+
+import numpy as np
+import numpy.typing as npt
+
+FloatArray = npt.NDArray[np.float64]
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,63 +22,77 @@ class CalibrationBin:
     observed_rate: float
 
 
-def brier_score(y_true: Sequence[bool], y_prob: Sequence[float]) -> float:
+def brier_score(
+    y_true: Sequence[bool] | npt.ArrayLike,
+    y_prob: Sequence[float] | npt.ArrayLike,
+) -> float:
     """Mean squared error between binary outcomes and predicted probabilities."""
-    _validate_inputs(y_true, y_prob)
-    squared_errors = (
-        (float(label) - prob) ** 2 for label, prob in zip(y_true, y_prob, strict=True)
-    )
-    return sum(squared_errors) / len(y_true)
+    labels, probs = _arrays(y_true, y_prob)
+    return float(np.mean((labels - probs) ** 2))
 
 
 def calibration_bins(
-    y_true: Sequence[bool],
-    y_prob: Sequence[float],
+    y_true: Sequence[bool] | npt.ArrayLike,
+    y_prob: Sequence[float] | npt.ArrayLike,
     *,
     bins: int = 10,
 ) -> tuple[CalibrationBin, ...]:
     """Return non-empty equal-width reliability bins over ``[0, 1]``."""
-    _validate_inputs(y_true, y_prob)
+    labels, probs = _arrays(y_true, y_prob)
     if bins < 1:
         raise ValueError("bins must be >= 1")
-    grouped: list[list[tuple[bool, float]]] = [[] for _ in range(bins)]
-    for label, prob in zip(y_true, y_prob, strict=True):
-        idx = min(bins - 1, int(prob * bins))
-        grouped[idx].append((label, prob))
-    out: list[CalibrationBin] = []
-    for idx, values in enumerate(grouped):
-        if not values:
-            continue
-        count = len(values)
-        out.append(CalibrationBin(
+    counts, prob_sums, label_sums = _bin_sums(labels, probs, bins)
+    return tuple(
+        CalibrationBin(
             lower=idx / bins,
             upper=(idx + 1) / bins,
-            count=count,
-            mean_prediction=sum(prob for _label, prob in values) / count,
-            observed_rate=sum(float(label) for label, _prob in values) / count,
-        ))
-    return tuple(out)
-
-
-def expected_calibration_error(
-    y_true: Sequence[bool],
-    y_prob: Sequence[float],
-    *,
-    bins: int = 10,
-) -> float:
-    """Weighted average |observed rate - mean prediction| across reliability bins."""
-    total = len(y_true)
-    return sum(
-        item.count / total * abs(item.observed_rate - item.mean_prediction)
-        for item in calibration_bins(y_true, y_prob, bins=bins)
+            count=int(counts[idx]),
+            mean_prediction=float(prob_sums[idx] / counts[idx]),
+            observed_rate=float(label_sums[idx] / counts[idx]),
+        )
+        for idx in np.flatnonzero(counts).tolist()
     )
 
 
-def _validate_inputs(y_true: Sequence[bool], y_prob: Sequence[float]) -> None:
-    if not y_true or not y_prob:
+def expected_calibration_error(
+    y_true: Sequence[bool] | npt.ArrayLike,
+    y_prob: Sequence[float] | npt.ArrayLike,
+    *,
+    bins: int = 10,
+) -> float:
+    """Weighted average |observed rate - mean prediction| across reliability bins.
+
+    Equals ``sum_b |sum(y_b) - sum(p_b)| / n``, which needs no per-bin division.
+    """
+    labels, probs = _arrays(y_true, y_prob)
+    if bins < 1:
+        raise ValueError("bins must be >= 1")
+    _counts, prob_sums, label_sums = _bin_sums(labels, probs, bins)
+    return float(np.abs(label_sums - prob_sums).sum() / labels.size)
+
+
+def _bin_sums(
+    labels: FloatArray,
+    probs: FloatArray,
+    bins: int,
+) -> tuple[npt.NDArray[np.int64], FloatArray, FloatArray]:
+    index = np.minimum((probs * bins).astype(np.int64), bins - 1)
+    counts = np.bincount(index, minlength=bins)
+    prob_sums = np.bincount(index, weights=probs, minlength=bins)
+    label_sums = np.bincount(index, weights=labels, minlength=bins)
+    return counts, prob_sums, label_sums
+
+
+def _arrays(
+    y_true: Sequence[bool] | npt.ArrayLike,
+    y_prob: Sequence[float] | npt.ArrayLike,
+) -> tuple[FloatArray, FloatArray]:
+    labels = np.asarray(y_true, dtype=np.float64)
+    probs = np.asarray(y_prob, dtype=np.float64)
+    if labels.size == 0 or probs.size == 0:
         raise ValueError("y_true and y_prob must be non-empty")
-    if len(y_true) != len(y_prob):
+    if labels.shape != probs.shape:
         raise ValueError("y_true and y_prob must have the same length")
-    bad = [prob for prob in y_prob if prob < 0.0 or prob > 1.0]
-    if bad:
+    if np.any((probs < 0.0) | (probs > 1.0)):
         raise ValueError("probabilities must be in [0, 1]")
+    return labels, probs

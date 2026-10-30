@@ -1,16 +1,10 @@
 import type {
-    BenchmarkMetric,
     HyperliquidBackfillJobPayload,
-    HyperliquidCandleSeries,
-    HyperliquidLiveSnapshot,
     LLMStatus,
     MarkoutFillDecisionPayload,
     LoopState,
     MarkoutModelHealth,
-    ModelMetric,
-    TrainingRun,
 } from './types';
-import { LIVE_MARKET_CONFIG } from './config';
 
 export class ApiError extends Error {
     status: number;
@@ -28,11 +22,6 @@ const API = {
     state: '/api/agentic/state/',
     llmStatus: '/api/agentic/llm-status/',
     runLoop: '/api/agentic/run/',
-    modelMetrics: '/api/model-metrics/',
-    benchmarkMetrics: '/api/benchmark-metrics/',
-    trainingRuns: '/api/training-runs/',
-    hyperliquidLive: '/api/hyperliquid/live/',
-    hyperliquidCandles: '/api/hyperliquid/candles/',
     hyperliquidBackfills: '/api/hyperliquid/backfill-jobs/',
     markoutModelHealth: '/api/markout-model/health/',
     markoutFillDecisions: '/api/markout-model/decisions/',
@@ -73,10 +62,6 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     return (await resp.json()) as T;
 }
 
-function unpackList<T>(payload: T[] | { results?: T[] }): T[] {
-    return Array.isArray(payload) ? payload : payload.results ?? [];
-}
-
 export async function fetchState(): Promise<LoopState> {
     return request<LoopState>(API.state);
 }
@@ -105,20 +90,6 @@ export async function runLoop(
     });
 }
 
-export async function fetchModelMetrics(): Promise<ModelMetric[]> {
-    return unpackList(await request<ModelMetric[] | { results?: ModelMetric[] }>(API.modelMetrics));
-}
-
-export async function fetchBenchmarkMetrics(): Promise<BenchmarkMetric[]> {
-    return unpackList(
-        await request<BenchmarkMetric[] | { results?: BenchmarkMetric[] }>(API.benchmarkMetrics),
-    );
-}
-
-export async function fetchTrainingRuns(): Promise<TrainingRun[]> {
-    return unpackList(await request<TrainingRun[] | { results?: TrainingRun[] }>(API.trainingRuns));
-}
-
 export async function fetchMarkoutModelHealth(): Promise<MarkoutModelHealth> {
     return request<MarkoutModelHealth>(API.markoutModelHealth);
 }
@@ -129,36 +100,6 @@ export async function fetchMarkoutFillDecisions(): Promise<MarkoutFillDecisionPa
 
 export async function fetchHyperliquidBackfillJobs(): Promise<HyperliquidBackfillJobPayload> {
     return request<HyperliquidBackfillJobPayload>(API.hyperliquidBackfills);
-}
-
-export async function fetchHyperliquidLive(
-    budgetMs = LIVE_MARKET_CONFIG.requestBudgetMs,
-): Promise<HyperliquidLiveSnapshot> {
-    const started = performance.now();
-    const params = new URLSearchParams();
-    if (budgetMs !== undefined) params.set('budget_ms', String(budgetMs));
-    const suffix = params.size ? `?${params.toString()}` : '';
-    const snapshot = await request<HyperliquidLiveSnapshot>(
-        `${API.hyperliquidLive}${suffix}`,
-    );
-    return { ...snapshot, client_elapsed_ms: Number((performance.now() - started).toFixed(3)) };
-}
-
-export async function fetchHyperliquidCandles(
-    interval: string,
-    lookbackMinutes: number,
-    budgetMs = LIVE_MARKET_CONFIG.requestBudgetMs,
-): Promise<HyperliquidCandleSeries> {
-    const started = performance.now();
-    const params = new URLSearchParams({
-        interval,
-        lookback_minutes: String(lookbackMinutes),
-    });
-    if (budgetMs !== undefined) params.set('budget_ms', String(budgetMs));
-    const series = await request<HyperliquidCandleSeries>(
-        `${API.hyperliquidCandles}?${params.toString()}`,
-    );
-    return { ...series, client_elapsed_ms: Number((performance.now() - started).toFixed(3)) };
 }
 
 export async function probeApi(): Promise<boolean> {

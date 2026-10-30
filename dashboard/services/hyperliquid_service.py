@@ -11,7 +11,7 @@ from marketimmune.ingest.hyperliquid_api import HyperliquidInfoAPI
 from marketimmune.ingest.hyperliquid_archive import L2Level
 from marketimmune.ingest.hyperliquid_asset_ctxs import AssetCtx
 
-DEFAULT_COIN = "BTC"
+DEFAULT_COIN = "SOL"
 DEFAULT_CACHE_TTL_MS = 1_000.0
 DEFAULT_CANDLE_CACHE_TTL_MS = 15_000.0
 DEFAULT_CANDLE_INTERVAL = "1m"
