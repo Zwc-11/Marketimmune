@@ -47,7 +47,7 @@ training = [
 ]
 
 [tool.setuptools]
-packages = { find = { where = ["."], include = ["marketimmune*", "aegisbench*"], exclude = ["dashboard*", "dashboard_project*", "configs*", "reports*", "data*", "docs*", "scripts*", "tests*"], namespaces = false } }
+packages = { find = { where = ["."], include = ["marketimmune*"], exclude = ["dashboard*", "dashboard_project*", "configs*", "reports*", "data*", "docs*", "scripts*", "tests*"], namespaces = false } }
 
 [tool.ruff]
 line-length = 100
@@ -57,13 +57,13 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
-"dashboard/migrations/*.py" = ["E501", "I001"]
+"server/api/migrations/*.py" = ["E501", "I001"]
 # Imports follow a sys.path bootstrap so the script also runs as a plain file.
 "scripts/train_hyperliquid_markout.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.12"
-packages = ["marketimmune", "aegisbench"]
+packages = ["marketimmune"]
 strict = true
 warn_unused_ignores = true
 warn_return_any = true
@@ -75,9 +75,6 @@ module = ["pyarrow", "pyarrow.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["marketimmune.simulator.data_loader", "marketimmune.lake.parquet_io"]
-disallow_untyped_calls = false
-
 [[tool.mypy.overrides]]
 module = ["boto3", "boto3.*", "lz4", "lz4.*"]
 ignore_missing_imports = true
@@ -87,13 +84,13 @@ module = ["matplotlib", "matplotlib.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "-q --import-mode=importlib"
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
-source = ["marketimmune", "aegisbench"]
+source = ["marketimmune"]
 branch = true
 
 [tool.coverage.report]

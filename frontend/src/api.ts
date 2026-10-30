@@ -1,8 +1,6 @@
 import type {
     HyperliquidBackfillJobPayload,
-    LLMStatus,
     MarkoutFillDecisionPayload,
-    LoopState,
     MarkoutModelHealth,
 } from './types';
 
@@ -19,9 +17,6 @@ export class ApiError extends Error {
 }
 
 const API = {
-    state: '/api/agentic/state/',
-    llmStatus: '/api/agentic/llm-status/',
-    runLoop: '/api/agentic/run/',
     hyperliquidBackfills: '/api/hyperliquid/backfill-jobs/',
     markoutModelHealth: '/api/markout-model/health/',
     markoutFillDecisions: '/api/markout-model/decisions/',
@@ -62,34 +57,6 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     return (await resp.json()) as T;
 }
 
-export async function fetchState(): Promise<LoopState> {
-    return request<LoopState>(API.state);
-}
-
-export async function fetchLLMStatus(): Promise<LLMStatus> {
-    return request<LLMStatus>(API.llmStatus);
-}
-
-export interface RunLoopResponse {
-    loop_id: string;
-    aggregate_posture: string;
-    alert_count: number;
-    case_count: number;
-    new_memory_count: number;
-    duration_ms: number;
-    proposal_name: string;
-}
-
-export async function runLoop(
-    difficulty: 'easy' | 'medium' | 'hard',
-    limit = 30,
-): Promise<RunLoopResponse> {
-    return request<RunLoopResponse>(API.runLoop, {
-        method: 'POST',
-        body: JSON.stringify({ difficulty, limit }),
-    });
-}
-
 export async function fetchMarkoutModelHealth(): Promise<MarkoutModelHealth> {
     return request<MarkoutModelHealth>(API.markoutModelHealth);
 }
@@ -104,7 +71,7 @@ export async function fetchHyperliquidBackfillJobs(): Promise<HyperliquidBackfil
 
 export async function probeApi(): Promise<boolean> {
     try {
-        const resp = await fetch(API.llmStatus, { method: 'HEAD' });
+        const resp = await fetch(API.markoutModelHealth, { method: 'HEAD' });
         if (resp.status === 503) return false;
         return resp.ok || resp.status === 405;
     } catch {

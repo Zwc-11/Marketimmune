@@ -6,7 +6,6 @@ from marketimmune.models.calibration import (
     calibration_bins,
     expected_calibration_error,
 )
-from marketimmune.models.dataset import build_dataset
 from marketimmune.models.hyperliquid_gold_scoring import (
     GoldFillScore,
     score_gold_training_file,
@@ -30,14 +29,6 @@ from marketimmune.models.markout_evaluation import (
     threshold_sweep,
 )
 from marketimmune.models.oblivious_trees import ObliviousEnsemble, ObliviousTree
-from marketimmune.models.risk_head import (
-    FEATURE_ORDER,
-    BenchmarkReport,
-    RiskDecisionPolicy,
-    RiskPrediction,
-    RiskScorer,
-    write_report,
-)
 from marketimmune.models.walk_forward import (
     CV_SCHEMES,
     CvScheme,
@@ -57,7 +48,6 @@ __all__ = [
     "FoldArrays",
     "ObliviousEnsemble",
     "ObliviousTree",
-    "FEATURE_ORDER",
     "GoldFillScore",
     "HyperliquidMarkoutScorer",
     "IsotonicCalibrator",
@@ -67,12 +57,7 @@ __all__ = [
     "MarkoutScorerError",
     "MissingFeatureError",
     "ThresholdSelection",
-    "BenchmarkReport",
-    "RiskDecisionPolicy",
-    "RiskPrediction",
-    "RiskScorer",
     "TemporalFold",
-    "build_dataset",
     "brier_score",
     "calibration_bins",
     "expected_calibration_error",
@@ -88,5 +73,4 @@ __all__ = [
     "temporal_splits",
     "threshold_sweep",
     "walk_forward_splits",
-    "write_report",
 ]

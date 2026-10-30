@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { fixed, integer, percent, signed, clockTime, durationMs, utcDate } from '../lib/format';
 import { COMMITTED } from '../lib/report';
-import { useDjango } from '../data/django';
+import { useServerApi } from '../data/serverApi';
 import { useMarket } from '../market/useMarket';
 import { Empty } from './Panel';
 import StatusMark, { type StatusMarkStatus } from './reactbits/StatusMark';
@@ -109,7 +109,7 @@ function jobMark(status: string): StatusMarkStatus {
 }
 
 export function BackfillJobs() {
-    const { status, backfills } = useDjango();
+    const { status, backfills } = useServerApi();
     const jobs = backfills?.jobs ?? [];
     if (status !== 'online') {
         return (
@@ -158,7 +158,7 @@ export function BackfillJobs() {
 }
 
 export function ApiScoredFills() {
-    const { status, decisions } = useDjango();
+    const { status, decisions } = useServerApi();
     const rows = useMemo(() => decisions?.decisions ?? [], [decisions]);
     if (status !== 'online' || !decisions?.available) {
         return (
