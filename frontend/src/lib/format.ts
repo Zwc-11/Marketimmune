@@ -1,138 +1,95 @@
-export function clamp(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
+// Number formatting for dense tables. Every formatter returns a placeholder for
+// missing or non-finite input so a stalled feed never renders "NaN".
+
+const DASH = '–';
+
+function finite(value: number | null | undefined): value is number {
+    return typeof value === 'number' && Number.isFinite(value);
 }
 
-export function formatNumber(value: number): string {
-    return new Intl.NumberFormat('en-US').format(value);
+const fixedCache = new Map<number, Intl.NumberFormat>();
+function fixedFormatter(decimals: number): Intl.NumberFormat {
+    let formatter = fixedCache.get(decimals);
+    if (!formatter) {
+        formatter = new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
+        });
+        fixedCache.set(decimals, formatter);
+    }
+    return formatter;
 }
 
-export function price(value: number | undefined | null): string {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
-    return value.toLocaleString('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        maximumFractionDigits: 2,
-    });
+export function fixed(value: number | null | undefined, decimals = 2): string {
+    return finite(value) ? fixedFormatter(decimals).format(value) : DASH;
 }
 
-export function formatDuration(ms: number | undefined | null): string {
-    if (!ms || ms < 1) return ms === 0 ? '0 ms' : '-';
-    if (ms < 1000) return `${Math.round(ms)} ms`;
-    const seconds = ms / 1000;
-    if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`;
-    const minutes = Math.floor(seconds / 60);
-    return `${minutes}m ${Math.round(seconds % 60)}s`;
+export function signed(value: number | null | undefined, decimals = 2): string {
+    if (!finite(value)) return DASH;
+    const text = fixedFormatter(decimals).format(Math.abs(value));
+    if (value > 0) return `+${text}`;
+    if (value < 0) return `−${text}`;
+    return text;
 }
 
-export function formatTimestamp(value: string | undefined | null): string {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleString('en-US', {
-        month: 'short',
-        day: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-    });
+export function bps(value: number | null | undefined, decimals = 2): string {
+    return finite(value) ? `${signed(value, decimals)} bps` : DASH;
 }
 
-export function formatClock(value: string | undefined | null): string {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-    });
+export function percent(value: number | null | undefined, decimals = 1): string {
+    return finite(value) ? `${fixed(value * 100, decimals)}%` : DASH;
 }
 
-export function formatDate(value: string | undefined | null): string {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+export function signedPercent(value: number | null | undefined, decimals = 2): string {
+    return finite(value) ? `${signed(value * 100, decimals)}%` : DASH;
 }
 
-export function relativeTime(value: string | undefined | null): string {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    const seconds = Math.max(1, Math.round((Date.now() - date.getTime()) / 1000));
-    if (seconds < 60) return `${seconds}s ago`;
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.round(minutes / 60);
-    if (hours < 48) return `${hours}h ago`;
-    return formatDate(value);
+const compactUsd = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: 'compact',
+    maximumFractionDigits: 2,
+});
+
+export function usdCompact(value: number | null | undefined): string {
+    return finite(value) ? compactUsd.format(value) : DASH;
 }
 
-export function shortId(value: string | undefined | null): string {
-    if (!value) return '-';
-    if (value.length <= 18) return value;
-    return value.replace(/^loop_/, 'IL-').replace(/^case_/, 'INV-').slice(0, 18);
+export function integer(value: number | null | undefined): string {
+    return finite(value) ? fixedFormatter(0).format(value) : DASH;
 }
 
-export function shortCycle(value: string | undefined | null): string {
-    if (!value) return '-';
-    const digits = value.replace(/\D/g, '').slice(-5);
-    return digits ? Number(digits).toLocaleString('en-US') : shortId(value);
+export function clockTime(ms: number | null | undefined): string {
+    if (!finite(ms)) return DASH;
+    const date = new Date(ms);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
-export function sentenceCase(value: string | undefined | null): string {
-    if (!value) return '-';
-    return value
-        .replaceAll('_', ' ')
-        .replaceAll('-', ' ')
-        .split(' ')
-        .filter(Boolean)
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
+export function utcDate(ms: number | null | undefined): string {
+    if (!finite(ms)) return DASH;
+    return new Date(ms).toISOString().slice(0, 10);
 }
 
-export function compactScenario(value: string | undefined | null): string {
-    const clean = sentenceCase(value);
-    const families = [
-        'Cascade Replay',
-        'Liquidation Cascade',
-        'Liquidation Sweep',
-        'Funding Dislocation',
-        'Basis Dislocation',
-        'Momentum Ignition',
-        'Latency Arb',
-    ];
-    const match = families.find((family) => clean.toLowerCase().includes(family.toLowerCase()));
-    if (match) return match;
-    return truncate(clean, 34);
+export function yyyymmdd(value: string): string {
+    return /^\d{8}$/.test(value)
+        ? `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6)}`
+        : value;
 }
 
-export function humanizeFeature(value: string): string {
-    return sentenceCase(value.replace(/^w\d+_/, '').replaceAll('/', ' '));
+export function durationMs(value: number | null | undefined): string {
+    if (!finite(value)) return DASH;
+    if (value < 1) return `${fixed(value * 1000, 0)} µs`;
+    if (value < 1000) return `${fixed(value, value < 10 ? 2 : 0)} ms`;
+    return `${fixed(value / 1000, 1)} s`;
 }
 
-export function cleanText(value: string): string {
-    return value.replace(/\*\*/g, '').replace(/`/g, '').replace(/\s+/g, ' ').trim();
-}
-
-export function truncate(value: string, maxLength: number): string {
-    if (value.length <= maxLength) return value;
-    return `${value.slice(0, maxLength - 1).trim()}…`;
-}
-
-export function signed(value: number): string {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(Math.abs(value) >= 10 ? 0 : 2)}`;
-}
-
-export function scoreValue(value: number | undefined | null): string {
-    return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) : '-';
-}
-
-export function metricValue(value: unknown, suffix = ''): string {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return '-';
-    return `${numeric.toFixed(Math.abs(numeric) >= 10 ? 1 : 3)}${suffix}`;
+/** Decimal places to show for a price, inferred from the venue's tick strings. */
+export function priceDecimals(samples: string[]): number {
+    let decimals = 0;
+    for (const sample of samples) {
+        const dot = sample.indexOf('.');
+        if (dot >= 0) decimals = Math.max(decimals, sample.length - dot - 1);
+    }
+    return Math.min(decimals, 6);
 }

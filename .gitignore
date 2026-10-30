@@ -19,7 +19,6 @@ frontend/vite.config.ts.timestamp-*.mjs
 /data/
 !frontend/src/data/
 reports/
-docs/
 .coverage
 db.sqlite3
 db.sqlite3-*

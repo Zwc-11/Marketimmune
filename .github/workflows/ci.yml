@@ -34,10 +34,11 @@ jobs:
         run: |
           python manage.py check
           python manage.py makemigrations --check --dry-run
-      - name: Frontend build
+      - name: Frontend checks
         working-directory: frontend
         run: |
           npm run typecheck
+          npm test
           npm run build
       - name: Test
         run: python -m pytest

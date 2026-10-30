@@ -177,7 +177,8 @@ def _write_records(path: Path, records: Sequence[Mapping[str, Any]]) -> None:
         raise ValueError("cannot write an empty replay-lake artifact")
     path.parent.mkdir(parents=True, exist_ok=True)
     table = pa.Table.from_pylist([dict(record) for record in records])
-    pq.write_table(table, path, compression="zstd")  # type: ignore[no-untyped-call]
+    _parquet: Any = pq
+    _parquet.write_table(table, path, compression="zstd")
 
 
 def _timestamp_iso(ts_ms: int) -> str:

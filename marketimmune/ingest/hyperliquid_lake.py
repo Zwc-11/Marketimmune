@@ -25,6 +25,10 @@ from marketimmune.ingest.hyperliquid_asset_ctxs import AssetCtx
 from marketimmune.ingest.hyperliquid_fills import NodeFill
 from marketimmune.ingest.hyperliquid_gold import MarkoutGoldRow
 
+# pyarrow ships stubs in some releases and not others; route calls through Any so
+# strict mypy is stable across versions without version-specific ignores.
+_parquet: Any = pq
+
 
 def _coin_dir(coin: str) -> str:
     return coin.strip().upper().replace("/", "-")
@@ -117,12 +121,36 @@ def read_parquet_records(path: Path) -> list[dict[str, Any]]:
     return [dict(record) for record in table.to_pylist()]
 
 
+def read_parquet_window(
+    path: Path,
+    *,
+    limit: int,
+    latest: bool = True,
+    order_by: str = "ts_ms",
+) -> list[dict[str, Any]]:
+    """Read only the newest (or oldest) ``limit`` rows as dictionaries.
+
+    Sorting and slicing happen on the Arrow table, so a 200K-row day costs one
+    columnar sort instead of 200K Python dicts. ``limit <= 0`` reads everything,
+    sorted by ``order_by``.
+    """
+    table = _read_table(path)
+    if table.num_rows == 0:
+        return []
+    table = table.sort_by(order_by)
+    if 0 < limit < table.num_rows:
+        offset = table.num_rows - limit if latest else 0
+        table = table.slice(offset, limit)
+    return [dict(record) for record in table.to_pylist()]
+
+
 def _write_table(path: Path, table: pa.Table) -> None:
-    pq.write_table(table, path, compression="zstd")  # type: ignore[no-untyped-call]
+    _parquet.write_table(table, path, compression="zstd")
 
 
 def _read_table(path: Path) -> pa.Table:
-    return pq.read_table(path)  # type: ignore[no-untyped-call]
+    table: pa.Table = _parquet.read_table(path)
+    return table
 
 
 def bronze_fill_record(fill: NodeFill) -> dict[str, Any]:

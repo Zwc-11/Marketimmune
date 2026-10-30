@@ -1,302 +1,177 @@
 # MarketImmune
 
-**Agentic market-safety research platform for crypto perpetuals.**
-MarketImmune combines a terminal-style dashboard, a multi-agent immune loop with
-an append-only audit trail, exchange-data ingestion groundwork, markout labeling
-primitives, and leakage-safe evaluation into one research workspace.
+**Predicts which SOL perp fills a market maker will regret 10 seconds later.**
 
-![MarketImmune Command Center real capture](screenshots/geist-command-dark.png)
+Trained on 724,150 Hyperliquid SOL maker fills. On a held-out day the model never
+saw, its quoting policy beats a simple order-flow baseline by **+0.109 bps per
+fill**. Small, real, and measured the honest way.
 
-![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
-![Django](https://img.shields.io/badge/Django-REST-0C4B33?logo=django&logoColor=white)
-![React](https://img.shields.io/badge/React-TypeScript-61DAFB?logo=react&logoColor=111)
-![coverage gate ≥95% (CI-enforced)](https://img.shields.io/badge/coverage%20gate-%E2%89%A595%25%20(CI--enforced)-97fce4)
-![Market](https://img.shields.io/badge/market-crypto%20perps-97fce4)
+![MarketImmune terminal: live SOL-PERP book, fill tape with the 10 s regret clock, and the quote guard](screenshots/terminal.png)
 
-## What It Does
+## The result
 
-MarketImmune is a research prototype for detecting adverse selection and toxic
-order flow in crypto perpetual markets. It is built around an immune-loop model:
+From [`docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json)
+(`holdout_split`): train on May 27 to 31, 2026, score June 1.
 
-```text
-Generate -> Detect -> Investigate -> Decide -> Remember
+| Held-out day, 210,530 fills | CatBoost | 10 s event-OFI baseline |
+|---|---:|---:|
+| Markout lift vs quoting every fill | **+0.860 bps** | +0.751 bps |
+| Lift over the baseline | **+0.109 bps** | |
+| PR-AUC | 0.556 | 0.467 |
+| Brier score | 0.233 | 0.409 |
+| Expected calibration error | 0.027 | 0.380 |
+| Fills still quoted | 24.6% | 21.6% |
+
+Two things this number says: toxic flow on SOL is real and partly predictable
+from the book, and the edge over a one-feature order-flow rule is thin. A
+profitable AMM or market maker knows something this model does not yet.
+
+## What "regret" means
+
+A maker fill at price `p` on side `s` (+1 bought, -1 sold) is judged by the first
+mid printed at or after 10 seconds:
+
+```
+markout_bps = s * (mid_{t+10s} - p) / p * 10_000
+regretted   = markout_bps < -1 bps            # under water after the fee
 ```
 
-The system is designed for market-structure monitoring, agentic investigations,
-append-only decision audit trails, and real markout-based model evaluation.
+The policy skips a fill when `p(regret) >= 0.30`; skipped fills count as 0 bps.
+"Lift" is the mean per-fill markout of that policy minus quoting every fill.
 
-## Current Status
+## How it was validated, so it could not cheat
 
-This is a research system, not a live trading system.
+- **Forward holdout.** The headline is June 1, scored by a model trained only on
+  May 27 to 31. Thresholds and calibration were frozen before that day was read.
+- **Purged, embargoed CV for model selection.** The committed run used purged
+  k-fold (5 folds, 60 s purge and 60 s embargo, so no training label overlaps a
+  test fill). Four of those five folds also train on later days, which is why the
+  holdout, not the CV average, is the number to quote.
+- **Walk-forward is now the default.** `--cv-scheme walk_forward` (the new
+  default) trains every fold strictly on earlier fills; `--cv-scheme purged_kfold`
+  reproduces the committed report exactly. Reports record `cv_scheme`.
+- **Point-in-time features.** Every feature joins the latest book and asset
+  context at or before the fill; a vectorized as-of check raises `LeakageError`
+  on any look-ahead.
 
-What is live today in this repository:
+## The terminal
 
-- **React/Django market dashboard** with simulator, risk, model, memory, audit,
-  and agentic-loop screens.
-- **Django API surface** for `/api/live/tick/`, simulator state/control,
-  risk-head health, promoted markout-model health, Hyperliquid public Info API
-  market data, and agentic loop state/run endpoints.
-- **Agentic immune loop** with structured traces and append-only audit records.
-- **Exchange ingestion path** for Hyperliquid public API samples, current/recent
-  replay seeds, and requester-pays historical Bronze/Silver/Gold backfills.
-- **Markout labeling and evaluation** for real Hyperliquid fills, including a
-  calibrated CatBoost report over local SOL training partitions and a
-  Django/React promoted-artifact readout.
-- **Leakage-aware evaluation tools** including purged/embargoed walk-forward
-  splits, calibration metrics, and promotion policy checks.
-- **Quality gates**: ruff, mypy, pytest, and a coverage gate ≥95%
-  (CI-enforced).
+`frontend/` is an exchange-style terminal (dark, dense, tabular, modelled on
+Hyperliquid and Phoenix) that runs with no backend:
 
-What is still preview:
+- **Live SOL-PERP market** straight from Hyperliquid's public WebSocket and REST
+  API: 1m candles, order book with depth, mark, oracle, funding, open interest.
+- **Fills tape with a 10 s regret clock.** Every fill waits out the label horizon
+  on screen, then settles into its realized maker markout. The regret matrix shows
+  the last 100 outcomes at a glance.
+- **Quote guard.** With an exported model, each fill is scored in the browser
+  (oblivious-tree evaluator plus isotonic calibration, as-of book features) and
+  the live withhold precision and policy lift are tracked against what actually
+  happened 10 s later. Without one, fills are labelled but not scored, and the UI
+  says so.
+- **Model report** built from the committed JSON: holdout table, per-fold lift,
+  validation protocol, data, features, and the exact rerun command.
 
-- Some agent/model dashboard views still include labeled fixtures.
-- The current risk head trains on synthetic scenario data, not real exchange
-  fills.
-- The CatBoost report is a first local SOL panel proof, not yet a broad
-  multi-day, multi-coin production benchmark.
+![Model report: held-out results against the order-flow baseline](screenshots/model.png)
 
-The remaining roadmap is summarized below so the README stays self-contained.
+- **Immune loop and audit trail** from the Django API, with a clearly badged
+  sample run when the API is not up.
 
-## Screenshots
+Under the hood: one `requestAnimationFrame` flush per frame no matter how many
+WebSocket messages arrive, slice-level subscriptions so the book does not
+re-render when the tape moves, CSS-only countdowns, and TypeScript feature and
+model code pinned to the Python implementation by parity tests. React Bits
+supplies four small components (rolling price digits, count-ups, ID reveal,
+status marks); see [`frontend/src/components/reactbits/NOTICE.md`](frontend/src/components/reactbits/NOTICE.md).
 
-The gallery below shows the core product surfaces: Command Center, Live Market,
-Toxicity Sentinel, Immune Loop, Investigation Case File, Model Center, and
-Audit Trail. Each image is a bitmap capture of the running UI or a resized
-bitmap derived from those captures.
+## Performance
 
-| Command Center | Live Market |
-|---|---|
-| ![Command Center real capture](screenshots/project/marketimmune-command-center.readme.jpg) | ![Live Market real capture](screenshots/project/marketimmune-live-market.readme.jpg) |
+The pipeline was rewritten around NumPy index arrays (threshold sweeps as one sort
+plus prefix sums, `searchsorted` as-of joins, batched scoring), borrowing three
+ideas from [DeepSeek's DeepInfer](https://github.com/deepseek-ai/DeepInfer):
+overlap I/O with compute, bounded replay of a sliding window, and batch-invariant
+inference. Same inputs, same report: every metric matches the original code to
+within 2e-13. Details and methodology in [docs/performance.md](docs/performance.md).
 
-| Toxicity Sentinel | Immune Loop |
-|---|---|
-| ![Toxicity Sentinel real capture](screenshots/project/marketimmune-toxicity-sentinel.readme.jpg) | ![Immune Loop real capture](screenshots/project/marketimmune-immune-loop.readme.jpg) |
-
-| Investigation Case File | Model Center |
-|---|---|
-| ![Investigation Case File real capture](screenshots/project/marketimmune-investigation-case.readme.jpg) | ![Model Center real capture](screenshots/project/marketimmune-model-center.readme.jpg) |
-
-| Audit Trail |
-|---|
-| ![Audit Trail real capture](screenshots/project/marketimmune-audit-trail.readme.jpg) |
-
-## Highlights
-
-- **Professional trading terminal UI**: dark Hyperliquid-inspired command
-  surface, live ticker strip, candle chart, depth view, and dense data panels.
-- **Auditable agents**: each stage emits structured `AgentRun`, `ToolCall`, and
-  `DecisionTrace` records.
-- **Market-data path**: Hyperliquid free API samples plus requester-pays
-  historical L2, asset context, and node-fill backfills into parquet.
-- **ML research stack**: gradient-boosting risk head today, plus an agentic
-  CatBoost markout trainer/Judge path for real Gold rows.
-- **Honesty-first metrics**: `[real-model]` no hard-coded market claims; the
-  current real-data report trains on SOL `20260527..20260531` and holds out
-  `20260601`. On the held-out day it reaches `PR-AUC=0.556`,
-  `Brier=0.233`, `markout_lift_bps=0.860`, and `+0.109 bps` versus the
-  event-OFI baseline. The Judge promotes CatBoost over that explicit event-OFI
-  incumbent by comparing the quoting-policy candidate in
-  [`policy.candidate_deployment_selection`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json#L609)
-  against
-  [`policy.baseline_deployment_selection`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json#L674);
-  [`holdout_split.policy`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json#L812),
-  [`holdout_split.uncalibrated`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json#L734),
-  and
-  [`holdout_split.baseline_comparison.event_ofi`](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json#L803)
-  remain recorded in the same report.
-
-### Benchmark Provenance
-
-`[real-model]` The held-out SOL metrics above were reproduced in this session
-with:
-
-```powershell
-python -m scripts.train_hyperliquid_markout --coin SOL --dates 20260527..20260531 --holdout-date 20260601 --horizon 10s --iterations 150 --n-splits 5 --report docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json --model-out .tmp/benchmarks/hyperliquid_catboost_SOL_20260527_20260531_holdout_20260601_10s.cbm --calibrator-out .tmp/benchmarks/hyperliquid_catboost_SOL_20260527_20260531_holdout_20260601_10s.isotonic.json
-```
-
-Data source: local Hyperliquid Gold training parquet partitions under
-`data/hyperliquid/gold/hyperliquid/training/SOL/`, train dates
-`20260527..20260531`, holdout date `20260601`, produced by the requester-pays
-Hyperliquid backfill path. Report artifact:
-[docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json](docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json).
-
-Note: the direct script-path form
-`python scripts/train_hyperliquid_markout.py ...` failed in this Windows session
-before training because the script imports `scripts.hyperliquid_markout_args`
-and the repo root was not on `sys.path`. The module form above uses the same
-training code and arguments from the repo root.
-
-## Repository Map
-
-```text
-marketimmune/         Python core: agents, ingestion, labels, models, replay, policy
-aegisbench/           Experimental benchmark harness; not part of the core narrative
-dashboard/            Django app: API views, ORM persistence, audit trail, static SPA host
-dashboard_project/    Django settings and URL root
-frontend/             React + TypeScript + Vite terminal UI
-scripts/              Backfill, training, verification, and bundle-sync CLIs
-tests/                Unit, integration, parser, model, dashboard, and UI-adjacent tests
-```
-
-Python core code has no Django dependency. Django owns persistence and API
-hydration. The React app can run static-first, then hydrate live slices when the
-Django API is reachable. `frontend/` builds to `frontend/dist/`; when Django
-should serve the latest SPA, `scripts/sync-django-bundle.mjs` removes
-`dashboard/static/agentic/`, recreates it, and copies `frontend/dist/` there.
-
-### AegisBench Disposition
-
-`aegisbench/` is experimental benchmark scaffolding for benchmark-task experiments.
-It remains in CI because it has package wiring, direct tests, and script consumers.
-It is not part of the core MarketImmune application narrative.
-
-The standalone Hindsight evaluation engine now lives at
-[Zwc-11/Hindsight](https://github.com/Zwc-11/Hindsight). MarketImmune keeps its
-own markout model evaluation and training paths here; the extracted backtesting
-engine is no longer vendored in this repository.
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the ingest-to-audit flow.
+| Stage, on a panel shaped like the SOL run | Before | After |
+|---|---:|---:|
+| Fold-local threshold selection, 724K fills x 91 thresholds | 39.6 s | 0.61 s |
+| Deployment threshold sweep | 9.6 s | 0.15 s |
+| OFI windows, 400K book snapshots | 5.3 s | 0.91 s |
+| As-of feature join, 190K fills | 8.7 s | 2.0 s |
+| Score 2,000 fills | 0.35 s one by one | 0.012 s batched |
+| Full training run (CatBoost fits unchanged at ~94 s) | 200 s | 99 s |
 
 ## Quickstart
 
-Install backend dependencies and start Django:
-
 ```powershell
-python -m pip install -e '.[dev]'
+# Backend (optional for the terminal; needed for the loop, audit, and scoring APIs)
+python -m pip install -e ".[dev]"
 python manage.py migrate
 python manage.py runserver 127.0.0.1:8000
-```
 
-For requester-pays historical backfills and CatBoost training:
-
-```powershell
-python -m pip install -e '.[dev,hyperliquid,training]'
-```
-
-Open the current single-origin app:
-
-```text
-http://127.0.0.1:8000/dashboard/live/#/live
-```
-
-Current JSON endpoints include `/api/live/tick/`, `/api/simulator/state/`,
-`/api/simulator/control/`, `/api/risk-head/health/`,
-`/api/markout-model/health/`, and `/api/agentic/state/`.
-
-For active frontend development:
-
-```powershell
+# Frontend
 npm.cmd run setup:frontend
-npm.cmd run dev:frontend
+npm.cmd run dev:frontend          # http://127.0.0.1:5173/#/terminal
 ```
 
-Then open:
+Django serves the built SPA at `http://127.0.0.1:8000/dashboard/live/#/terminal`
+after `npm.cmd run build:django`.
+
+### Reproduce the benchmark
+
+Needs the local Gold partitions under `data/hyperliquid/gold/hyperliquid/training/SOL/`
+(produced by `scripts/backfill_hyperliquid_day.py` from the requester-pays archive):
+
+```powershell
+python -m pip install -e ".[dev,hyperliquid,training]"
+python -m scripts.train_hyperliquid_markout --coin SOL --dates 20260527..20260531 `
+  --holdout-date 20260601 --horizon 10s --iterations 150 --n-splits 5 `
+  --cv-scheme purged_kfold `
+  --report docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json `
+  --model-out .tmp/benchmarks/hyperliquid_catboost_SOL_10s.cbm
+```
+
+Drop `--cv-scheme purged_kfold` to run the walk-forward version.
+
+### Score live fills in the terminal
+
+```powershell
+python -m scripts.export_markout_web_model `
+  --model .tmp/benchmarks/hyperliquid_catboost_SOL_10s.cbm `
+  --report docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json
+```
+
+This writes `frontend/public/model/markout.json`; the terminal picks it up on the
+next load. The same file also serves predictions from Django without CatBoost
+installed (`MARKETIMMUNE_PROMOTED_MARKOUT_MODEL_PATH=...markout.json`).
+
+### Checks
+
+```powershell
+ruff check . ; python scripts/typecheck.py ; python scripts/check_line_limit.py
+python -m coverage run -m pytest ; python -m coverage report      # gate: 95%
+cd frontend ; npm run typecheck ; npm test ; npm run build
+```
+
+## Repository map
 
 ```text
-http://127.0.0.1:5173/#/live
+marketimmune/   ingest, labels, features, models (splits, evaluation, scorer), agents
+scripts/        backfill, training, export, benchmarks, parity fixtures
+dashboard/      Django API, persistence, audit trail, built SPA host
+frontend/       React + TypeScript terminal
+docs/           benchmark artifacts, performance notes, design contract
 ```
 
-Do not use `npm run preview` for live API testing. Static preview does not proxy
-`/api`.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the data flow diagram. The standalone
+backtesting engine that grew out of this repo lives at
+[Zwc-11/Hindsight](https://github.com/Zwc-11/Hindsight).
 
-## Useful Commands
+## Scope
 
-Run the full backend gate:
-
-```powershell
-python -m coverage run -m pytest
-python -m coverage report -m
-```
-
-Run lint/type/build checks:
-
-```powershell
-ruff check .
-mypy
-npm.cmd run typecheck
-npm.cmd run build
-python manage.py check
-python manage.py makemigrations --check --dry-run
-```
-
-Train the current synthetic-data risk head:
-
-```powershell
-python scripts/train_risk_head.py
-```
-
-Seed the current replay lake from the free Hyperliquid public API:
-
-```powershell
-python scripts/seed_hyperliquid_replay_lake.py --coin BTC --symbol BTCUSDT --lookback-minutes 120 --rows 90
-```
-
-Backfill one full SOL day from Hyperliquid requester-pays archives:
-
-```powershell
-python scripts/backfill_hyperliquid_day.py --coin SOL --date 20260601 --hour 0-23 --fill-hour 0-23 --lake-root data/hyperliquid
-```
-
-Rebuild the local Gold training table after feature changes, without another S3
-download:
-
-```powershell
-python scripts/rebuild_hyperliquid_training_rows.py --coin SOL --date 20260601 --lake-root data/hyperliquid
-```
-
-Train the real-data CatBoost markout model from that Gold table:
-
-```powershell
-python -m scripts.train_hyperliquid_markout --coin SOL --date 20260601 --horizon 10s --iterations 150 --n-splits 5 --report reports/hyperliquid_markout_SOL_20260601.json --model-out data/models/hyperliquid_catboost_SOL_10s.cbm
-```
-
-That command also writes an isotonic calibrator next to the model:
-`data/models/hyperliquid_catboost_SOL_10s.isotonic.json`.
-
-Train across every local SOL partition currently available:
-
-```powershell
-python -m scripts.train_hyperliquid_markout --coin SOL --dates 20250727,20260601 --horizon 10s --iterations 150 --n-splits 5 --report reports/hyperliquid_markout_SOL_panel.json --model-out data/models/hyperliquid_catboost_SOL_panel_10s.cbm
-```
-
-Date ranges are strict by default: every requested Gold training parquet must
-exist locally. For a smoke run over only the files already present, add
-`--allow-missing-partitions`; the report records `missing_partitions`.
-
-Run the same real-data training path through the agent framework:
-
-```powershell
-@'
-from marketimmune.agentic.trainer import HyperliquidTrainingSpec, ModelTrainerAgent
-
-agent = ModelTrainerAgent(
-    training_mode="hyperliquid_markout",
-    hyperliquid_spec=HyperliquidTrainingSpec(
-        coin="SOL",
-        dates=("20250727", "20260601"),
-        horizon="10s",
-    ),
-)
-run = agent.run(goal="train real Hyperliquid CatBoost candidate", force=True)
-print(run.linked_artifacts["job"].to_dict())
-'@ | python -
-```
-
-## Roadmap
-
-The remaining high-value work is real-data execution:
-
-- Scale requester-pays backfills beyond the current local SOL panel.
-- Compare calibration stability across multiple days and coins.
-- Feed live/replayed Gold fill features through the promoted scorer inside the
-  Sentinel/Policy path.
-- Continue replacing remaining fixture-only panels with persisted evidence.
-
-## Scope Notes
-
-- No real orders are sent.
-- No private key or exchange account is required for the current dashboard.
-- LLM access is optional for richer agent reasoning; deterministic fallbacks
-  work without external model access.
-- Cite the current CatBoost metric only as a local SOL panel proof until the
-  broader multi-day, multi-coin benchmark exists.
+- Research system. No orders are sent; no keys are held.
+- One coin, five training days, one holdout day. Quote it as a SOL panel result,
+  not a multi-coin benchmark.
+- Live browser features are rebuilt from the WebSocket book, whose update cadence
+  can differ from the archive snapshots the model was trained on.

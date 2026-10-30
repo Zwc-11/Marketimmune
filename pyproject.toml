@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "marketimmune"
 version = "0.1.0"
-description = "Open-source AI trading-agent safety benchmark for crypto exchange microstructure."
+description = "Predicts which SOL perp fills a market maker will regret 10 seconds later: Hyperliquid markout labels, leakage-safe CatBoost, and a live terminal."
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 license = { text = "Apache-2.0" }
@@ -58,6 +58,8 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 "dashboard/migrations/*.py" = ["E501", "I001"]
+# Imports follow a sys.path bootstrap so the script also runs as a plain file.
+"scripts/train_hyperliquid_markout.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.12"
