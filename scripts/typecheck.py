@@ -1,3 +1,5 @@
+"""mypy --strict on the package; falls back to an annotation check when mypy is missing."""
+
 from __future__ import annotations
 
 import ast
@@ -8,11 +10,7 @@ from pathlib import Path
 
 
 def python_files() -> list[Path]:
-    return (
-        sorted(Path("marketimmune").rglob("*.py"))
-        + sorted(Path("aegisbench").rglob("*.py"))
-        + sorted(Path("scripts").glob("*.py"))
-    )
+    return sorted(Path("marketimmune").rglob("*.py")) + sorted(Path("scripts").glob("*.py"))
 
 
 def fallback_typecheck() -> int:
@@ -54,7 +52,6 @@ def main() -> int:
                 "--config-file",
                 "pyproject.toml",
                 "marketimmune",
-                "aegisbench",
             ],
             check=False,
             text=True,

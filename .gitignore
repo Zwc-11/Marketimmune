@@ -1,32 +1,40 @@
+# Data never enters git: data/bronze (raw downloads), silver/, gold/, models/, logs/.
+# Anchored so it does not match frontend/src/data/.
+/data/
+/_to_delete/
+/staticfiles/
+
+# Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+.venv/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
-.tmp/
-.tmp_pytest/
-.codex/
-.claude/
-.cursor/skills/impeccable/
-.cursor/impeccable/
-*.egg-info/
+.coverage
 build/
 dist/
+*.whl
+
+# Rust
+/target/
+
+# Frontend
 node_modules/
+frontend/dist/
 frontend/vite.config.ts.timestamp-*.mjs
-# Python data lake at repo root (Bronze/Silver/Gold parquet). Anchored with a
-# leading slash so it does NOT swallow the frontend source dir frontend/src/data/.
-/data/
-!frontend/src/data/
-reports/
-.coverage
+
+# Local state and secrets (use .env.example as the template)
 db.sqlite3
 db.sqlite3-*
-
-# Secrets — never commit. Use .env.example as the template instead.
 .env
 .env.*
 !.env.example
 
-# Separate repository (The Price of Priority), not part of MarketImmune
-price-of-priority/
+# Editor and agent caches
+.tmp/
+.codex/
+.claude/
+.cursor/
+.ipynb_checkpoints/

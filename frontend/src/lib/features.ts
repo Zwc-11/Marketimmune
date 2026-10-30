@@ -1,6 +1,6 @@
 // Live feature vector for one fill, mirroring
-// marketimmune.features.hyperliquid_features.prepare_markout_feature_row and the
-// top-of-book features in marketimmune.ingest.hyperliquid_archive.BookSnapshot.
+// marketimmune.features.training_rows.prepare_markout_feature_row and the
+// top-of-book features in marketimmune.sources.hyperliquid_l2_archive.BookSnapshot.
 
 import type { OfiValues, TopOfBookSizes } from './ofi';
 

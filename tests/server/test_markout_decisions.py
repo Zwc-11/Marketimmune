@@ -31,7 +31,7 @@ def test_latest_gold_partition_uses_partition_date(tmp_path: Path) -> None:
 
 def test_should_refresh_when_resolved_gold_source_changes(monkeypatch: Any) -> None:
     class FakeLatest:
-        source_path = "data/hyperliquid/old.parquet"
+        source_path = "data/old.parquet"
         scored_at = service._now() - timedelta(milliseconds=1)
 
     class FakeDecisionManager:
@@ -45,6 +45,6 @@ def test_should_refresh_when_resolved_gold_source_changes(monkeypatch: Any) -> N
         objects = FakeDecisionManager()
 
     monkeypatch.setattr(service, "ScoredFillDecision", FakeDecisionModel)
-    monkeypatch.setattr(service, "_display_path", lambda _path: "data/hyperliquid/new.parquet")
+    monkeypatch.setattr(service, "_display_path", lambda _path: "data/new.parquet")
 
     assert service._should_refresh(None, gold_path=Path("new.parquet")) is True

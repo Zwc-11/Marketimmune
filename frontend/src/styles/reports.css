@@ -1,4 +1,4 @@
-/* ---- Report pages (model, loop, audit) -------------------------------- */
+/* ---- Model report page ------------------------------------------------ */
 
 .report {
     max-width: 1320px;
@@ -202,116 +202,6 @@
     margin-left: 8px;
 }
 
-/* Loop cases */
-
-.cases {
-    display: grid;
-    gap: 0;
-}
-
-.case {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 14px;
-    border-bottom: 1px solid var(--rule);
-    line-height: 1.55;
-}
-
-.case:last-child {
-    border-bottom: 0;
-}
-
-.case-head {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-}
-
-.case-head h3 {
-    font-size: var(--fs-m);
-    font-weight: 500;
-    flex: 1;
-}
-
-.case p {
-    max-width: 90ch;
-    color: var(--fg-2);
-}
-
-.severity {
-    font-size: var(--fs-xs);
-    padding: 1px 8px;
-    border-radius: 999px;
-    text-transform: capitalize;
-    background: var(--ink-2);
-}
-
-.sev-critical,
-.sev-high {
-    color: var(--ask);
-    background: var(--ask-soft);
-}
-
-.sev-medium {
-    color: var(--warn);
-    background: var(--warn-soft);
-}
-
-.evidence {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 20px;
-    margin: 0;
-}
-
-.evidence div {
-    display: flex;
-    gap: 8px;
-    align-items: baseline;
-}
-
-.evidence dd {
-    margin: 0;
-}
-
-.case-next {
-    font-size: var(--fs-s);
-}
-
-/* Audit */
-
-.audit-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 380px;
-    gap: var(--gap);
-    min-height: 480px;
-}
-
-.record {
-    display: flex;
-    flex-direction: column;
-}
-
-.record-id {
-    margin: 12px 12px 0;
-    font-family: var(--mono);
-    font-size: var(--fs-xs);
-    color: var(--fg-2);
-    word-break: break-all;
-}
-
-.payload {
-    margin: 0 12px 12px;
-    padding: 10px;
-    border-radius: var(--radius);
-    background: var(--ink-0);
-    color: var(--fg-2);
-    border: 1px solid var(--rule);
-    overflow: auto;
-    max-height: 320px;
-}
-
 @media (max-width: 1100px) {
     .headline-row {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -320,9 +210,7 @@
     .headline-stat {
         border-bottom: 1px solid var(--rule);
     }
-
-    .report-grid,
-    .audit-layout {
+.report-grid {
         grid-template-columns: minmax(0, 1fr);
     }
 

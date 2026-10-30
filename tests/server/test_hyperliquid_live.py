@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from marketimmune.ingest.hyperliquid_api import HyperliquidInfoAPI
+from marketimmune.sources.hyperliquid_info_api import HyperliquidInfoAPI
 from server.api.services.hyperliquid_live import (
     clear_hyperliquid_snapshot_cache,
     live_hyperliquid_candles,

@@ -12,12 +12,8 @@ from typing import Any
 from django.conf import settings
 from django.db import transaction
 
-from marketimmune.models import (
-    GoldFillScore,
-    HyperliquidMarkoutScorer,
-    MarkoutScorerError,
-    score_gold_training_file,
-)
+from marketimmune.serving.gold_scoring import GoldFillScore, score_gold_training_file
+from marketimmune.serving.scorer import HyperliquidMarkoutScorer, MarkoutScorerError
 from server.api.models import ScoredFillDecision, ScoredFillRefreshRun
 
 ScorerLoader = Callable[[Path, Path, Path], HyperliquidMarkoutScorer]

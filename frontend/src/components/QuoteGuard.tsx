@@ -7,7 +7,7 @@ import { RegretMatrix } from './RegretMatrix';
 import Counter from './reactbits/Counter';
 
 const EXPORT_COMMAND =
-    'python -m scripts.export_markout_web_model --model <model>.cbm --report <report>.json';
+    'python -m marketimmune.cli.export_web_model --model <model>.cbm --report <report>.json';
 
 function LatestDecision() {
     const model = useMarket((s) => s.model);

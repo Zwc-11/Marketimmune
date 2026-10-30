@@ -11,18 +11,18 @@ from typing import Any
 
 from django.db import transaction
 
-from marketimmune.ingest.hyperliquid_archive import (
+from marketimmune.lake.backfill import (
+    HyperliquidBackfillResult,
+    HyperliquidDailyBackfill,
+)
+from marketimmune.lake.tables import HyperliquidLakeLayout
+from marketimmune.resilience import CircuitBreaker, with_retry
+from marketimmune.sources.hyperliquid_l2_archive import (
     HyperliquidArchive,
     boto3_requester_pays_fetcher,
     lz4_decompress,
 )
-from marketimmune.ingest.hyperliquid_backfill import (
-    HyperliquidBackfillResult,
-    HyperliquidDailyBackfill,
-)
-from marketimmune.ingest.hyperliquid_fills import NODE_DATA_BUCKET, HyperliquidNodeFills
-from marketimmune.ingest.hyperliquid_lake import HyperliquidLakeLayout
-from marketimmune.resilience import CircuitBreaker, with_retry
+from marketimmune.sources.hyperliquid_node_fills import NODE_DATA_BUCKET, HyperliquidNodeFills
 from server.api.models import HyperliquidBackfillJob
 from server.api.services.markout_decisions import refresh_markout_fill_decisions
 
@@ -37,7 +37,7 @@ class BackfillRequest:
     date: str
     hours: tuple[int, ...]
     fill_suffixes: tuple[str, ...]
-    lake_root: Path = Path("data/hyperliquid")
+    lake_root: Path = Path("data")
     include_asset_ctxs: bool = True
     refresh_decisions: bool = True
     dry_run: bool = False

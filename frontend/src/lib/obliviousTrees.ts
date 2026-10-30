@@ -1,6 +1,6 @@
 // Browser evaluator for the exported CatBoost markout model.
 //
-// Mirrors marketimmune.models.oblivious_trees: each symmetric tree's leaf is the
+// Mirrors marketimmune.serving.oblivious_trees: each symmetric tree's leaf is the
 // bit pattern of its (feature > border) tests, compared in float32 like CatBoost.
 // Trees are flattened into typed arrays once, so scoring a fill is a tight loop
 // with no allocation (~150 trees x depth 6 => ~1k comparisons).

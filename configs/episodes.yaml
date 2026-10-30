@@ -1,0 +1,16 @@
+# Race-episode detection (Lesson 3.5). Report results across theta_bps_grid.
+theta_bps: 3.0
+theta_bps_grid: [2.0, 3.0, 5.0, 8.0]
+jump_window_ms: 100        # Binance log-price move of >= theta within this window
+follow_window_ms: 1500     # follow each stale order this long (covers the 600-800 ms lag)
+min_mispricing: taker_fee  # keep stale orders whose mispricing exceeds the taker fee
+clock_signer:              # Lesson 3.3 filter
+  min_actions: 500
+  delay_lo_ms: 0
+  delay_hi_ms: 1000
+  min_share_in_range: 0.95
+  max_iqr_ms: 100
+  latency_quantile: 0.05
+rd:
+  donut_ms: 5
+  placebo_cutoffs_ms: [-35, 35]

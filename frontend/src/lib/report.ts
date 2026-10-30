@@ -2,13 +2,13 @@
 // without Django. When the API is up, its promoted-model health payload is shown
 // alongside; numbers never come from anywhere else.
 
-import committed from '../../../docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json';
+import committed from '../../../eval/markout_sol_10s/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json';
 
 export const COMMITTED_REPORT_PATH =
-    'docs/benchmarks/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json';
+    'eval/markout_sol_10s/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json';
 
 export const REPRODUCE_COMMAND =
-    'python -m scripts.train_hyperliquid_markout --coin SOL --dates 20260527..20260531 ' +
+    'python -m marketimmune.cli.train --coin SOL --dates 20260527..20260531 ' +
     '--holdout-date 20260601 --horizon 10s --iterations 150 --n-splits 5 --cv-scheme purged_kfold';
 
 export interface FoldRow {
