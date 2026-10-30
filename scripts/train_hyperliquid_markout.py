@@ -35,10 +35,12 @@ from scripts.hyperliquid_markout_data import (
     parse_date_spec,
     parse_symbol_spec,
     parse_threshold_grid,
+    partition_leakage_status,
     partition_row_counts,
     requested_training_partitions,
     resolve_training_partitions,
     split_existing_missing_partitions,
+    use_feature_set,
 )
 
 BASELINE_NAME = "event_ofi"
@@ -74,6 +76,7 @@ def train_oof_catboost(
     seed: int,
     calibration_fraction: float = 0.2,
     scheme: CvScheme = "walk_forward",
+    train_days: int | None = None,
 ) -> CatBoostTrainingResult:
     try:
         from catboost import CatBoostClassifier, Pool
@@ -108,6 +111,7 @@ def train_oof_catboost(
         purge_ms=purge_ms,
         embargo_ms=embargo_ms,
         scheme=scheme,
+        train_days=train_days,
     )
     for fold_id, fold in enumerate(folds, start=1):
         model_indices, calibration_indices = split_model_calibration_indices(
@@ -139,9 +143,24 @@ def train_oof_catboost(
     valid_raw = ~np.isnan(raw_probabilities)
     if not np.any(valid_raw):
         raise ValueError("no model was trained")
+    # Fix B4: the deployed calibrator is fit on the final model's own scores for the
+    # latest ``calibration_fraction`` of the window, which that model never saw.
+    # (It used to be fit on the fold models' out-of-fold scores and then applied to
+    # a different model trained on every row.)
+    final_model_idx, final_cal_idx = split_model_calibration_indices(
+        np.arange(len(frame), dtype=np.intp),
+        timestamps,
+        calibration_fraction=calibration_fraction,
+    )
     final_model = classifier(seed)
-    final_model.fit(Pool(x, y, feature_names=FEATURE_COLUMNS))
-    final_calibrator = fit_isotonic_calibrator(raw_probabilities[valid_raw], y[valid_raw])
+    final_model.fit(Pool(x[final_model_idx], y[final_model_idx], feature_names=FEATURE_COLUMNS))
+    final_calibrator = (
+        fit_isotonic_calibrator(
+            final_model.predict_proba(x[final_cal_idx])[:, 1], y[final_cal_idx]
+        )
+        if final_cal_idx.size
+        else None
+    )
     return CatBoostTrainingResult(
         probabilities=probabilities,
         raw_probabilities=raw_probabilities,
@@ -253,6 +272,8 @@ def evaluate_baseline(
     scheme: CvScheme = "walk_forward",
     folds: Sequence[FoldArrays] | None = None,
     prediction_mask: np.ndarray | None = None,
+    train_days: int | None = None,
+    leakage_safe: bool = False,
 ) -> dict[str, Any]:
     """Evaluate the deterministic event-level OFI baseline."""
     probabilities = event_ofi_probabilities(frame)
@@ -271,6 +292,8 @@ def evaluate_baseline(
         decision_thresholds=decision_thresholds,
         scheme=scheme,
         folds=folds,
+        train_days=train_days,
+        leakage_safe=leakage_safe,
     )
     return {
         **report.to_dict(),
@@ -382,6 +405,7 @@ def estimate_prediction_latency_p95_ms(
 
 def main() -> int:
     args = parse_args()
+    use_feature_set(args.feature_set)
     coins = parse_symbol_spec(args.coins or args.coin)
     dates = parse_date_spec(args.dates or args.date)
     holdout_dates = (
@@ -415,7 +439,11 @@ def main() -> int:
         else ()
     )
     label = dataset_label(partitions)
+    leakage_safe, leakage_details = partition_leakage_status(partitions + holdout_partitions)
     print(f"Loading {len(partitions)} partition(s): {label}")
+    if not leakage_safe:
+        print("WARNING: no passing no-look-ahead report for every partition; "
+              "the report will say leakage_safe=false")
     if holdout_partitions:
         print(
             f"Loading {len(holdout_partitions)} holdout partition(s): "
@@ -463,6 +491,7 @@ def main() -> int:
         seed=args.seed,
         calibration_fraction=calibration_fraction,
         scheme=args.cv_scheme,
+        train_days=args.train_days,
     )
     elapsed_s = time.perf_counter() - start
     probabilities = training_result.probabilities
@@ -491,6 +520,7 @@ def main() -> int:
             max_quote_rate=args.max_quote_rate,
             scheme=args.cv_scheme,
             folds=folds,
+            train_days=args.train_days,
         )
         candidate_deployment_selection = select_markout_threshold(
             eval_probabilities[valid],
@@ -525,6 +555,7 @@ def main() -> int:
             max_quote_rate=args.max_quote_rate,
             scheme=args.cv_scheme,
             folds=folds,
+            train_days=args.train_days,
         )
         baseline_deployment_selection = select_markout_threshold(
             baseline_probabilities[valid],
@@ -556,6 +587,8 @@ def main() -> int:
         decision_thresholds=candidate_thresholds,
         scheme=args.cv_scheme,
         folds=folds,
+        train_days=args.train_days,
+        leakage_safe=leakage_safe,
     )
     raw_report = evaluate_markout_predictions(
         eval_timestamps,
@@ -570,6 +603,8 @@ def main() -> int:
         decision_thresholds=candidate_thresholds,
         scheme=args.cv_scheme,
         folds=folds,
+        train_days=args.train_days,
+        leakage_safe=leakage_safe,
     )
     baseline_report = evaluate_baseline(
         frame,
@@ -582,6 +617,8 @@ def main() -> int:
         scheme=args.cv_scheme,
         folds=folds,
         prediction_mask=valid,
+        train_days=args.train_days,
+        leakage_safe=leakage_safe,
     )
     holdout_payload = None
     if holdout_future is not None:
@@ -660,6 +697,9 @@ def main() -> int:
         "partition_rows": partition_row_counts(eval_frame),
         "horizon": args.horizon,
         "cv_scheme": args.cv_scheme,
+        "train_days": args.train_days if args.cv_scheme == "rolling_daily" else None,
+        "feature_set": args.feature_set,
+        "leakage_check": leakage_details,
         "training_rows": len(frame),
         "oof_rows": int(valid.sum()),
         "feature_columns": FEATURE_COLUMNS,

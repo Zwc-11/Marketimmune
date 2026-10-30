@@ -27,3 +27,6 @@ db.sqlite3-*
 .env
 .env.*
 !.env.example
+
+# Separate repository (The Price of Priority), not part of MarketImmune
+price-of-priority/

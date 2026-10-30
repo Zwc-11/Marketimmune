@@ -138,7 +138,7 @@ def test_gold_markout_record_flattens_horizons() -> None:
     rows = build_markout_gold_rows(
         [_fill()],
         [_book(2_000, 98.0, 100.0)],
-        MarkoutConfig(horizons_s=(1.0,), fee_bps=1.0),
+        MarkoutConfig(horizons_s=(1.0,), fee_bps=1.0, reference="fill_px"),
     )
     record = gold_markout_record(rows[0])
     assert record["markout_bps_1s"] == pytest.approx(-100.0)
@@ -197,7 +197,7 @@ def test_write_gold_markout(tmp_path: Path) -> None:
     rows = build_markout_gold_rows(
         [_fill()],
         [_book(2_000, 98.0, 100.0)],
-        MarkoutConfig(horizons_s=(1.0,), fee_bps=1.0),
+        MarkoutConfig(horizons_s=(1.0,), fee_bps=1.0, reference="fill_px"),
     )
     result = write_gold_markout(layout, coin="BTC", date="20260101", rows=rows)
     records = read_parquet_records(result.path)
@@ -226,3 +226,36 @@ def test_read_parquet_window_sorts_then_slices_latest_or_head(tmp_path: Path) ->
     assert [row["ts_ms"] for row in read_parquet_window(path, limit=2, latest=False)] == [10, 20]
     assert [row["ts_ms"] for row in read_parquet_window(path, limit=0)] == [10, 20, 30, 40, 50]
     assert read_parquet_window(path, limit=9)[-1] == {"ts_ms": 50, "v": 100}
+
+
+
+def test_silver_l2_book_record_keeps_five_levels() -> None:
+    # Fix L4: Silver keeps depth; missing levels are None.
+    snap = BookSnapshot(
+        ts_ms=1,
+        coin="BTC",
+        bids=tuple(L2Level(px=100.0 - i, sz=1.0 + i, n=i + 1) for i in range(6)),
+        asks=(L2Level(px=101.0, sz=1.0, n=1),),
+    )
+    record = silver_l2_book_record(snap)
+    assert record["bid_px_5"] == 96.0 and record["bid_n_5"] == 5
+    assert "bid_px_6" not in record
+    assert record["ask_px_1"] == 101.0 and record["ask_px_2"] is None
+
+
+def test_write_silver_fills_writes_one_row_per_match(tmp_path: Path) -> None:
+    taker = parse_fill_row({"coin": "BTC", "px": "100", "sz": "1", "side": "B", "crossed": True,
+                            "time": 1_000, "tid": 5, "user": "0xt"})
+    maker = parse_fill_row({"coin": "BTC", "px": "100", "sz": "1", "side": "A", "crossed": False,
+                            "time": 1_000, "tid": 5, "user": "0xm"})
+    layout = HyperliquidLakeLayout(tmp_path)
+    write = write_silver_fills(layout, coin="BTC", date="20260101", fills=[taker, maker])
+    rows = read_parquet_records(write.path)
+    assert len(rows) == 1
+    assert (rows[0]["maker_user"], rows[0]["taker_user"]) == ("0xm", "0xt")
+
+
+def test_read_parquet_records_projects_existing_columns(tmp_path: Path) -> None:
+    path = tmp_path / "x.parquet"
+    write_parquet_records(path, [{"a": 1, "b": 2.0, "c": "z"}])
+    assert read_parquet_records(path, columns=["a", "c", "missing"]) == [{"a": 1, "c": "z"}]

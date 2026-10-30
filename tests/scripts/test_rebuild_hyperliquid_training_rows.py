@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -67,3 +68,8 @@ def test_rebuild_training_rows_adds_ofi_features(tmp_path: Path) -> None:
     assert result["training_rows"] == 1
     assert rows[0]["l2_ofi_event"] == pytest.approx(0.1)
     assert rows[0]["l2_ofi_10s"] == pytest.approx(0.1)
+    # Fix B3: the rebuild writes the no-look-ahead check beside the partition.
+    assert result["leakage_check"] == {"passed": True, "n_checked": 1, "n_mismatched": 0}
+    sidecar = Path(str(result["leakage_report"]))
+    assert sidecar.name == "BTC-training-20260101.leakage.json"
+    assert json.loads(sidecar.read_text())["passed"] is True

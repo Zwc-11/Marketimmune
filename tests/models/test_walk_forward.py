@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from marketimmune.models.walk_forward import (
+    DAY_MS,
     TemporalFold,
     purged_kfold_splits,
     purged_walk_forward_splits,
@@ -101,3 +102,42 @@ def test_rejects_unknown_scheme_and_too_few_rows_for_walk_forward() -> None:
         temporal_splits([0, 1, 2], n_splits=2, scheme="random")  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="one row per split"):
         walk_forward_splits([0, 1], n_splits=2)
+
+
+
+# --- fix B5: rolling walk-forward by day ----------------------------------------------
+
+
+def _days(n_days: int, per_day: int = 4) -> list[float]:
+    return [d * DAY_MS + i * DAY_MS / per_day for d in range(n_days) for i in range(per_day)]
+
+
+def test_rolling_daily_trains_only_on_the_window_before_each_test_day() -> None:
+    ts = _days(6)
+    folds = temporal_fold_arrays(ts, scheme="rolling_daily", train_days=2, purge_ms=60_000.0)
+    assert len(folds) == 4  # days 2..5; days 0 and 1 lack two days of history
+    for fold in folds:
+        day_start = fold.test_start_ms
+        assert all(day_start <= ts[i] < day_start + DAY_MS for i in fold.test)
+        assert all(day_start - 2 * DAY_MS <= ts[i] < day_start - 60_000.0 for i in fold.train)
+        assert len(fold.train) == 8 and len(fold.test) == 4
+
+
+def test_rolling_daily_default_window_and_too_little_data() -> None:
+    folds = temporal_fold_arrays(_days(9), scheme="rolling_daily")
+    assert len(folds) == 2  # default 7-day window
+    with pytest.raises(ValueError, match="more than 7 day"):
+        temporal_fold_arrays(_days(3), scheme="rolling_daily")
+    with pytest.raises(ValueError, match="train_days"):
+        temporal_fold_arrays(_days(3), scheme="rolling_daily", train_days=0)
+    with pytest.raises(ValueError, match="purge_ms"):
+        temporal_fold_arrays(_days(3), scheme="rolling_daily", train_days=1, purge_ms=-1.0)
+    with pytest.raises(ValueError, match="at least one row"):
+        temporal_fold_arrays([], scheme="rolling_daily", train_days=1)
+
+
+def test_rolling_daily_skips_gap_days() -> None:
+    ts = [t for t in _days(5) if not (2 * DAY_MS <= t < 3 * DAY_MS)]
+    folds = temporal_fold_arrays(ts, scheme="rolling_daily", train_days=1)
+    # day 2 is empty (no test rows) and day 3's one-day window is empty (no train rows)
+    assert [int(f.test_start_ms // DAY_MS) for f in folds] == [1, 4]

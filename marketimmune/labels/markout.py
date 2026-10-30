@@ -23,16 +23,27 @@ from __future__ import annotations
 from bisect import bisect_left
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 BPS = 10_000.0
+
+LabelReference = Literal["pre_fill_mid", "fill_px"]
 
 
 @dataclass(frozen=True, slots=True)
 class MarkoutConfig:
-    """Forward horizons (seconds) and the maker-fee threshold (bps) for toxicity."""
+    """Forward horizons (seconds), the toxicity threshold (bps), and the label anchor.
+
+    ``reference = "pre_fill_mid"`` (fix L2, the default) measures the move from the
+    last mid strictly before the fill, so the label is the adverse move alone and a
+    feature that knows the fill price cannot recover the half-spread part of it.
+    ``"fill_px"`` reproduces the v2 label, which Gold still stores alongside as
+    ``markout_px_bps_*`` for PnL accounting.
+    """
 
     horizons_s: tuple[float, ...] = (1.0, 10.0, 60.0)
     fee_bps: float = 1.0
+    reference: LabelReference = "pre_fill_mid"
 
 
 @dataclass(frozen=True, slots=True)

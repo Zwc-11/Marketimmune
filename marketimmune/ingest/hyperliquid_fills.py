@@ -13,7 +13,7 @@ work stay behind injected callables; parsing is pure.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -102,6 +102,11 @@ class NodeFill:
     builder_fee: float | None = None
     direction: str | None = None
     raw: Mapping[str, Any] | None = None
+    # Promoted from the raw row (fix L3) so Silver never has to re-parse raw_json.
+    user: str | None = None
+    start_position: float | None = None
+    priority_gas: float | None = None
+    liquidation: bool = False
 
     @property
     def user_side_sign(self) -> int:
@@ -154,6 +159,10 @@ class NodeFill:
             "fee_token": self.fee_token,
             "builder_fee": self.builder_fee,
             "direction": self.direction,
+            "user": self.user,
+            "start_position": self.start_position,
+            "priority_gas": self.priority_gas,
+            "liquidation": self.liquidation,
         }
 
 
@@ -175,7 +184,20 @@ def parse_fill_row(row: Mapping[str, Any]) -> NodeFill:
         builder_fee=_optional_float(data.get("builderFee")),
         direction=_optional_str(data.get("dir")),
         raw=dict(data),
+        user=_optional_str(data.get("user")),
+        start_position=_optional_float(data.get("startPosition")),
+        priority_gas=_optional_float(data.get("priorityGas")),
+        liquidation=_is_liquidation(data.get("liquidation")),
     )
+
+
+def _is_liquidation(value: object) -> bool:
+    """Node fills carry ``liquidation: {liquidatedUser, markPx, method}`` or null."""
+    if value is None or value is False or value == "":
+        return False
+    if isinstance(value, Mapping):
+        return bool(value)
+    return _optional_bool(value) is True
 
 
 def iter_fill_mappings(obj: Any) -> Iterator[Mapping[str, Any]]:
@@ -241,3 +263,190 @@ class HyperliquidNodeFills:
     def load_by_block_suffix(self, suffix: str = "") -> list[NodeFill]:
         """Load a key under the ``node_fills_by_block`` prefix."""
         return self.load_key(node_fills_by_block_key(suffix))
+
+
+@dataclass(frozen=True, slots=True)
+class MatchFill:
+    """One match with both legs merged (fix B2).
+
+    ``node_fills_by_block`` reports every match twice, once per wallet, and only the
+    taker's leg has ``crossed = true``. Labelling legs separately counts each match
+    twice and lets the copies land in different folds. A ``MatchFill`` is the single
+    row a markout label belongs to. Field names that Gold reads (``side``,
+    ``crossed``, ``oid``, ``maker_side``) are reported from the taker's view, so a
+    ``MatchFill`` can stand wherever a ``NodeFill`` was labelled.
+    """
+
+    coin: str
+    ts_ms: int
+    px: float
+    sz: float
+    taker_side: str
+    tid: int | None = None
+    trade_hash: str | None = None
+    maker_user: str | None = None
+    taker_user: str | None = None
+    maker_oid: int | None = None
+    taker_oid: int | None = None
+    maker_fee: float | None = None
+    taker_fee: float | None = None
+    maker_start_position: float | None = None
+    taker_start_position: float | None = None
+    priority_gas: float | None = None
+    liquidation: bool = False
+    n_legs: int = 2
+
+    @property
+    def side(self) -> str:
+        """Side of the reported leg, which is the taker's."""
+        return self.taker_side
+
+    @property
+    def crossed(self) -> bool:
+        return True
+
+    @property
+    def oid(self) -> int | None:
+        return self.taker_oid
+
+    @property
+    def maker_side(self) -> int:
+        """+1 when the resting bid was hit (maker bought), -1 when the ask was lifted."""
+        return -side_sign(self.taker_side)
+
+    @property
+    def notional(self) -> float:
+        return self.px * self.sz
+
+    @property
+    def maker_fee_bps(self) -> float | None:
+        return _fee_bps(self.maker_fee, self.notional)
+
+    @property
+    def taker_fee_bps(self) -> float | None:
+        return _fee_bps(self.taker_fee, self.notional)
+
+    def to_maker_fill(self) -> MakerFill:
+        return MakerFill(ts_s=self.ts_ms / 1000.0, price=self.px, side=self.maker_side)
+
+    @classmethod
+    def from_record(cls, row: Mapping[str, Any]) -> MatchFill:
+        """Rebuild from a Silver fills row (:meth:`to_dict`; derived columns ignored)."""
+        return cls(
+            coin=str(row["coin"]),
+            ts_ms=int(row["ts_ms"]),
+            px=float(row["px"]),
+            sz=float(row["sz"]),
+            taker_side=str(row["taker_side"]),
+            tid=_optional_int(row.get("tid")),
+            trade_hash=_optional_str(row.get("hash")),
+            maker_user=_optional_str(row.get("maker_user")),
+            taker_user=_optional_str(row.get("taker_user")),
+            maker_oid=_optional_int(row.get("maker_oid")),
+            taker_oid=_optional_int(row.get("taker_oid")),
+            maker_fee=_optional_float(row.get("maker_fee")),
+            taker_fee=_optional_float(row.get("taker_fee")),
+            maker_start_position=_optional_float(row.get("maker_start_position")),
+            taker_start_position=_optional_float(row.get("taker_start_position")),
+            priority_gas=_optional_float(row.get("priority_gas")),
+            liquidation=bool(row.get("liquidation") or False),
+            n_legs=int(row.get("n_legs") or 2),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "coin": self.coin,
+            "ts_ms": self.ts_ms,
+            "px": self.px,
+            "sz": self.sz,
+            "notional": self.notional,
+            "taker_side": self.taker_side,
+            "maker_side": self.maker_side,
+            "tid": self.tid,
+            "hash": self.trade_hash,
+            "maker_user": self.maker_user,
+            "taker_user": self.taker_user,
+            "maker_oid": self.maker_oid,
+            "taker_oid": self.taker_oid,
+            "maker_fee": self.maker_fee,
+            "taker_fee": self.taker_fee,
+            "maker_fee_bps": self.maker_fee_bps,
+            "taker_fee_bps": self.taker_fee_bps,
+            "maker_start_position": self.maker_start_position,
+            "taker_start_position": self.taker_start_position,
+            "priority_gas": self.priority_gas,
+            "liquidation": self.liquidation,
+            "n_legs": self.n_legs,
+        }
+
+
+def _fee_bps(fee: float | None, notional: float) -> float | None:
+    if fee is None or notional <= 0.0:
+        return None
+    return fee / notional * BPS
+
+
+def pair_fill_legs(fills: Sequence[NodeFill]) -> list[MatchFill]:
+    """Merge the two legs of each match into one :class:`MatchFill`.
+
+    Legs are keyed on ``(coin, ts_ms, tid)``; legs without a ``tid`` fall back to
+    ``(coin, ts_ms, hash, px, sz)``. A lone leg (an API user-fills download holds
+    only one wallet's side) still yields a row, with the other side's fields left
+    ``None`` and ``n_legs = 1``. Output follows the first appearance of each match.
+
+    Raises ``ValueError`` when two legs under one key disagree on price or size, or
+    when a key has more than one taker or maker leg: either means the key is not
+    unique and the dedupe would silently merge different trades.
+    """
+    groups: dict[tuple[object, ...], list[NodeFill]] = {}
+    for fill in fills:
+        key: tuple[object, ...] = (
+            (fill.coin, fill.ts_ms, fill.tid)
+            if fill.tid is not None
+            else (fill.coin, fill.ts_ms, fill.trade_hash, fill.px, fill.sz)
+        )
+        groups.setdefault(key, []).append(fill)
+    return [_merge_legs(key, legs) for key, legs in groups.items()]
+
+
+def _merge_legs(key: tuple[object, ...], legs: list[NodeFill]) -> MatchFill:
+    if len(legs) > 2:
+        raise ValueError(f"{len(legs)} fill legs share key {key!r}")
+    first = legs[0]
+    if any(leg.px != first.px or leg.sz != first.sz for leg in legs[1:]):
+        raise ValueError(f"fill legs under {key!r} disagree on px/sz")
+    takers = [leg for leg in legs if leg.crossed is True]
+    makers = [leg for leg in legs if leg.crossed is False]
+    if len(takers) > 1 or len(makers) > 1:
+        raise ValueError(f"fill legs under {key!r} have {len(takers)} takers, {len(makers)} makers")
+    taker = takers[0] if takers else None
+    maker = makers[0] if makers else None
+    if taker is not None:
+        taker_side = taker.side
+    elif maker is not None:
+        taker_side = "A" if maker.side == "B" else "B"
+    else:
+        # ``crossed`` missing: keep NodeFill.maker_side's convention (reported side
+        # is the maker's), so the label orientation does not change.
+        taker_side = "A" if first.side == "B" else "B"
+        maker = first if len(legs) == 1 else None
+    return MatchFill(
+        coin=first.coin,
+        ts_ms=first.ts_ms,
+        px=first.px,
+        sz=first.sz,
+        taker_side=taker_side,
+        tid=first.tid,
+        trade_hash=(taker or maker or first).trade_hash,
+        maker_user=maker.user if maker else None,
+        taker_user=taker.user if taker else None,
+        maker_oid=maker.oid if maker else None,
+        taker_oid=taker.oid if taker else None,
+        maker_fee=maker.fee if maker else None,
+        taker_fee=taker.fee if taker else None,
+        maker_start_position=maker.start_position if maker else None,
+        taker_start_position=taker.start_position if taker else None,
+        priority_gas=taker.priority_gas if taker else None,
+        liquidation=any(leg.liquidation for leg in legs),
+        n_legs=len(legs),
+    )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -13,12 +14,53 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 from marketimmune.features.hyperliquid_features import (
-    HYPERLIQUID_MARKOUT_FEATURE_COLUMNS,
+    FEATURE_SETS,
     HYPERLIQUID_OFI_COLUMNS,
 )
 
-FEATURE_COLUMNS = list(HYPERLIQUID_MARKOUT_FEATURE_COLUMNS)
+DEFAULT_FEATURE_SET = "l0"
+# One shared list object: the trainer imports it, and ``use_feature_set`` swaps its
+# contents in place so every module sees the same columns.
+FEATURE_COLUMNS = list(FEATURE_SETS[DEFAULT_FEATURE_SET])
 OFI_COLUMNS = HYPERLIQUID_OFI_COLUMNS
+
+
+def use_feature_set(name: str) -> list[str]:
+    """Select a ladder rung's columns (``l0``, ``l0_book``, ``l1``, ``l1_book``) or ``v2``."""
+    if name not in FEATURE_SETS:
+        raise ValueError(f"unknown feature set {name!r}; choose from {sorted(FEATURE_SETS)}")
+    FEATURE_COLUMNS[:] = FEATURE_SETS[name]
+    return FEATURE_COLUMNS
+
+
+def leakage_report_path(training_parquet: Path) -> Path:
+    """Sidecar written by the feature join: ``<partition>.leakage.json``."""
+    return training_parquet.with_suffix(".leakage.json")
+
+
+def partition_leakage_status(
+    partitions: tuple[TrainingPartition, ...],
+) -> tuple[bool, list[dict[str, Any]]]:
+    """True only when every partition has a passing no-look-ahead sidecar (fix B3)."""
+    details: list[dict[str, Any]] = []
+    for partition in partitions:
+        sidecar = leakage_report_path(partition.path)
+        entry: dict[str, Any] = {"coin": partition.coin, "date": partition.date}
+        if not sidecar.exists():
+            entry.update(passed=False, reason="no leakage report")
+        else:
+            try:
+                report = json.loads(sidecar.read_text(encoding="utf-8"))
+                entry.update(
+                    passed=bool(report.get("passed")),
+                    n_checked=report.get("n_checked"),
+                    n_mismatched=report.get("n_mismatched"),
+                    n_dropped=report.get("n_dropped"),
+                )
+            except (OSError, ValueError) as exc:
+                entry.update(passed=False, reason=f"unreadable leakage report: {exc}")
+        details.append(entry)
+    return bool(details) and all(d["passed"] for d in details), details
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +201,7 @@ def load_training_frame(path: Path, *, horizon: str, max_rows: int = 0) -> pd.Da
         "sz",
         "maker_side",
         "fee_bps",
+        "maker_fee_bps",
         label_col,
         markout_col,
         "l2_mid",
@@ -171,6 +214,8 @@ def load_training_frame(path: Path, *, horizon: str, max_rows: int = 0) -> pd.Da
         "asset_open_interest",
         "asset_premium",
     ]
+    # Rung-specific columns stored as-is in Gold (e.g. the CEX gap) are read too.
+    requested_columns += [c for c in FEATURE_COLUMNS if c not in requested_columns]
     available_columns = set(pq.read_schema(path).names)
     columns = [column for column in requested_columns if column in available_columns]
     frame = pq.read_table(path, columns=columns).to_pandas()
@@ -227,10 +272,11 @@ def prepare_training_frame(frame: pd.DataFrame, *, horizon: str) -> pd.DataFrame
     label_col = f"toxic_{horizon}"
     markout_col = f"markout_bps_{horizon}"
     frame = frame.copy()
-    if "fee_bps" not in frame.columns:
-        frame["fee_bps"] = 0.0
-    else:
-        frame["fee_bps"] = frame["fee_bps"].fillna(0.0)
+    for fee_column in ("fee_bps", "maker_fee_bps"):
+        if fee_column not in frame.columns:
+            frame[fee_column] = 0.0
+        else:
+            frame[fee_column] = frame[fee_column].fillna(0.0)
     for column in OFI_COLUMNS:
         if column not in frame.columns:
             frame[column] = 0.0

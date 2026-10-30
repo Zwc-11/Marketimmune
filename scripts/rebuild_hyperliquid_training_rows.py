@@ -6,11 +6,16 @@ import argparse
 import json
 from pathlib import Path
 
-from marketimmune.features.hyperliquid_features import build_hyperliquid_training_rows
+from marketimmune.features.hyperliquid_features import (
+    L2_JOIN_COLUMNS,
+    build_hyperliquid_training_rows,
+    verify_training_rows_no_lookahead,
+)
 from marketimmune.ingest.hyperliquid_lake import (
     HyperliquidLakeLayout,
     read_parquet_records,
     write_gold_training_rows,
+    write_leakage_report,
 )
 
 
@@ -39,7 +44,7 @@ def rebuild_training_rows(
     asset_path = layout.silver_asset_ctxs_path(date)
 
     label_rows = read_parquet_records(markout_path)
-    l2_rows = read_parquet_records(l2_path)
+    l2_rows = read_parquet_records(l2_path, columns=L2_JOIN_COLUMNS)
     asset_rows = read_parquet_records(asset_path) if asset_path.exists() else []
 
     training_rows = build_hyperliquid_training_rows(
@@ -53,6 +58,8 @@ def rebuild_training_rows(
         date=date,
         rows=training_rows,
     )
+    leakage = verify_training_rows_no_lookahead(label_rows, l2_rows, asset_rows).to_dict()
+    leakage_path = write_leakage_report(layout, coin=coin, date=date, report=leakage)
     return {
         "coin": coin.upper(),
         "date": date,
@@ -61,6 +68,8 @@ def rebuild_training_rows(
         "asset_rows": len(asset_rows),
         "training_rows": len(training_rows),
         "path": str(write.path),
+        "leakage_check": {k: leakage[k] for k in ("passed", "n_checked", "n_mismatched")},
+        "leakage_report": str(leakage_path),
     }
 
 

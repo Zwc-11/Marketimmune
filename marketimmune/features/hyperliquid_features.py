@@ -16,7 +16,13 @@ from typing import Any, cast
 import numpy as np
 import numpy.typing as npt
 
-from marketimmune.labels.leakage import LeakageError, assert_as_of
+from marketimmune.features.cex_gap import CEX_FEATURE_COLUMNS
+from marketimmune.labels.leakage import (
+    LeakageError,
+    LookaheadReport,
+    assert_strictly_before,
+    check_no_lookahead,
+)
 
 L2_FEATURES = (
     "mid",
@@ -44,12 +50,58 @@ HYPERLIQUID_MARKOUT_FEATURE_COLUMNS = (
     "asset_open_interest",
     "asset_premium",
 )
+# v3 rung L0: v2's features with the fixes applied. ``fill_vs_mid_bps`` is gone
+# (fix L2: with the label anchored at the pre-fill mid it only restated the
+# half-spread), and the fee is the maker's own, written to Gold (fix B1), which
+# the maker knows before it quotes. ``HYPERLIQUID_MARKOUT_FEATURE_COLUMNS`` stays
+# as the v2 list the deployed web model and the dashboard scorer were built on.
+MARKOUT_L0_FEATURE_COLUMNS = (
+    "sz",
+    "maker_side",
+    "maker_fee_bps",
+    "l2_spread_bps",
+    "l2_microprice_offset_bps",
+    "l2_top_imbalance",
+    *HYPERLIQUID_OFI_COLUMNS,
+    "asset_basis_bps",
+    "asset_funding",
+    "asset_open_interest",
+    "asset_premium",
+)
+# L0 for sources with no asset contexts and no fees (the Albers December 2025 L4 set).
+MARKOUT_L0_BOOK_FEATURE_COLUMNS = (
+    "sz",
+    "maker_side",
+    "l2_spread_bps",
+    "l2_microprice_offset_bps",
+    "l2_top_imbalance",
+    *HYPERLIQUID_OFI_COLUMNS,
+)
+FEATURE_SETS: dict[str, tuple[str, ...]] = {
+    "v2": HYPERLIQUID_MARKOUT_FEATURE_COLUMNS,
+    "l0": MARKOUT_L0_FEATURE_COLUMNS,
+    "l0_book": MARKOUT_L0_BOOK_FEATURE_COLUMNS,
+    # Rung L1: L0 plus the CEX-gap control (marketimmune.features.cex_gap).
+    "l1": (*MARKOUT_L0_FEATURE_COLUMNS, *CEX_FEATURE_COLUMNS),
+    "l1_book": (*MARKOUT_L0_BOOK_FEATURE_COLUMNS, *CEX_FEATURE_COLUMNS),
+}
 OFI_WINDOWS_MS = {
     "ofi_1s": 1_000.0,
     "ofi_5s": 5_000.0,
     "ofi_10s": 10_000.0,
 }
+TRAINING_ROW_FEATURE_COLUMNS = (
+    "feature_ts_ms",
+    *(f"l2_{name}" for name in L2_FEATURES),
+    *(f"asset_{name}" for name in ASSET_FEATURES),
+)
+# Longest feature window is 10 s of OFI; asset contexts can be minutes apart.
+LOOKAHEAD_CHECK_LOOKBACK_MS = 300_000.0
 _BOOK_COLUMNS = ("bid_px", "bid_sz", "ask_px", "ask_sz")
+# What the join reads from a Silver L2 row; anything else (depth levels, ts_ns) is
+# left on disk.
+L2_JOIN_COLUMNS = ("coin", "ts_ms", *_BOOK_COLUMNS, "mid", "spread_bps", "microprice",
+                   "top_imbalance")
 FloatArray = npt.NDArray[np.float64]
 
 
@@ -60,9 +112,12 @@ class _CoinIndex:
     ts_ms: FloatArray
     rows: list[Mapping[str, Any]]
 
-    def latest_at_or_before(self, ts_ms: FloatArray) -> npt.NDArray[np.intp]:
-        """Index of the last row with ``ts <= ts_ms`` (``-1`` when none)."""
-        return np.searchsorted(self.ts_ms, ts_ms, side="right") - 1
+    def latest_before(self, ts_ms: FloatArray) -> npt.NDArray[np.intp]:
+        """Index of the last row with ``ts < ts_ms`` (``-1`` when none).
+
+        Strict (fix L1): a snapshot in the fill's own millisecond is excluded.
+        """
+        return np.searchsorted(self.ts_ms, ts_ms, side="left") - 1
 
 
 def training_row_from_asof(
@@ -72,14 +127,14 @@ def training_row_from_asof(
 ) -> dict[str, Any]:
     """Merge one label row with already-selected as-of feature rows.
 
-    ``l2_row`` must be timestamped and at or before the fill. ``asset_ctx_row`` may
-    be timestamped; if it has no ``ts_ms`` it is treated as static daily context.
+    ``l2_row`` must be timestamped and strictly before the fill. ``asset_ctx_row``
+    may be timestamped; if it has no ``ts_ms`` it is treated as static daily context.
     """
     fill_ts_ms = _as_float(label_row["ts_ms"])
     feature_ts_ms = [_as_float(l2_row["ts_ms"])]
     if asset_ctx_row is not None and "ts_ms" in asset_ctx_row:
         feature_ts_ms.append(_as_float(asset_ctx_row["ts_ms"]))
-    assert_as_of([ts / 1000.0 for ts in feature_ts_ms], fill_ts_ms / 1000.0)
+    assert_strictly_before(feature_ts_ms, fill_ts_ms)
     return _merge_row(label_row, l2_row, asset_ctx_row, max(feature_ts_ms))
 
 
@@ -88,7 +143,7 @@ def build_hyperliquid_training_rows(
     l2_rows: Sequence[Mapping[str, Any]],
     asset_ctx_rows: Sequence[Mapping[str, Any]] = (),
 ) -> list[dict[str, Any]]:
-    """Build model-ready rows using only features known at or before each fill.
+    """Build model-ready rows using only features known strictly before each fill.
 
     Output order follows ``label_rows``; fills with no prior L2 snapshot are skipped.
     """
@@ -126,6 +181,31 @@ def build_hyperliquid_training_rows(
             asset_ctx = asset_static_latest.get(coin)
         out.append(_merge_row(label, l2_row, asset_ctx, feature_ts))
     return out
+
+
+def verify_training_rows_no_lookahead(
+    label_rows: Sequence[Mapping[str, Any]],
+    l2_rows: Sequence[Mapping[str, Any]],
+    asset_ctx_rows: Sequence[Mapping[str, Any]] = (),
+    *,
+    sample: int = 200,
+    seed: int = 0,
+) -> LookaheadReport:
+    """Fix B3: rebuild sampled rows with all source rows at or after the fill deleted.
+
+    Passing means the join, OFI windows and as-of selection read nothing from the
+    fill's own millisecond or later. The report is written beside each Gold training
+    partition and is the only thing that lets a model report say ``leakage_safe``.
+    """
+    return check_no_lookahead(
+        build_hyperliquid_training_rows,
+        label_rows,
+        (l2_rows, asset_ctx_rows),
+        columns=TRAINING_ROW_FEATURE_COLUMNS,
+        sample=sample,
+        seed=seed,
+        lookback_ms=LOOKAHEAD_CHECK_LOOKBACK_MS,
+    )
 
 
 def l2_rows_with_ofi(
@@ -169,8 +249,15 @@ def l2_rows_with_ofi(
     return out
 
 
-def prepare_markout_feature_row(row: Mapping[str, Any]) -> dict[str, float]:
-    """Derive the deployable CatBoost feature vector from one Gold training row."""
+def prepare_markout_feature_row(
+    row: Mapping[str, Any],
+    columns: Sequence[str] = HYPERLIQUID_MARKOUT_FEATURE_COLUMNS,
+) -> dict[str, float]:
+    """Derive a feature vector from one Gold training row.
+
+    ``columns`` picks the set: the v2 list (default, what the deployed model uses)
+    or ``MARKOUT_L0_FEATURE_COLUMNS``.
+    """
     required = (
         "px",
         "sz",
@@ -198,6 +285,7 @@ def prepare_markout_feature_row(row: Mapping[str, Any]) -> dict[str, float]:
         "sz": _as_float(row["sz"]),
         "maker_side": _as_float(row["maker_side"]),
         "fee_bps": _as_float(row.get("fee_bps", 0.0) or 0.0),
+        "maker_fee_bps": _as_float(row.get("maker_fee_bps", 0.0) or 0.0),
         "l2_spread_bps": _as_float(row["l2_spread_bps"]),
         "l2_microprice_offset_bps": (_as_float(row["l2_microprice"]) - mid) / mid * 10_000.0,
         "l2_top_imbalance": _as_float(row["l2_top_imbalance"]),
@@ -210,7 +298,7 @@ def prepare_markout_feature_row(row: Mapping[str, Any]) -> dict[str, float]:
     }
     for column in HYPERLIQUID_OFI_COLUMNS:
         features[column] = _as_float(row.get(column, 0.0) or 0.0)
-    return {name: features[name] for name in HYPERLIQUID_MARKOUT_FEATURE_COLUMNS}
+    return {name: features[name] for name in columns}
 
 
 def _merge_row(
@@ -257,7 +345,7 @@ def _asof_positions(
     for coin, coin_index in index.items():
         mask = coin_array == coin
         if mask.any():
-            positions[mask] = coin_index.latest_at_or_before(fill_ts[mask])
+            positions[mask] = coin_index.latest_before(fill_ts[mask])
     return positions
 
 
@@ -267,17 +355,17 @@ def _assert_point_in_time(
     positions: npt.NDArray[np.intp],
     index: Mapping[str, _CoinIndex],
 ) -> None:
-    """Vectorized form of ``assert_as_of`` over every resolved join."""
+    """Vectorized form of ``assert_strictly_before`` over every resolved join."""
     coin_array = np.asarray(coins, dtype=object)
     for coin, coin_index in index.items():
         mask = (coin_array == coin) & (positions >= 0)
         if not mask.any():
             continue
         feature_ts = coin_index.ts_ms[positions[mask]]
-        late = feature_ts > fill_ts[mask]
+        late = feature_ts >= fill_ts[mask]
         if late.any():
             raise LeakageError(
-                f"look-ahead: feature ts {feature_ts[late].max()} > fill ts "
+                f"look-ahead: feature ts {feature_ts[late].max()} >= fill ts "
                 f"{fill_ts[mask][late].min()}"
             )
 

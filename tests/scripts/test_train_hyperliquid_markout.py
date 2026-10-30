@@ -15,16 +15,21 @@ from marketimmune.ingest.hyperliquid_lake import write_parquet_records
 from marketimmune.models.walk_forward import CvScheme, temporal_fold_arrays
 from scripts import train_hyperliquid_markout as trainer
 from scripts.hyperliquid_markout_data import (
+    FEATURE_COLUMNS,
+    TrainingPartition,
+    leakage_report_path,
     load_training_panel,
     parse_date_spec,
     parse_symbol_spec,
     parse_threshold_grid,
+    partition_leakage_status,
     partition_row_counts,
     prepare_training_frame,
     requested_training_partitions,
     resolve_training_partitions,
     split_existing_missing_partitions,
     training_path,
+    use_feature_set,
 )
 from scripts.train_hyperliquid_markout import (
     apply_isotonic_calibrator,
@@ -33,6 +38,7 @@ from scripts.train_hyperliquid_markout import (
     fit_isotonic_calibrator,
     metric_deltas,
     split_model_calibration_indices,
+    train_oof_catboost,
     write_isotonic_calibrator,
 )
 
@@ -396,3 +402,56 @@ def test_cli_preserves_fitted_folds_through_reporting(
             if scheme == "walk_forward":
                 assert summaries[0]["n_threshold_train"] == 0
                 assert summaries[0]["threshold"] == pytest.approx(0.5)
+
+
+def test_feature_sets_l0_is_default_and_drops_fill_vs_mid() -> None:
+    try:
+        assert "fill_vs_mid_bps" not in FEATURE_COLUMNS
+        assert "maker_fee_bps" in FEATURE_COLUMNS
+        assert "fill_vs_mid_bps" in use_feature_set("v2")
+        assert "fill_vs_mid_bps" in FEATURE_COLUMNS  # same list object, swapped in place
+        with pytest.raises(ValueError, match="unknown feature set"):
+            use_feature_set("v9")
+    finally:
+        use_feature_set("l0")
+
+
+def test_partition_leakage_status_requires_a_passing_report(tmp_path: Path) -> None:
+    parts = tuple(
+        TrainingPartition(coin="SOL", date=d, path=tmp_path / f"SOL-training-{d}.parquet")
+        for d in ("20251201", "20251202")
+    )
+    ok, details = partition_leakage_status(parts)
+    assert ok is False and details[0]["reason"] == "no leakage report"
+    leakage_report_path(parts[0].path).write_text(json.dumps({"passed": True, "n_checked": 5}))
+    leakage_report_path(parts[1].path).write_text("{not json")
+    ok, details = partition_leakage_status(parts)
+    assert ok is False and details[0]["passed"] is True
+    assert "unreadable" in details[1]["reason"]
+    leakage_report_path(parts[1].path).write_text(json.dumps({"passed": True}))
+    assert partition_leakage_status(parts)[0] is True
+    assert partition_leakage_status(())[0] is False
+
+
+def test_train_oof_catboost_rolling_daily_and_tail_calibrator() -> None:
+    pytest.importorskip("catboost")
+    rng = np.random.default_rng(0)
+    n_days, per_day = 4, 120
+    ts = np.repeat(np.arange(n_days), per_day) * 86_400_000.0 + np.tile(
+        np.linspace(0, 86_000_000, per_day), n_days
+    )
+    frame = pd.DataFrame({column: rng.normal(size=ts.size) for column in FEATURE_COLUMNS})
+    frame["maker_side"] = rng.choice([-1.0, 1.0], size=ts.size)
+    frame["ts_ms"] = ts
+    signal = frame["l2_ofi_10s"] * -frame["maker_side"]
+    frame["toxic_10s"] = (signal + rng.normal(scale=0.5, size=ts.size)) > 0
+    result = train_oof_catboost(
+        frame, horizon="10s", n_splits=2, purge_ms=60_000.0, embargo_ms=0.0,
+        iterations=20, learning_rate=0.2, depth=3, seed=1,
+        scheme="rolling_daily", train_days=2,
+    )
+    tested = ~np.isnan(result.probabilities)
+    # days 0-1 are training-only; days 2-3 are each tested once
+    assert tested.sum() == 2 * per_day and not tested[: 2 * per_day].any()
+    assert [f["n_train"] for f in result.fold_summaries] == [2 * per_day, 2 * per_day]
+    assert result.calibrator is not None
