@@ -45,6 +45,8 @@ export interface BookState {
 }
 
 export interface AssetCtxState {
+    /** UTC receipt time; the context API does not supply an exchange timestamp. */
+    observedAt: number;
     markPx: number;
     oraclePx: number;
     midPx: number | null;
@@ -97,6 +99,7 @@ export interface MarketSnapshot {
 type Slice = keyof MarketSnapshot;
 
 const BOOK_HISTORY = 64;
+const CTX_HISTORY = 64;
 const RESOLVED_LIMIT = 200;
 const PING_MS = 30_000;
 const STATS_MIN_INTERVAL_MS = 250;
@@ -135,6 +138,7 @@ export class MarketFeed {
     private ofi = new OfiWindows();
     private readonly tracker = new RegretTracker(HORIZON_MS, TOXIC_FEE_BPS, STATS_WINDOW_MS);
     private readonly bookHistory: BookState[] = [];
+    private readonly ctxHistory: AssetCtxState[] = [];
     private model: ObliviousModel | null = null;
     private statsAt = 0;
     private lastMessageAt: number | null = null;
@@ -199,7 +203,7 @@ export class MarketFeed {
         if (ctxs.status === 'fulfilled') {
             const [meta, contexts] = ctxs.value;
             const index = meta.universe.findIndex((asset) => asset.name === COIN);
-            if (index >= 0) this.patch('ctx', parseCtx(contexts[index]));
+            if (index >= 0) this.onCtx(contexts[index]);
         }
         if (candles.status === 'rejected' && ctxs.status === 'rejected') {
             this.patchFeed({ error: 'Hyperliquid REST API unreachable' });
@@ -303,6 +307,7 @@ export class MarketFeed {
      */
     private resetAfterGap(): void {
         this.coverageStart = null;
+        this.ctxHistory.length = 0;
         if (this.snapshot.book === null) return;
         this.ofi = new OfiWindows();
         this.bookHistory.length = 0;
@@ -343,7 +348,7 @@ export class MarketFeed {
                 this.onTrades(message.data as RawTrade[]);
                 break;
             case 'activeAssetCtx':
-                this.patch('ctx', parseCtx((message.data as { ctx: Record<string, string> }).ctx));
+                this.onCtx((message.data as { ctx: Record<string, string> }).ctx);
                 break;
             case 'candle':
                 this.onCandle(message.data as RawCandle | RawCandle[]);
@@ -417,7 +422,16 @@ export class MarketFeed {
         this.refreshStats(false);
     }
 
-    /** Score with the latest book at or before the fill (no look-ahead). */
+    private onCtx(raw: Record<string, unknown>): void {
+        // Use receipt time, including for REST bootstrap. Never backdate an
+        // untimestamped context to the last book or the request's start time.
+        const ctx = parseCtx(raw, Date.now());
+        this.ctxHistory.push(ctx);
+        if (this.ctxHistory.length > CTX_HISTORY) this.ctxHistory.shift();
+        this.patch('ctx', ctx);
+    }
+
+    /** Score with the latest book and context available at or before the fill. */
     private score(
         time: number,
         px: number,
@@ -425,8 +439,15 @@ export class MarketFeed {
         makerSide: 1 | -1,
     ): { score: number; action: 'quote' | 'withhold' } | null {
         const model = this.model;
-        const ctx = this.snapshot.ctx;
-        if (!model || !ctx) return null;
+        if (!model) return null;
+        let ctx: AssetCtxState | undefined;
+        for (let i = this.ctxHistory.length - 1; i >= 0; i -= 1) {
+            if (this.ctxHistory[i].observedAt <= time) {
+                ctx = this.ctxHistory[i];
+                break;
+            }
+        }
+        if (!ctx) return null;
         let book: BookState | undefined;
         for (let i = this.bookHistory.length - 1; i >= 0; i -= 1) {
             if (this.bookHistory[i].time <= time) {
@@ -535,10 +556,11 @@ function parseCandle(raw: RawCandle): CandleBar {
     };
 }
 
-function parseCtx(raw: Record<string, unknown>): AssetCtxState {
+function parseCtx(raw: Record<string, unknown>, observedAt: number): AssetCtxState {
     const num = (key: string) => Number(raw[key] ?? Number.NaN);
     const mid = raw.midPx === null || raw.midPx === undefined ? null : Number(raw.midPx);
     return {
+        observedAt,
         markPx: num('markPx'),
         oraclePx: num('oraclePx'),
         midPx: mid,

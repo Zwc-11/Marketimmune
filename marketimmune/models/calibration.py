@@ -77,9 +77,9 @@ def _bin_sums(
     bins: int,
 ) -> tuple[npt.NDArray[np.int64], FloatArray, FloatArray]:
     index = np.minimum((probs * bins).astype(np.int64), bins - 1)
-    counts = np.bincount(index, minlength=bins)
-    prob_sums = np.bincount(index, weights=probs, minlength=bins)
-    label_sums = np.bincount(index, weights=labels, minlength=bins)
+    counts = np.asarray(np.bincount(index, minlength=bins), dtype=np.int64)
+    prob_sums = np.asarray(np.bincount(index, weights=probs, minlength=bins), dtype=np.float64)
+    label_sums = np.asarray(np.bincount(index, weights=labels, minlength=bins), dtype=np.float64)
     return counts, prob_sums, label_sums
 
 

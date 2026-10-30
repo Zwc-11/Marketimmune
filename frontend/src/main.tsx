@@ -8,6 +8,7 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/shell.css';
 import './styles/panels.css';
+import './styles/reports.css';
 import { App } from './App';
 import { DjangoProvider } from './data/django';
 
