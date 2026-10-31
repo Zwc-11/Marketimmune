@@ -7,18 +7,22 @@ forced flow).
 
 Stages can run alone (``--stages gold``); each reads the previous one's output from the
 lake. The L2 stage is the slow one because order statuses are a sequential ``.tar.xz``.
-Train and compare rungs afterwards with ``marketimmune.cli.train``.
+It ends with one health line per date (:func:`health`); train only on a month whose
+books never cross. Train and compare rungs afterwards with ``marketimmune.cli.train``.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
+from typing import Any
 
 from marketimmune.cli import build_albers_fills, build_albers_gold, build_albers_silver, build_positions, enrich_albers, forced_forecast
+from marketimmune.lake.tables import HyperliquidLakeLayout
 from marketimmune.logger import init_logger
-from marketimmune.utils import split_csv
+from marketimmune.utils import parse_date_spec, split_csv
 
 logger = init_logger(__name__)
 
@@ -34,6 +38,33 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--binance-dir", type=Path, default=Path("data/bronze/binance/aggTrades"))
     parser.add_argument("--lake-root", type=Path, default=Path("data"))
     return parser.parse_args(argv)
+
+
+def health(lake_root: Path, coin: str, dates: tuple[str, ...]) -> list[dict[str, Any]]:
+    """Per date, the numbers that say whether the month can be trained on: the worst hour's
+    crossed share and fills at the touch, archive replays dropped, triggers that traded
+    instead of resting, data gaps, and whether the Gold leakage check passed."""
+    layout = HyperliquidLakeLayout(lake_root)
+    out = []
+    for date in dates:
+        path = layout.silver_l2_book_path(coin, date).with_suffix(".validation.json")
+        if not path.exists():
+            continue
+        report = json.loads(path.read_text(encoding="utf-8"))
+        hours = report["hours"]
+        sidecar = layout.gold_training_path(coin, date).with_suffix(".leakage.json")
+        out.append(
+            {
+                "date": date,
+                "max_crossed_share": max(h["crossed_share"] or 0.0 for h in hours),
+                "min_fill_at_touch_share": min(h["fill_at_touch_share"] or 1.0 for h in hours),
+                "replayed_dropped": sum(h.get("replayed_dropped", 0) for h in hours),
+                "triggers_marketable": sum(h.get("triggers_marketable", 0) for h in hours),
+                "gaps": len(report["gaps"]),
+                "leakage_passed": json.loads(sidecar.read_text(encoding="utf-8"))["passed"] if sidecar.exists() else None,
+            }
+        )
+    return out
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -59,6 +90,8 @@ def main(argv: list[str] | None = None) -> int:
     if "enrich" in stages:
         enrich_albers.build(enrich_albers.parse_args(common))
     logger.info(f"done: {', '.join(stages)} in {time.perf_counter() - t0:.0f}s")
+    for row in health(args.lake_root, args.coin.upper(), parse_date_spec(args.dates)):
+        print(json.dumps(row))
     return 0
 
 

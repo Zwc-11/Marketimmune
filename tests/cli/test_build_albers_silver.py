@@ -101,7 +101,8 @@ def test_build_writes_rows_and_validation(tmp_path: Path) -> None:
     assert report["hours"][0]["opens_rested"] == 3
     assert report["hours"][1]["fills_at_touch"] == 1
 
-    # fills: one trade at 2 s (the 100.02 ask lifted by 0xt), one for another coin
+    # fills: one trade at 2 s (the 100.02 ask lifted by 0xt), repeated once like the archive's
+    # replayed windows, and one for another coin
     trade = {
         "coin": "SOL",
         "side": "B",
@@ -111,12 +112,12 @@ def test_build_writes_rows_and_validation(tmp_path: Path) -> None:
         "hash": "0x1",
         "side_info": [{"user": "0xt", "start_pos": "0", "oid": 50}, {"user": "0xm", "start_pos": "3", "oid": 2}],
     }
-    lines = "\n".join(json.dumps({**trade, "coin": c}) for c in ("SOL", "ETH")) + "\n"
+    lines = "\n".join(json.dumps({**trade, "coin": c}) for c in ("SOL", "ETH", "SOL")) + "\n"
     with tarfile.open(tmp_path / "trades_2025_12.tar", "w") as tar:
         _add(tar, "20251201/0.gz", gzip.compress(lines.encode()))
     lake = ["--lake-root", str(tmp_path / "lake")]
     (fills,) = build_albers_fills.build(build_albers_fills.parse_args(["--albers-dir", str(tmp_path), *lake]))
-    assert fills["matches"] == 1 and fills["liquidation_matches"] == 0
+    assert fills["matches"] == 1 and fills["duplicates_dropped"] == 1 and fills["liquidation_matches"] == 0
 
     binance = tmp_path / "binance" / "SOLUSDT"
     binance.mkdir(parents=True)
@@ -162,6 +163,9 @@ def test_build_writes_rows_and_validation(tmp_path: Path) -> None:
 
     # the orchestrator reruns a stage; without Binance zips the CEX step reports why
     assert run_albers_month.main(["--stages", "gold", "--dates", "20251201", *lake, "--binance-dir", str(tmp_path / "none")]) == 0
+    (row,) = run_albers_month.health(tmp_path / "lake", "SOL", ("20251201", "20251202"))
+    assert row["date"] == "20251201" and row["max_crossed_share"] == 0.0 and row["replayed_dropped"] == 0
+    assert row["gaps"] == 0 and row["leakage_passed"] is True
     with pytest.raises(SystemExit, match="unknown stage"):
         run_albers_month.main(["--stages", "bogus"])
 

@@ -88,4 +88,31 @@ H3 fails if the placebo is significant, whatever L3a shows.
 
 ## Deviations
 
-(none yet)
+### 2026-10-31: data bugs found after the registered run
+
+The registered run finished on 2026-10-31 (code `8f731c0`, Dec 12 excluded). Its
+reports are kept unchanged in `eval/sol_dec_registered/`. Three data bugs were found
+afterwards, two of them *because of* those results, so everything below is post hoc:
+
+1. **OFI windows across a book reset** (found before results, by Dec 12's failed
+   leakage check; fixed after L0/L1 results were seen). A jump of more than 30 s
+   between Silver book rows now restarts the OFI windows. 30 rows change, all on
+   2025-12-12, which then passes its leakage check.
+2. **Archive replays** (found after all results, from the validation files' crossed
+   hours and an outlier day in the PnL). The status and trades files jump back in time
+   and repeat windows on Dec 9, 15, 18, 21 and 30. Every status behind the newest
+   timestamp is an exact copy of an earlier one, and exact repeats of a trade are not
+   second trades; both are now dropped. Replaying them re-opened cancelled orders,
+   crossed the rebuilt book for up to an hour each time, and duplicated fills and
+   liquidation events.
+3. **Trigger orders fired through the book** (same discovery). A stop that fires at
+   a limit through the opposite best trades; it does not rest. On 2025-12-19 04:11 a
+   buy stop at 131.61, with the best ask at 121.86, was rested and crossed the book
+   until the archive gaps of Dec 20 reset it (28 hours; 79% of Dec 19's fills).
+
+No hypothesis, metric, setting, fold or regime changes. The corrected run applies the
+registered rules unchanged to the rebuilt month: the date-exclusion rule now keeps
+Dec 12, because it passes. Both runs are reported in full, side by side. Because the
+corrections were made after results were seen, a hypothesis is called supported only
+if it is supported in **both** the registered and the corrected run; a result that
+appears only in the corrected run is reported as exploratory.

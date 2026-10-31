@@ -18,6 +18,7 @@ from marketimmune.sources.albers_l4 import (
     Rested,
     albers_trades_member_to_matches,
     decode_fixed,
+    drop_replayed,
     fixed_to_ticks,
     iso_to_ns,
     l2_table,
@@ -142,6 +143,35 @@ def test_replay_hour_rests_only_diffed_orders_and_defers_triggers() -> None:
     assert stats.blocks == 5 and stats.rows == 3 and stats.resting_orders_end == 2
     summary = stats.to_dict()
     assert summary["fill_at_touch_share"] == 1.0 and summary["crossed_share"] == 0.0
+
+
+def test_a_trigger_fired_through_the_book_trades_instead_of_resting() -> None:
+    # 2025-12-19 04:11: a buy stop with limit 131.61 fired with the best ask at 121.86. Its
+    # ``new`` diff exists from placement; resting it crossed the book for 28 hours.
+    events = [
+        {"ts": 1 * S, "status": "open", "oid": 1, "px": 100.00, "sz": 2.0},
+        {"ts": 1 * S, "status": "open", "oid": 2, "px": 100.01, "sz": 3.0, "ask": True},
+        {"ts": 1 * S, "status": "open", "oid": 3, "px": 110.00, "sz": 1.0, "tif": "null", "trigger": True},
+        {"ts": 1 * S, "status": "open", "oid": 4, "px": 99.00, "sz": 1.0, "tif": "null", "trigger": True},
+        {"ts": 2 * S, "status": "triggered", "oid": 3, "px": 110.00, "sz": 1.0},
+        {"ts": 3 * S, "status": "triggered", "oid": 4, "px": 99.00, "sz": 1.0},
+    ]
+    rows, _events, stats = replay(AlbersBook("sol", {0: "0xa"}), events, {1: 2.0, 2: 3.0, 3: 1.0, 4: 1.0})
+    assert stats.triggers_marketable == 1 and stats.triggers_rested == 1 and stats.crossed_blocks == 0
+    assert (rows[-1]["bid_px"], rows[-1]["bid_px_2"], rows[-1]["ask_px"]) == (100.0, 99.0, 100.01)
+
+
+def test_drop_replayed_removes_the_archive_s_repeated_windows() -> None:
+    def recs(ts_oid: list[tuple[int, int]]) -> np.ndarray:
+        return status_records([{"ts": t * S, "status": "open", "oid": o} for t, o in ts_oid])
+
+    clean = recs([(1, 1), (2, 2), (2, 3)])
+    assert drop_replayed(clean, None) is clean and drop_replayed(clean, 1 * S) is clean
+    # 2025-12-09 12:41:50 -> 12:39:44: the file jumps back and repeats a window, seam included
+    replayed = recs([(1, 1), (2, 2), (3, 3), (2, 2), (3, 3), (4, 4)])
+    assert drop_replayed(replayed, None)["oid"].tolist() == [1, 2, 3, 4]
+    # the window repeated at the start of the next hour's file
+    assert drop_replayed(recs([(2, 2), (3, 3), (5, 5)]), 3 * S)["oid"].tolist() == [3, 5]
 
 
 def test_book_levels_aggregate_and_reopen() -> None:

@@ -10,7 +10,8 @@ and unfilled IOCs, see :meth:`AlbersBook.replay_hour`).
 Order statuses are a sequential ``.tar.xz``, so a run always decompresses from Dec 1 up
 to its last date; book diffs are an uncompressed tar read by offset. The book starts
 empty, so rows from the first ``--warmup-minutes`` of a run, and of the book rebuilt
-after each data gap, are dropped. Each hourly diff member holds every coin (about 1.6 GB
+after each data gap, are dropped. Statuses the archive repeats after jumping back in time
+are dropped first (:func:`drop_replayed`). Each hourly diff member holds every coin (about 1.6 GB
 of JSON) and parsing it costs more than replaying the hour, so ``--diff-workers``
 processes parse the next hours' diffs while this one replays.
 """
@@ -43,6 +44,7 @@ from marketimmune.sources.albers_l4 import (
     AlbersBook,
     ReplayStats,
     Rested,
+    drop_replayed,
     gunzip,
     l2_table,
     merge_rested,
@@ -188,14 +190,15 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
     try:
         for name, raw in iter_status_members(args.albers_dir / f"{coin.lower()}_orders_202512.tar.xz", set(wanted)):
             date, hour = wanted[name]
-            records = read_status_records(raw)
+            raw_records = read_status_records(raw)
+            records = drop_replayed(raw_records, last_ts)
             this_name, next_name = diff_member(date, hour), diff_member(*next_hour(date, hour))
             this = held[1] if held is not None and held[0] == this_name else diffs.get(this_name)
             held = (next_name, diffs.get(next_name))
             rested = merge_rested(this, held[1])
             if last_ts is None and records.size:
                 warm_from = int(records["ts"][0]) + warmup_ns
-            stats = ReplayStats()
+            stats = ReplayStats(replayed_dropped=raw_records.size - records.size)
             rows: list[list[Any]] = []
             event_parts: list[pa.Table] = []
             for segment, gap_start in split_at_gaps(records, last_ts, gap_ns):

@@ -4,7 +4,7 @@
 
 Reads ``trades_2025_12.tar`` (hourly gz JSON lines, all coins) by seek and writes
 ``silver/hyperliquid/fills/<COIN>/<COIN>-<date>.parquet`` with maker and taker wallets,
-oids and start positions. ``liquidation`` is set when the taker oid is a
+oids and start positions; exact repeats of a match are dropped. ``liquidation`` is set when the taker oid is a
 forced-liquidation order in that date's Silver order events, so ``build_albers_silver``
 runs first. Albers trades carry no fees, so the fee columns are null.
 """
@@ -63,11 +63,15 @@ def build(args: argparse.Namespace) -> list[dict[str, Any]]:
                 matches += albers_trades_member_to_matches(gunzip(handle.read()), coin, liquidations)
             if not matches:
                 continue
-            matches.sort(key=lambda m: m.ts_ms)
+            # NOTE: the trades files repeat windows like the status files do (drop_replayed);
+            # an exact copy of a match (same oids, sizes, start positions) is never a second trade.
+            unique = list(dict.fromkeys(matches))
+            duplicates, matches = len(matches) - len(unique), sorted(unique, key=lambda m: m.ts_ms)
             write = write_silver_fills(layout, coin=coin, date=date, fills=matches)
             summary = {
                 "date": date,
                 "matches": len(matches),
+                "duplicates_dropped": duplicates,
                 "liquidation_matches": sum(m.liquidation for m in matches),
                 "path": str(write.path),
                 "elapsed_s": round(time.perf_counter() - t0, 1),

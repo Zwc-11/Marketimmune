@@ -234,6 +234,24 @@ def rested_orders_gz(compressed: bytes, coin: str) -> Rested:
     return np.array(oids, dtype=np.bytes_).astype(np.uint64), np.array(sizes, dtype=np.bytes_).astype(np.float64)
 
 
+def drop_replayed(records: npt.NDArray[np.void], max_ts: int | None) -> npt.NDArray[np.void]:
+    """Statuses in time order, without the archive's replays.
+
+    The December status files sometimes jump back minutes in time and repeat a window
+    (2025-12-09 12:41:50 back to 12:39:44; 12-15, 12-18, 12-21 and 12-30 too). Every
+    record behind the newest timestamp seen so far (``max_ts`` carries it across hours)
+    is an exact copy of an earlier one, so it is dropped; so are exact copies at the seam.
+    Replaying them re-opened cancelled orders and crossed the book for hours.
+    """
+    ts = records["ts"].astype(np.int64)
+    if ts.size == 0 or (bool(np.all(ts[1:] >= ts[:-1])) and (max_ts is None or int(ts[0]) >= max_ts)):
+        return records
+    before = np.maximum.accumulate(np.concatenate(([-1 if max_ts is None else max_ts], ts[:-1])))
+    kept = records[ts >= before]
+    _, first = np.unique(kept.view(np.dtype((np.void, kept.dtype.itemsize))), return_index=True)
+    return kept[np.sort(first)]
+
+
 def merge_rested(*parts: Rested) -> Rested:
     """Sorted unique oids with their resting size; a later part (or line) wins."""
     oids = np.concatenate([o for o, _ in parts])[::-1]
@@ -266,6 +284,8 @@ class ReplayStats:
     opens_not_resting: int = 0
     trigger_opens_deferred: int = 0
     triggers_rested: int = 0
+    triggers_marketable: int = 0
+    replayed_dropped: int = 0
     resting_fills: int = 0
     fills_at_touch: int = 0
     fills_in_top_depth: int = 0
@@ -444,6 +464,13 @@ class AlbersBook:
                     dirty = True
             elif kind == _ADD or (kind == _TRIGGER and o not in orders):
                 if kind == _TRIGGER:
+                    # NOTE: a trigger order has a ``new`` diff from its placement whether or not it
+                    # ever rests. Fired at a limit through the opposite best it trades as a taker
+                    # (2025-12-19 04:11: a buy stop at 131.61 with the market at 121.86 crossed the
+                    # book for 28 hours), so it rests only if it would not cross.
+                    if (bool(bp) and px <= bp[-1]) if is_new_ask else (bool(ap) and px >= ap[0]):
+                        stats.triggers_marketable += 1
+                        continue
                     stats.triggers_rested += 1
                 orders[o] = (is_new_ask, px, rsz)
                 prices, levels = (ap, al) if is_new_ask else (bp, bl)
