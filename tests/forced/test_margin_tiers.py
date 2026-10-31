@@ -18,7 +18,7 @@ def test_maintenance_margin_is_continuous_across_tiers() -> None:
     above = maintenance_margin("SOL", 70e6 + 1.0)
     assert above - below == pytest.approx(0.05, abs=1e-6)  # the 5% rate on the extra dollar
     assert maintenance_margin("SOL", 100e6) == pytest.approx(70e6 * 0.025 + 30e6 * 0.05)
-    with pytest.raises(KeyError, match="no margin tiers"):
+    with pytest.raises(AssertionError, match="no margin tiers"):
         tiers_for("FOO")
 
 
@@ -35,5 +35,5 @@ def test_liquidation_price_at_max_leverage() -> None:
     # at liquidation, equity equals maintenance margin
     equity_at_liq = n / 20 - 100.0 * (100.0 - liq)
     assert equity_at_liq == pytest.approx(maintenance_margin("SOL", 100.0 * liq))
-    with pytest.raises(ValueError):
+    with pytest.raises(AssertionError, match="no position"):
         liquidation_price("SOL", 0.0, 100.0, 1.0)

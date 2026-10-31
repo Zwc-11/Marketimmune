@@ -28,24 +28,15 @@ from marketimmune.cli._train_data import (
     OOF_EXTRA_COLUMNS,
     dataset_label,
     load_training_panel,
-    parse_date_spec,
-    parse_symbol_spec,
     partition_leakage_status,
     resolve_training_partitions,
     use_feature_set,
 )
 from marketimmune.features.training_rows import FEATURE_SETS
 from marketimmune.models.cross_validation import CV_SCHEMES
-from marketimmune.models.decomposition import (
-    feature_groups,
-)
-from marketimmune.models.quantile_ladder import (
-    QuantileOOF,
-    lightgbm_factory,
-    quantile_column,
-    quantile_report,
-    train_quantile_oof,
-)
+from marketimmune.models.decomposition import feature_groups
+from marketimmune.models.quantile_ladder import LgbParams, QuantileOOF, quantile_column, quantile_report, train_quantile_oof
+from marketimmune.utils import parse_date_spec, parse_symbol_spec, split_csv
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -59,35 +50,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--taus", default="0.1,0.5,0.9")
     parser.add_argument("--cv-scheme", choices=CV_SCHEMES, default="rolling_daily")
     parser.add_argument("--train-days", type=int, default=7)
-    parser.add_argument("--n-splits", type=int, default=5)
     parser.add_argument("--purge-ms", type=float, default=60_000.0)
-    parser.add_argument("--embargo-ms", type=float, default=0.0)
     parser.add_argument("--n-estimators", type=int, default=300)
     parser.add_argument("--learning-rate", type=float, default=0.05)
     parser.add_argument("--num-leaves", type=int, default=31)
     parser.add_argument("--min-child-samples", type=int, default=200)
-    parser.add_argument("--max-rows", type=int, default=0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--report", type=Path, default=Path("eval/quantile_report.json"))
-    parser.add_argument("--allow-missing-partitions", action="store_true")
-    parser.add_argument("--no-contrib", action="store_true",
-                        help="skip per-group contributions of the tau=0.5 model "
-                             "(used by marketimmune.cli.decompose)")
+    parser.add_argument(
+        "--no-contrib", action="store_true", help="skip per-group contributions of the tau=0.5 model (read by cli.decompose)"
+    )
     return parser.parse_args(argv)
 
 
-def write_quantile_oof(
-    path: Path,
-    frame: pd.DataFrame,
-    oof: QuantileOOF,
-    *,
-    horizon: str,
-    feature_set: str,
-) -> Path:
+def write_quantile_oof(path: Path, frame: pd.DataFrame, oof: QuantileOOF, *, horizon: str, feature_set: str) -> Path:
     """Tested rows only: fill key, regime columns, label, markout and the quantiles."""
     tested = oof.tested
-    keep = ["ts_ms", "partition_coin", "partition_date", "px", "sz", "maker_side",
-            *(c for c in OOF_EXTRA_COLUMNS if c in frame.columns)]
+    keep = ["ts_ms", "partition_coin", "partition_date", "px", "sz", "maker_side", *OOF_EXTRA_COLUMNS]
     out = frame.loc[tested, [c for c in keep if c in frame.columns]].copy()
     out["label"] = frame.loc[tested, f"toxic_{horizon}"].to_numpy(dtype=bool)
     out["markout_bps"] = frame.loc[tested, f"markout_bps_{horizon}"].to_numpy(dtype=np.float64)
@@ -107,16 +86,11 @@ def write_quantile_oof(
 def run(args: argparse.Namespace) -> dict[str, Any]:
     use_feature_set(args.feature_set)
     coins = parse_symbol_spec(args.coins or args.coin)
-    partitions = resolve_training_partitions(
-        args.lake_root,
-        coins=coins,
-        dates=parse_date_spec(args.dates),
-        allow_missing=args.allow_missing_partitions,
-    )
+    partitions = resolve_training_partitions(args.lake_root, coins=coins, dates=parse_date_spec(args.dates))
     leakage_safe, leakage = partition_leakage_status(partitions)
-    frame = load_training_panel(partitions, horizon=args.horizon, max_rows=args.max_rows)
-    taus = tuple(float(t) for t in args.taus.split(",") if t.strip())
-    factory = lightgbm_factory(
+    frame = load_training_panel(partitions, horizon=args.horizon)
+    taus = tuple(float(t) for t in split_csv(args.taus))
+    params = LgbParams(
         n_estimators=args.n_estimators,
         learning_rate=args.learning_rate,
         num_leaves=args.num_leaves,
@@ -128,12 +102,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         frame[f"markout_bps_{args.horizon}"].to_numpy(dtype=np.float64),
         frame["ts_ms"].to_numpy(dtype=np.float64),
         taus=taus,
-        factory=factory,
-        scheme=args.cv_scheme,
+        params=params,
         train_days=args.train_days,
-        n_splits=args.n_splits,
         purge_ms=args.purge_ms,
-        embargo_ms=args.embargo_ms,
         seed=args.seed,
         contrib_tau=None if args.no_contrib or 0.5 not in taus else 0.5,
         contrib_groups=feature_groups(FEATURE_COLUMNS),
@@ -153,7 +124,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "horizon": args.horizon,
         "target": f"markout_bps_{args.horizon}",
         "cv_scheme": args.cv_scheme,
-        "train_days": args.train_days if args.cv_scheme == "rolling_daily" else None,
+        "train_days": args.train_days,
         "leakage_safe": leakage_safe,
         "leakage_check": leakage,
         "rows": len(frame),
@@ -183,8 +154,10 @@ def main(argv: list[str] | None = None) -> int:
         )
     if "interval" in payload:
         iv = payload["interval"]
-        print(f"interval {iv['nominal']:.0%}: coverage={iv['coverage']:.3f} "
-              f"width={iv['mean_width_bps']:.2f} bps; leakage_safe={payload['leakage_safe']}")
+        print(
+            f"interval {iv['nominal']:.0%}: coverage={iv['coverage']:.3f} "
+            f"width={iv['mean_width_bps']:.2f} bps; leakage_safe={payload['leakage_safe']}"
+        )
     print(f"Wrote {payload['oof_predictions']}")
     return 0
 

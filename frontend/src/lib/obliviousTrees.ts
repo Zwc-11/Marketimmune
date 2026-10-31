@@ -5,7 +5,7 @@
 // Trees are flattened into typed arrays once, so scoring a fill is a tight loop
 // with no allocation (~150 trees x depth 6 => ~1k comparisons).
 
-export const COMPACT_FORMAT = 'marketimmune.oblivious.v1';
+const COMPACT_FORMAT = 'marketimmune.oblivious.v1';
 
 export interface IsotonicArtifact {
     enabled: boolean;
@@ -13,7 +13,7 @@ export interface IsotonicArtifact {
     y: number[];
 }
 
-export interface CompactModel {
+interface CompactModel {
     format: string;
     feature_columns: string[];
     scale: number;
@@ -22,19 +22,10 @@ export interface CompactModel {
     decision_threshold?: number | null;
     calibrator?: IsotonicArtifact;
     model_name?: string | null;
-    coin?: string | null;
-    horizon?: string | null;
-    dataset_label?: string | null;
-    cv_scheme?: string | null;
-    holdout?: {
-        pr_auc?: number | null;
-        markout_lift_bps?: number | null;
-        lift_vs_event_ofi_bps?: number | null;
-    };
 }
 
 export class ObliviousModel {
-    readonly featureColumns: readonly string[];
+    readonly meta: Omit<CompactModel, 'trees'>;
     readonly treeCount: number;
     private readonly depths: Int32Array;
     private readonly splitOffsets: Int32Array;
@@ -44,9 +35,17 @@ export class ObliviousModel {
     private readonly leaves: Float64Array;
     private readonly scratch: Float32Array;
 
-    private constructor(private readonly compact: CompactModel) {
-        const trees = compact.trees;
-        this.featureColumns = compact.feature_columns;
+    static fromCompact(payload: unknown): ObliviousModel {
+        const compact = payload as CompactModel | null;
+        if (compact?.format !== COMPACT_FORMAT) throw new Error(`expected a ${COMPACT_FORMAT} model artifact`);
+        if (!Array.isArray(compact.trees) || !Array.isArray(compact.feature_columns)) {
+            throw new Error('model artifact is missing trees or feature_columns');
+        }
+        return new ObliviousModel(compact);
+    }
+
+    private constructor({ trees, ...meta }: CompactModel) {
+        this.meta = meta;
         this.treeCount = trees.length;
         this.depths = new Int32Array(trees.length);
         this.splitOffsets = new Int32Array(trees.length);
@@ -54,13 +53,14 @@ export class ObliviousModel {
         let splits = 0;
         let leaves = 0;
         trees.forEach((tree, i) => {
-            if (tree.f.length !== tree.b.length || tree.v.length !== 1 << tree.f.length) {
+            const depth = tree.f.length;
+            if (tree.b.length !== depth || tree.v.length !== 1 << depth) {
                 throw new Error(`tree ${i} has inconsistent splits and leaves`);
             }
-            this.depths[i] = tree.f.length;
+            this.depths[i] = depth;
             this.splitOffsets[i] = splits;
             this.leafOffsets[i] = leaves;
-            splits += tree.f.length;
+            splits += depth;
             leaves += tree.v.length;
         });
         this.features = new Int32Array(splits);
@@ -71,43 +71,28 @@ export class ObliviousModel {
             this.borders.set(tree.b, this.splitOffsets[i]);
             this.leaves.set(tree.v, this.leafOffsets[i]);
         });
-        this.scratch = new Float32Array(compact.feature_columns.length);
+        this.scratch = new Float32Array(meta.feature_columns.length);
     }
 
-    static fromCompact(payload: unknown): ObliviousModel {
-        const compact = payload as CompactModel;
-        if (!compact || compact.format !== COMPACT_FORMAT) {
-            throw new Error(`expected a ${COMPACT_FORMAT} model artifact`);
-        }
-        if (!Array.isArray(compact.trees) || !Array.isArray(compact.feature_columns)) {
-            throw new Error('model artifact is missing trees or feature_columns');
-        }
-        return new ObliviousModel(compact);
-    }
-
-    get meta(): Omit<CompactModel, 'trees'> {
-        const { trees: _trees, ...meta } = this.compact;
-        return meta;
+    get featureColumns(): readonly string[] {
+        return this.meta.feature_columns;
     }
 
     /** Log-odds for one row; null/NaN features fail every split (CatBoost "Min"). */
     raw(row: ArrayLike<number | null>): number {
-        const x = this.scratch;
-        for (let i = 0; i < x.length; i += 1) {
-            const value = row[i];
-            x[i] = value === null || value === undefined ? Number.NaN : value;
-        }
+        const { scratch: x, depths, splitOffsets, leafOffsets, features, borders, leaves } = this;
+        if (row.length !== x.length) throw new Error(`expected ${x.length} features, got ${row.length}`);
+        for (let i = 0; i < x.length; i += 1) x[i] = row[i] ?? Number.NaN;
         let total = 0;
-        for (let t = 0; t < this.treeCount; t += 1) {
-            const offset = this.splitOffsets[t];
-            const depth = this.depths[t];
+        for (let t = 0; t < depths.length; t += 1) {
+            const end = splitOffsets[t] + depths[t];
             let index = 0;
-            for (let d = 0; d < depth; d += 1) {
-                if (x[this.features[offset + d]] > this.borders[offset + d]) index |= 1 << d;
+            for (let s = splitOffsets[t], bit = 1; s < end; s += 1, bit <<= 1) {
+                if (x[features[s]] > borders[s]) index |= bit;
             }
-            total += this.leaves[this.leafOffsets[t] + index];
+            total += leaves[leafOffsets[t] + index];
         }
-        return this.compact.scale * total + this.compact.bias;
+        return this.meta.scale * total + this.meta.bias;
     }
 
     probability(row: ArrayLike<number | null>): number {
@@ -118,7 +103,7 @@ export class ObliviousModel {
 /** Same piecewise-linear map as IsotonicCalibrator.transform_one. */
 export function calibrate(calibrator: IsotonicArtifact | undefined, probability: number): number {
     const p = clamp01(probability);
-    if (!calibrator || !calibrator.enabled || calibrator.x.length === 0) return p;
+    if (!calibrator?.enabled || calibrator.x.length === 0) return p;
     const { x, y } = calibrator;
     if (p <= x[0]) return clamp01(y[0]);
     if (p >= x[x.length - 1]) return clamp01(y[y.length - 1]);

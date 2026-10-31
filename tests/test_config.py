@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -18,7 +21,7 @@ def test_windows_load_and_tbd_raises() -> None:
         config.window("e1_post_launch")
 
 
-def test_paths_env(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+def test_paths_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("MARKETIMMUNE_DATA", str(tmp_path))
     p = config.paths()
     assert p.gold == tmp_path / "gold" and p.bronze == tmp_path / "bronze"

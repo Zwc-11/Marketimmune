@@ -16,17 +16,15 @@ from marketimmune.features.order_events import (
 def _events() -> dict[str, np.ndarray]:
     # ts, kind, is_ask, sz (left), orig_sz, opposite best, marketable
     rows = [
-        (900.0, "ioc_unfilled", True, 2.0, 2.0, 100.0, True),    # sell aimed at bids
-        (950.0, "ioc_unfilled", True, 1.0, 1.0, 100.0, False),   # never marketable
-        (980.0, "ioc_unfilled", False, 3.0, 3.0, 101.0, True),   # buy aimed at asks
-        (1000.0, "ioc_unfilled", True, 5.0, 5.0, 100.0, True),   # fill's own block: excluded
-        (400.0, "liquidation", True, 0.0, 4.0, 99.0, True),      # forced sell into bids
-        (990.0, "liquidation", False, 1.0, 3.0, 102.0, True),    # forced buy, 2 filled
+        (900.0, "ioc_unfilled", True, 2.0, 2.0, 100.0, True),  # sell aimed at bids
+        (950.0, "ioc_unfilled", True, 1.0, 1.0, 100.0, False),  # never marketable
+        (980.0, "ioc_unfilled", False, 3.0, 3.0, 101.0, True),  # buy aimed at asks
+        (1000.0, "ioc_unfilled", True, 5.0, 5.0, 100.0, True),  # fill's own block: excluded
+        (400.0, "liquidation", True, 0.0, 4.0, 99.0, True),  # forced sell into bids
+        (990.0, "liquidation", False, 1.0, 3.0, 102.0, True),  # forced buy, 2 filled
     ]
-    names = ("ts_ms", "kind", "is_ask", "sz", "orig_sz", "opposite_best_px",
-             "marketable_at_block_start")
-    return {n: np.array([r[i] for r in rows], dtype=object if n == "kind" else None)
-            for i, n in enumerate(names)}
+    names = ("ts_ms", "kind", "is_ask", "sz", "orig_sz", "opposite_best_px", "marketable_at_block_start")
+    return {n: np.array([r[i] for r in rows], dtype=object if n == "kind" else None) for i, n in enumerate(names)}
 
 
 def test_features_split_by_maker_side_and_exclude_the_fill_block() -> None:
@@ -45,7 +43,5 @@ def test_features_split_by_maker_side_and_exclude_the_fill_block() -> None:
 
 
 def test_no_lookahead_check_passes() -> None:
-    report = verify_order_event_features_no_lookahead(
-        [500.0, 1000.0, 1200.0], [1.0, -1.0, 1.0], _events()
-    )
+    report = verify_order_event_features_no_lookahead([500.0, 1000.0, 1200.0], [1.0, -1.0, 1.0], _events())
     assert report["passed"] is True and report["n_checked"] == 3

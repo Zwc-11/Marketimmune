@@ -1,99 +1,43 @@
-"""Hyperliquid fills ingestion.
+"""Fills from ``node_fills_by_block``, and the merge of each match's two legs into one row.
 
-The public API fill shape documents the stable fields we need for labels:
-``coin``, ``px``, ``sz``, ``side`` (``B`` buy / ``A`` ask-sell), ``time`` in
-milliseconds, ``crossed`` (taker flag), ``fee``, ``oid``, and ``tid``.
-
-The bulk ``hl-mainnet-node-data/node_fills_by_block`` archive may wrap those fills
-inside block-level envelopes, so this module is deliberately tolerant of nested
-``{"fill": ...}``, ``{"fills": [...]}``, and raw fill records. Network and codec
-work stay behind injected callables; parsing is pure.
+``node_fills_by_block/hourly/<YYYYMMDD>/<H>.lz4`` is LZ4-framed NDJSON, one block per line:
+``{"local_time", "block_time", "block_number", "events": [[user, fill], ...]}``. A fill is
+``{"coin", "px", "sz", "side": "B" | "A", "time" (ms), "crossed", "oid", "tid", "hash", "fee",
+"feeToken", "startPosition", "dir", ...}``; ``priorityGas`` (from April 2026), ``builderFee``
+and ``liquidation`` appear only when they apply. Every match is reported twice, once per
+wallet, and only the taker's leg has ``crossed = true``.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, fields
 from typing import Any
 
-from marketimmune.labels.markout import BPS, MakerFill
+from marketimmune.sources.hyperliquid_l2_archive import BPS
 
-NODE_DATA_BUCKET = "hl-mainnet-node-data"
-NODE_FILLS_BY_BLOCK_PREFIX = "node_fills_by_block"
-
-
-def node_fills_by_block_key(suffix: str = "") -> str:
-    """Build an object key under ``node_fills_by_block``.
-
-    ``suffix`` is intentionally free-form because the public docs identify the prefix
-    but not a stable date/block partition contract. Confirm the exact suffix against a
-    real requester-pays listing before automating a backfill.
-    """
-    cleaned = suffix.strip("/")
-    if not cleaned:
-        return NODE_FILLS_BY_BLOCK_PREFIX
-    return f"{NODE_FILLS_BY_BLOCK_PREFIX}/{cleaned}"
+SIDE_SIGN = {"B": 1, "A": -1}
 
 
-def normalize_side(value: object) -> str:
-    """Normalize a Hyperliquid side value to ``B`` or ``A``."""
-    text = str(value).strip().upper()
-    if text in {"B", "BUY", "BID", "LONG"}:
-        return "B"
-    if text in {"A", "ASK", "SELL", "SHORT"}:
-        return "A"
-    raise ValueError(f"unknown Hyperliquid fill side: {value!r}")
+def node_fills_key(date: str, hour: int) -> str:
+    return f"node_fills_by_block/hourly/{date}/{hour}.lz4"
 
 
-def side_sign(side: str) -> int:
-    """User-direction sign: ``B`` = +1, ``A`` = -1."""
-    normalized = normalize_side(side)
-    return 1 if normalized == "B" else -1
-
-
-def _optional_float(value: object) -> float | None:
-    if value is None or value == "":
-        return None
-    return float(str(value))
-
-
-def _optional_int(value: object) -> int | None:
-    if value is None or value == "":
-        return None
-    return int(str(value))
-
-
-def _optional_str(value: object) -> str | None:
-    if value is None:
-        return None
-    text = str(value)
-    return text if text else None
-
-
-def _optional_bool(value: object) -> bool | None:
-    if value is None or value == "":
-        return None
-    if isinstance(value, bool):
-        return value
-    text = str(value).strip().lower()
-    if text in {"1", "true", "t", "yes", "y"}:
-        return True
-    if text in {"0", "false", "f", "no", "n"}:
-        return False
-    raise ValueError(f"unknown boolean value: {value!r}")
+def _float(value: str | None) -> float | None:
+    return None if value is None else float(value)
 
 
 @dataclass(frozen=True, slots=True)
 class NodeFill:
-    """One parsed fill from a Hyperliquid API/archive row."""
+    """One leg of a match, as one wallet saw it."""
 
     coin: str
     ts_ms: int
     px: float
     sz: float
     side: str
-    crossed: bool | None
+    crossed: bool
     oid: int | None = None
     tid: int | None = None
     trade_hash: str | None = None
@@ -102,48 +46,18 @@ class NodeFill:
     builder_fee: float | None = None
     direction: str | None = None
     raw: Mapping[str, Any] | None = None
-    # Promoted from the raw row (fix L3) so Silver never has to re-parse raw_json.
     user: str | None = None
     start_position: float | None = None
     priority_gas: float | None = None
     liquidation: bool = False
 
     @property
-    def user_side_sign(self) -> int:
-        """Direction of the reported user fill: buy = +1, sell = -1."""
-        return side_sign(self.side)
-
-    @property
     def maker_side(self) -> int:
-        """Maker-side sign for markout labels.
-
-        If ``crossed`` is true, the reported user crossed the spread and the maker is
-        on the opposite side. If ``crossed`` is false, the reported user was resting.
-        If the archive omits ``crossed``, keep the reported side and treat it as
-        already maker-oriented until a real file proves otherwise.
-        """
-        if self.crossed is None:
-            return self.user_side_sign
-        return -self.user_side_sign if self.crossed else self.user_side_sign
-
-    @property
-    def notional(self) -> float:
-        """Fill notional in quote currency."""
-        return self.px * self.sz
-
-    @property
-    def fee_bps(self) -> float | None:
-        """Fee paid as bps of notional, when fee is present."""
-        if self.fee is None or self.notional <= 0.0:
-            return None
-        return self.fee / self.notional * BPS
-
-    def to_maker_fill(self) -> MakerFill:
-        """Convert to the markout label module's maker-fill value object."""
-        return MakerFill(ts_s=self.ts_ms / 1000.0, price=self.px, side=self.maker_side)
+        """+1 when the maker bought: the opposite of a taker leg's side, a maker leg's own side."""
+        sign = SIDE_SIGN[self.side]
+        return -sign if self.crossed else sign
 
     def to_dict(self) -> dict[str, Any]:
-        """JSON-serializable representation for Bronze/Silver artifacts."""
         return {
             "coin": self.coin,
             "ts_ms": self.ts_ms,
@@ -167,114 +81,52 @@ class NodeFill:
 
 
 def parse_fill_row(row: Mapping[str, Any]) -> NodeFill:
-    """Parse one documented Hyperliquid fill mapping."""
-    data: Mapping[str, Any] = row["fill"] if isinstance(row.get("fill"), Mapping) else row
+    """One fill mapping; ``user`` is the wallet its block event names."""
+    assert row["side"] in SIDE_SIGN, f"{row['side']=}"
     return NodeFill(
-        coin=str(data["coin"]),
-        ts_ms=int(data["time"]),
-        px=float(data["px"]),
-        sz=float(data["sz"]),
-        side=normalize_side(data["side"]),
-        crossed=_optional_bool(data.get("crossed")),
-        oid=_optional_int(data.get("oid")),
-        tid=_optional_int(data.get("tid")),
-        trade_hash=_optional_str(data.get("hash")),
-        fee=_optional_float(data.get("fee")),
-        fee_token=_optional_str(data.get("feeToken")),
-        builder_fee=_optional_float(data.get("builderFee")),
-        direction=_optional_str(data.get("dir")),
-        raw=dict(data),
-        user=_optional_str(data.get("user")),
-        start_position=_optional_float(data.get("startPosition")),
-        priority_gas=_optional_float(data.get("priorityGas")),
-        liquidation=_is_liquidation(data.get("liquidation")),
+        coin=row["coin"],
+        ts_ms=row["time"],
+        px=float(row["px"]),
+        sz=float(row["sz"]),
+        side=row["side"],
+        crossed=row["crossed"],
+        oid=row.get("oid"),
+        tid=row.get("tid"),
+        trade_hash=row.get("hash"),
+        fee=_float(row.get("fee")),
+        fee_token=row.get("feeToken"),
+        builder_fee=_float(row.get("builderFee")),
+        direction=row.get("dir"),
+        raw=row,
+        user=row.get("user"),
+        start_position=_float(row.get("startPosition")),
+        priority_gas=_float(row.get("priorityGas")),
+        liquidation=row.get("liquidation") is not None,
     )
 
 
-def _is_liquidation(value: object) -> bool:
-    """Node fills carry ``liquidation: {liquidatedUser, markPx, method}`` or null."""
-    if value is None or value is False or value == "":
-        return False
-    if isinstance(value, Mapping):
-        return bool(value)
-    return _optional_bool(value) is True
-
-
-def iter_fill_mappings(obj: Any) -> Iterator[Mapping[str, Any]]:
-    """Yield raw fill mappings from raw, nested, or block-level JSON objects."""
-    if isinstance(obj, list):
-        if len(obj) == 2 and isinstance(obj[1], Mapping) and _looks_like_fill(obj[1]):
-            fill = dict(obj[1])
-            fill.setdefault("user", obj[0])
-            yield fill
-            return
-        for item in obj:
-            yield from iter_fill_mappings(item)
-        return
-    if not isinstance(obj, Mapping):
-        return
-    if isinstance(obj.get("fill"), Mapping):
-        yield obj["fill"]
-        return
-    for key in ("events", "fills", "userFills", "node_fills", "nodeFills"):
-        nested = obj.get(key)
-        if isinstance(nested, list):
-            for item in nested:
-                yield from iter_fill_mappings(item)
-            return
-    if _looks_like_fill(obj):
-        yield obj
-
-
-def _looks_like_fill(obj: Mapping[str, Any]) -> bool:
-    return {"coin", "px", "sz", "side", "time"}.issubset(obj.keys())
-
-
-def parse_node_fills_json(text: str) -> list[NodeFill]:
-    """Parse a JSON or NDJSON payload into fills."""
-    stripped = text.strip()
-    if not stripped:
-        return []
-    try:
-        obj = json.loads(stripped)
-    except json.JSONDecodeError:
-        fills: list[NodeFill] = []
-        for line in text.splitlines():
-            line_text = line.strip()
-            if not line_text:
-                continue
-            fills.extend(parse_fill_row(row) for row in iter_fill_mappings(json.loads(line_text)))
-        return fills
-    return [parse_fill_row(row) for row in iter_fill_mappings(obj)]
-
-
-@dataclass(frozen=True, slots=True)
-class HyperliquidNodeFills:
-    """Reads node-fill payloads via injected ``fetch`` and ``decompress`` callables."""
-
-    fetch: Callable[[str], bytes]
-    decompress: Callable[[bytes], bytes]
-
-    def load_key(self, key: str) -> list[NodeFill]:
-        """Fetch + decompress + parse a node-fills object key."""
-        raw = self.fetch(key)
-        return parse_node_fills_json(self.decompress(raw).decode("utf-8"))
-
-    def load_by_block_suffix(self, suffix: str = "") -> list[NodeFill]:
-        """Load a key under the ``node_fills_by_block`` prefix."""
-        return self.load_key(node_fills_by_block_key(suffix))
+def parse_node_fills(text: str, coin: str) -> list[NodeFill]:
+    """The legs of ``coin`` in one ``node_fills_by_block`` file."""
+    quoted = f'"{coin}"'
+    legs = []
+    for line in text.splitlines():
+        # Most blocks only trade other coins: skip them before paying for json.loads.
+        if quoted not in line:
+            continue
+        for user, fill in json.loads(line)["events"]:
+            if fill["coin"] == coin:
+                fill["user"] = user
+                legs.append(parse_fill_row(fill))
+    return legs
 
 
 @dataclass(frozen=True, slots=True)
 class MatchFill:
-    """One match with both legs merged (fix B2).
+    """One match with both legs merged: the row a markout label belongs to.
 
-    ``node_fills_by_block`` reports every match twice, once per wallet, and only the
-    taker's leg has ``crossed = true``. Labelling legs separately counts each match
-    twice and lets the copies land in different folds. A ``MatchFill`` is the single
-    row a markout label belongs to. Field names that Gold reads (``side``,
-    ``crossed``, ``oid``, ``maker_side``) are reported from the taker's view, so a
-    ``MatchFill`` can stand wherever a ``NodeFill`` was labelled.
+    Labelling the two legs separately counts each match twice and lets the copies land in
+    different folds. ``side``, ``crossed``, ``oid`` and ``maker_side`` read as the taker's
+    leg would, so a ``MatchFill`` stands wherever Gold reads a ``NodeFill``.
     """
 
     coin: str
@@ -298,7 +150,6 @@ class MatchFill:
 
     @property
     def side(self) -> str:
-        """Side of the reported leg, which is the taker's."""
         return self.taker_side
 
     @property
@@ -312,7 +163,7 @@ class MatchFill:
     @property
     def maker_side(self) -> int:
         """+1 when the resting bid was hit (maker bought), -1 when the ask was lifted."""
-        return -side_sign(self.taker_side)
+        return -SIDE_SIGN[self.taker_side]
 
     @property
     def notional(self) -> float:
@@ -320,38 +171,16 @@ class MatchFill:
 
     @property
     def maker_fee_bps(self) -> float | None:
-        return _fee_bps(self.maker_fee, self.notional)
+        return None if self.maker_fee is None else self.maker_fee / self.notional * BPS
 
     @property
     def taker_fee_bps(self) -> float | None:
-        return _fee_bps(self.taker_fee, self.notional)
-
-    def to_maker_fill(self) -> MakerFill:
-        return MakerFill(ts_s=self.ts_ms / 1000.0, price=self.px, side=self.maker_side)
+        return None if self.taker_fee is None else self.taker_fee / self.notional * BPS
 
     @classmethod
     def from_record(cls, row: Mapping[str, Any]) -> MatchFill:
-        """Rebuild from a Silver fills row (:meth:`to_dict`; derived columns ignored)."""
-        return cls(
-            coin=str(row["coin"]),
-            ts_ms=int(row["ts_ms"]),
-            px=float(row["px"]),
-            sz=float(row["sz"]),
-            taker_side=str(row["taker_side"]),
-            tid=_optional_int(row.get("tid")),
-            trade_hash=_optional_str(row.get("hash")),
-            maker_user=_optional_str(row.get("maker_user")),
-            taker_user=_optional_str(row.get("taker_user")),
-            maker_oid=_optional_int(row.get("maker_oid")),
-            taker_oid=_optional_int(row.get("taker_oid")),
-            maker_fee=_optional_float(row.get("maker_fee")),
-            taker_fee=_optional_float(row.get("taker_fee")),
-            maker_start_position=_optional_float(row.get("maker_start_position")),
-            taker_start_position=_optional_float(row.get("taker_start_position")),
-            priority_gas=_optional_float(row.get("priority_gas")),
-            liquidation=bool(row.get("liquidation") or False),
-            n_legs=int(row.get("n_legs") or 2),
-        )
+        """Rebuild from a Silver fills row (:meth:`to_dict`; derived columns are ignored)."""
+        return cls(trade_hash=row["hash"], **{name: row[name] for name in _RECORD_FIELDS})
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -380,73 +209,38 @@ class MatchFill:
         }
 
 
-def _fee_bps(fee: float | None, notional: float) -> float | None:
-    if fee is None or notional <= 0.0:
-        return None
-    return fee / notional * BPS
+_RECORD_FIELDS = tuple(f.name for f in fields(MatchFill) if f.name != "trade_hash")
 
 
 def pair_fill_legs(fills: Sequence[NodeFill]) -> list[MatchFill]:
-    """Merge the two legs of each match into one :class:`MatchFill`.
-
-    Legs are keyed on ``(coin, ts_ms, tid)``; legs without a ``tid`` fall back to
-    ``(coin, ts_ms, hash, px, sz)``. A lone leg (an API user-fills download holds
-    only one wallet's side) still yields a row, with the other side's fields left
-    ``None`` and ``n_legs = 1``. Output follows the first appearance of each match.
-
-    Raises ``ValueError`` when two legs under one key disagree on price or size, or
-    when a key has more than one taker or maker leg: either means the key is not
-    unique and the dedupe would silently merge different trades.
-    """
-    groups: dict[tuple[object, ...], list[NodeFill]] = {}
+    """Merge the taker and maker legs of each match, keyed on ``(coin, ts_ms, tid)``, in first-seen order."""
+    legs_by_match: dict[tuple[str, int, int | None], list[NodeFill]] = {}
     for fill in fills:
-        key: tuple[object, ...] = (
-            (fill.coin, fill.ts_ms, fill.tid)
-            if fill.tid is not None
-            else (fill.coin, fill.ts_ms, fill.trade_hash, fill.px, fill.sz)
-        )
-        groups.setdefault(key, []).append(fill)
-    return [_merge_legs(key, legs) for key, legs in groups.items()]
+        legs_by_match.setdefault((fill.coin, fill.ts_ms, fill.tid), []).append(fill)
+    return [_merge_legs(legs) for legs in legs_by_match.values()]
 
 
-def _merge_legs(key: tuple[object, ...], legs: list[NodeFill]) -> MatchFill:
-    if len(legs) > 2:
-        raise ValueError(f"{len(legs)} fill legs share key {key!r}")
-    first = legs[0]
-    if any(leg.px != first.px or leg.sz != first.sz for leg in legs[1:]):
-        raise ValueError(f"fill legs under {key!r} disagree on px/sz")
-    takers = [leg for leg in legs if leg.crossed is True]
-    makers = [leg for leg in legs if leg.crossed is False]
-    if len(takers) > 1 or len(makers) > 1:
-        raise ValueError(f"fill legs under {key!r} have {len(takers)} takers, {len(makers)} makers")
-    taker = takers[0] if takers else None
-    maker = makers[0] if makers else None
-    if taker is not None:
-        taker_side = taker.side
-    elif maker is not None:
-        taker_side = "A" if maker.side == "B" else "B"
-    else:
-        # ``crossed`` missing: keep NodeFill.maker_side's convention (reported side
-        # is the maker's), so the label orientation does not change.
-        taker_side = "A" if first.side == "B" else "B"
-        maker = first if len(legs) == 1 else None
+def _merge_legs(legs: list[NodeFill]) -> MatchFill:
+    assert len(legs) == 2, f"{len(legs)} legs share one match: {legs[0].coin=} {legs[0].ts_ms=} {legs[0].tid=}"
+    taker, maker = legs if legs[0].crossed else legs[::-1]
+    assert taker.tid is not None and taker.crossed and not maker.crossed, f"not one taker and one maker leg: {legs=}"
+    assert taker.px == maker.px and taker.sz == maker.sz, f"legs disagree on px/sz: {legs=}"
     return MatchFill(
-        coin=first.coin,
-        ts_ms=first.ts_ms,
-        px=first.px,
-        sz=first.sz,
-        taker_side=taker_side,
-        tid=first.tid,
-        trade_hash=(taker or maker or first).trade_hash,
-        maker_user=maker.user if maker else None,
-        taker_user=taker.user if taker else None,
-        maker_oid=maker.oid if maker else None,
-        taker_oid=taker.oid if taker else None,
-        maker_fee=maker.fee if maker else None,
-        taker_fee=taker.fee if taker else None,
-        maker_start_position=maker.start_position if maker else None,
-        taker_start_position=taker.start_position if taker else None,
-        priority_gas=taker.priority_gas if taker else None,
-        liquidation=any(leg.liquidation for leg in legs),
-        n_legs=len(legs),
+        coin=taker.coin,
+        ts_ms=taker.ts_ms,
+        px=taker.px,
+        sz=taker.sz,
+        taker_side=taker.side,
+        tid=taker.tid,
+        trade_hash=taker.trade_hash,
+        maker_user=maker.user,
+        taker_user=taker.user,
+        maker_oid=maker.oid,
+        taker_oid=taker.oid,
+        maker_fee=maker.fee,
+        taker_fee=taker.fee,
+        maker_start_position=maker.start_position,
+        taker_start_position=taker.start_position,
+        priority_gas=taker.priority_gas,
+        liquidation=taker.liquidation or maker.liquidation,
     )

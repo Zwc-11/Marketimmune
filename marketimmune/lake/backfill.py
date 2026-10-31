@@ -1,17 +1,8 @@
-"""Hyperliquid daily backfill orchestration.
+"""One coin-day from the requester-pays Hyperliquid buckets to Silver and Gold.
 
-This module glues together the pure parser/label/writer pieces without owning
-network access. A real requester-pays runner can provide S3 fetch callables and
-object listings; tests can provide local bytes. The coordinator only decides the
-order of operations:
-
-1. Load L2 book snapshots for explicit hourly archive keys.
-2. Load the daily asset-context CSV.
-3. Load explicit node-fill objects.
-4. Persist Silver book/context rows, Bronze/Silver fills, and Gold markout rows.
-
-It intentionally does not infer the ``node_fills_by_block`` partition scheme. That
-still needs confirmation against a real requester-pays listing.
+L2 snapshots for the given hours, the day's asset contexts and the coin's node fills land in
+Silver; the paired matches get markout labels (Gold) and model features (Gold training) with
+a no-look-ahead sidecar. Network access is the two injected ``key -> bytes`` fetchers.
 """
 
 from __future__ import annotations
@@ -19,16 +10,11 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from marketimmune.features.training_rows import (
-    build_hyperliquid_training_rows,
-    verify_training_rows_no_lookahead,
-)
+import lz4.frame
+
+from marketimmune.features.training_rows import build_hyperliquid_training_rows, verify_training_rows_no_lookahead
 from marketimmune.labels.markout import MarkoutConfig
-from marketimmune.lake.gold import (
-    DEFAULT_MARKOUT_CONFIG,
-    MarkoutGoldRow,
-    build_markout_gold_rows,
-)
+from marketimmune.lake.gold import DEFAULT_MARKOUT_CONFIG, build_markout_gold_rows
 from marketimmune.lake.tables import (
     HyperliquidLakeLayout,
     LakeWrite,
@@ -36,26 +22,23 @@ from marketimmune.lake.tables import (
     silver_asset_ctx_record,
     silver_l2_book_record,
     write_bronze_fills,
-    write_gold_markout,
     write_gold_training_rows,
     write_leakage_report,
-    write_silver_asset_ctxs,
+    write_parquet_records,
     write_silver_fills,
-    write_silver_l2_book,
 )
-from marketimmune.sources.hyperliquid_asset_ctxs import AssetCtx, load_asset_ctxs
-from marketimmune.sources.hyperliquid_l2_archive import BookSnapshot, HyperliquidArchive
-from marketimmune.sources.hyperliquid_node_fills import (
-    HyperliquidNodeFills,
-    NodeFill,
-    pair_fill_legs,
-)
+from marketimmune.logger import init_logger
+from marketimmune.sources.hyperliquid_asset_ctxs import asset_ctxs_key, parse_asset_ctxs_csv
+from marketimmune.sources.hyperliquid_l2_archive import l2_book_key, parse_l2_book_ndjson
+from marketimmune.sources.hyperliquid_node_fills import node_fills_key, pair_fill_legs, parse_node_fills
+
+logger = init_logger(__name__)
+
+Fetch = Callable[[str], bytes]
 
 
 @dataclass(frozen=True, slots=True)
 class HyperliquidBackfillResult:
-    """Counts and write locations from one daily Hyperliquid backfill."""
-
     coin: str
     date: str
     book_snapshots: int
@@ -66,137 +49,77 @@ class HyperliquidBackfillResult:
     writes: tuple[LakeWrite, ...]
 
 
-@dataclass(frozen=True, slots=True)
-class HyperliquidDailyBackfill:
-    """Coordinates one coin/day backfill using injected I/O adapters."""
+def parse_hours(values: Sequence[str]) -> tuple[int, ...]:
+    """``["0-2", "2,5"]`` -> ``(0, 1, 2, 5)``: hours in [0, 23], sorted, without repeats."""
+    hours: set[int] = set()
+    for token in (t.strip() for value in values for t in value.split(",")):
+        if token:
+            start, _, end = token.partition("-")
+            hours.update(range(int(start), int(end or start) + 1))
+    assert hours and all(0 <= h <= 23 for h in hours), f"{values=}: need hours in [0, 23]"
+    return tuple(sorted(hours))
 
-    layout: HyperliquidLakeLayout
-    archive: HyperliquidArchive
-    node_fills: HyperliquidNodeFills
-    markout_config: MarkoutConfig = DEFAULT_MARKOUT_CONFIG
 
-    def run(
-        self,
-        *,
-        coin: str,
-        date: str,
-        hours: Sequence[int],
-        fill_suffixes: Sequence[str],
-        include_asset_ctxs: bool = True,
-        progress: Callable[[str], None] | None = None,
-    ) -> HyperliquidBackfillResult:
-        """Load explicit archive objects and write non-empty lake artifacts."""
-        emit = progress or _no_progress
-        snapshots = self._load_book_snapshots(coin=coin, date=date, hours=hours)
-        emit(f"loaded {len(snapshots):,} L2 snapshots")
-        contexts = self._load_asset_ctxs(date) if include_asset_ctxs else []
-        emit(f"loaded {len(contexts):,} asset-context rows")
-        fills = self._load_fills(fill_suffixes)
-        emit(f"loaded {len(fills):,} raw fills")
-        coin_fills = [fill for fill in fills if fill.coin == coin]
-        emit(f"filtered {len(coin_fills):,} {coin} fills")
-        matches = pair_fill_legs(coin_fills)
-        emit(f"paired into {len(matches):,} matches")
-        gold_rows = build_markout_gold_rows(
-            matches,
-            snapshots,
-            self.markout_config,
-            coin=coin,
-        )
-        emit(f"built {len(gold_rows):,} Gold markout rows")
-        label_records = [gold_markout_record(row) for row in gold_rows]
-        l2_records = [silver_l2_book_record(snapshot) for snapshot in snapshots]
-        asset_records = [silver_asset_ctx_record(ctx) for ctx in contexts]
-        training_rows = build_hyperliquid_training_rows(label_records, l2_records, asset_records)
-        emit(f"built {len(training_rows):,} Gold training rows")
+def run_backfill(
+    layout: HyperliquidLakeLayout,
+    *,
+    archive: Fetch,
+    node: Fetch,
+    coin: str,
+    date: str,
+    hours: Sequence[int],
+    fill_hours: Sequence[int],
+    include_asset_ctxs: bool = True,
+    markout_config: MarkoutConfig = DEFAULT_MARKOUT_CONFIG,
+) -> HyperliquidBackfillResult:
+    """Fetch, parse and write one coin-day; empty artifacts are skipped, not written."""
+
+    def read(fetch: Fetch, key: str) -> str:
+        logger.info("fetch %s", key)
+        text: str = lz4.frame.decompress(fetch(key)).decode()
+        return text
+
+    snapshots = [s for hour in hours for s in parse_l2_book_ndjson(read(archive, l2_book_key(coin, date, hour)))]
+    contexts = parse_asset_ctxs_csv(read(archive, asset_ctxs_key(date))) if include_asset_ctxs else []
+    legs = [leg for hour in fill_hours for leg in parse_node_fills(read(node, node_fills_key(date, hour)), coin)]
+    matches = pair_fill_legs(legs)
+    gold_rows = build_markout_gold_rows(matches, snapshots, markout_config, coin=coin)
+    logger.info(
+        "%s %s: %d L2 snapshots, %d asset contexts, %d legs -> %d matches -> %d Gold rows",
+        coin,
+        date,
+        len(snapshots),
+        len(contexts),
+        len(legs),
+        len(matches),
+        len(gold_rows),
+    )
+    label_records = [gold_markout_record(row) for row in gold_rows]
+    l2_records = [silver_l2_book_record(snapshot) for snapshot in snapshots]
+    asset_records = [silver_asset_ctx_record(ctx) for ctx in contexts]
+    writes: list[LakeWrite] = []
+    if l2_records:
+        writes.append(write_parquet_records(layout.silver_l2_book_path(coin, date), l2_records))
+    if asset_records:
+        writes.append(write_parquet_records(layout.silver_asset_ctxs_path(date), asset_records))
+    if legs:
+        writes.append(write_bronze_fills(layout, coin=coin, date=date, fills=legs))
+        writes.append(write_silver_fills(layout, coin=coin, date=date, fills=matches))
+    if label_records:
+        writes.append(write_parquet_records(layout.gold_markout_path(coin, date), label_records))
+    training_rows = build_hyperliquid_training_rows(label_records, l2_records, asset_records)
+    if training_rows:
+        writes.append(write_gold_training_rows(layout, coin=coin, date=date, rows=training_rows))
         leakage = verify_training_rows_no_lookahead(label_records, l2_records, asset_records)
-        emit(
-            f"no-look-ahead check: passed={leakage.passed} "
-            f"checked={leakage.n_checked} mismatched={leakage.n_mismatched}"
-        )
-        writes = self._write_outputs(
-            coin=coin,
-            date=date,
-            snapshots=snapshots,
-            contexts=contexts,
-            fills=coin_fills,
-            gold_rows=gold_rows,
-            training_rows=training_rows,
-        )
-        if training_rows:
-            write_leakage_report(self.layout, coin=coin, date=date, report=leakage.to_dict())
-        emit(f"wrote {len(writes):,} parquet artifacts")
-        return HyperliquidBackfillResult(
-            coin=coin,
-            date=date,
-            book_snapshots=len(snapshots),
-            asset_contexts=len(contexts),
-            fills=len(coin_fills),
-            gold_rows=len(gold_rows),
-            training_rows=len(training_rows),
-            writes=writes,
-        )
-
-    def _load_book_snapshots(
-        self,
-        *,
-        coin: str,
-        date: str,
-        hours: Sequence[int],
-    ) -> list[BookSnapshot]:
-        snapshots: list[BookSnapshot] = []
-        for hour in hours:
-            snapshots.extend(self.archive.load_l2_book(coin, date, hour))
-        return snapshots
-
-    def _load_asset_ctxs(self, date: str) -> list[AssetCtx]:
-        return load_asset_ctxs(self.archive.fetch, self.archive.decompress, date)
-
-    def _load_fills(self, suffixes: Sequence[str]) -> list[NodeFill]:
-        fills: list[NodeFill] = []
-        for suffix in suffixes:
-            fills.extend(self.node_fills.load_by_block_suffix(suffix))
-        return fills
-
-    def _write_outputs(
-        self,
-        *,
-        coin: str,
-        date: str,
-        snapshots: Sequence[BookSnapshot],
-        contexts: Sequence[AssetCtx],
-        fills: Sequence[NodeFill],
-        gold_rows: Sequence[MarkoutGoldRow],
-        training_rows: Sequence[dict[str, object]],
-    ) -> tuple[LakeWrite, ...]:
-        writes: list[LakeWrite] = []
-        if snapshots:
-            writes.append(
-                write_silver_l2_book(
-                    self.layout,
-                    coin=coin,
-                    date=date,
-                    snapshots=snapshots,
-                )
-            )
-        if contexts:
-            writes.append(write_silver_asset_ctxs(self.layout, date=date, contexts=contexts))
-        if fills:
-            writes.append(write_bronze_fills(self.layout, coin=coin, date=date, fills=fills))
-            writes.append(write_silver_fills(self.layout, coin=coin, date=date, fills=fills))
-        if gold_rows:
-            writes.append(write_gold_markout(self.layout, coin=coin, date=date, rows=gold_rows))
-        if training_rows:
-            writes.append(
-                write_gold_training_rows(
-                    self.layout,
-                    coin=coin,
-                    date=date,
-                    rows=training_rows,
-                )
-            )
-        return tuple(writes)
-
-
-def _no_progress(_message: str) -> None:
-    return None
+        write_leakage_report(layout, coin=coin, date=date, report=leakage.to_dict())
+        logger.info("%d training rows; no-look-ahead check passed=%s (%d checked)", len(training_rows), leakage.passed, leakage.n_checked)
+    return HyperliquidBackfillResult(
+        coin=coin,
+        date=date,
+        book_snapshots=len(snapshots),
+        asset_contexts=len(contexts),
+        fills=len(legs),
+        gold_rows=len(gold_rows),
+        training_rows=len(training_rows),
+        writes=tuple(writes),
+    )

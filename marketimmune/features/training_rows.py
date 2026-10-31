@@ -1,17 +1,16 @@
-"""Point-in-time Hyperliquid feature joins for markout training rows.
+"""Point-in-time feature join for Gold training rows, and the feature sets (ladder rungs).
 
-The row-dict API is what the lake writers and tests consume, but the work is done
-column-wise: OFI windows are prefix-sum differences located with ``searchsorted``,
-and the as-of join resolves every fill's latest prior L2 / asset row in one
-vectorized ``searchsorted`` per coin. The only per-row Python left is building the
-output dicts.
+Each fill gets the latest L2 book row (and asset context) strictly before it, plus order-flow
+imbalance (OFI) over 1/5/10 s windows ending at that book row. Inputs and outputs are row
+dicts (the lake writers' format); the work is column-wise: OFI windows are prefix-sum
+differences located with ``searchsorted``, and the as-of join is one ``searchsorted`` per coin.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -20,12 +19,7 @@ from marketimmune.features.cex_gap import CEX_FEATURE_COLUMNS
 from marketimmune.features.forced_flow_features import FORECAST_FEATURE_COLUMNS
 from marketimmune.features.order_events import FORCED_FEATURE_COLUMNS, RACE_FEATURE_COLUMNS
 from marketimmune.features.wallet_toxicity import WALLET_FEATURE_COLUMNS
-from marketimmune.labels.leakage import (
-    LeakageError,
-    LookaheadReport,
-    assert_strictly_before,
-    check_no_lookahead,
-)
+from marketimmune.labels.leakage import LookaheadReport, check_no_lookahead
 
 L2_FEATURES = (
     "mid",
@@ -113,6 +107,10 @@ OFI_WINDOWS_MS = {
     "ofi_5s": 5_000.0,
     "ofi_10s": 10_000.0,
 }
+# A jump of more than this between book rows is a Silver book reset (the L4 rebuild restarts
+# after an archive gap, e.g. 2025-12-12 17:40:43 -> 18:26:01 UTC); same bound as the label's
+# stale-mid rule.
+STALE_BOOK_MS = 30_000.0
 TRAINING_ROW_FEATURE_COLUMNS = (
     "feature_ts_ms",
     *(f"l2_{name}" for name in L2_FEATURES),
@@ -121,44 +119,24 @@ TRAINING_ROW_FEATURE_COLUMNS = (
 # Longest feature window is 10 s of OFI; asset contexts can be minutes apart.
 LOOKAHEAD_CHECK_LOOKBACK_MS = 300_000.0
 _BOOK_COLUMNS = ("bid_px", "bid_sz", "ask_px", "ask_sz")
-# What the join reads from a Silver L2 row; anything else (depth levels, ts_ns) is
-# left on disk.
-L2_JOIN_COLUMNS = ("coin", "ts_ms", *_BOOK_COLUMNS, "mid", "spread_bps", "microprice",
-                   "top_imbalance")
+_L2_ROW_FEATURES = ("mid", "spread_bps", "microprice", "top_imbalance")
+# What the join reads from a Silver L2 row; anything else (depth levels, ts_ns) stays on disk.
+L2_JOIN_COLUMNS = ("coin", "ts_ms", *_BOOK_COLUMNS, *_L2_ROW_FEATURES)
 FloatArray = npt.NDArray[np.float64]
 
 
 @dataclass(frozen=True, slots=True)
 class _CoinIndex:
-    """Rows of one coin sorted by time, with the timestamps as an array."""
+    """Rows of one coin sorted by time (stable), their times, and derived per-row columns."""
 
     ts_ms: FloatArray
     rows: list[Mapping[str, Any]]
+    columns: dict[str, list[float]]
 
     def latest_before(self, ts_ms: FloatArray) -> npt.NDArray[np.intp]:
-        """Index of the last row with ``ts < ts_ms`` (``-1`` when none).
-
-        Strict (fix L1): a snapshot in the fill's own millisecond is excluded.
-        """
+        """Index of the last row with ``ts < ts_ms``, -1 when none (fix L1: a row in the
+        fill's own millisecond can already show the fill)."""
         return np.searchsorted(self.ts_ms, ts_ms, side="left") - 1
-
-
-def training_row_from_asof(
-    label_row: Mapping[str, Any],
-    l2_row: Mapping[str, Any],
-    asset_ctx_row: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Merge one label row with already-selected as-of feature rows.
-
-    ``l2_row`` must be timestamped and strictly before the fill. ``asset_ctx_row``
-    may be timestamped; if it has no ``ts_ms`` it is treated as static daily context.
-    """
-    fill_ts_ms = _as_float(label_row["ts_ms"])
-    feature_ts_ms = [_as_float(l2_row["ts_ms"])]
-    if asset_ctx_row is not None and "ts_ms" in asset_ctx_row:
-        feature_ts_ms.append(_as_float(asset_ctx_row["ts_ms"]))
-    assert_strictly_before(feature_ts_ms, fill_ts_ms)
-    return _merge_row(label_row, l2_row, asset_ctx_row, max(feature_ts_ms))
 
 
 def build_hyperliquid_training_rows(
@@ -166,43 +144,40 @@ def build_hyperliquid_training_rows(
     l2_rows: Sequence[Mapping[str, Any]],
     asset_ctx_rows: Sequence[Mapping[str, Any]] = (),
 ) -> list[dict[str, Any]]:
-    """Build model-ready rows using only features known strictly before each fill.
+    """Label rows joined to features known strictly before each fill, in ``label_rows`` order.
 
-    Output order follows ``label_rows``; fills with no prior L2 snapshot are skipped.
+    A fill with no earlier L2 row is skipped. Asset rows without ``ts_ms`` are static daily
+    context, used for a coin that has no timed asset rows.
     """
     if not label_rows:
         return []
-    l2_index = _coin_index(l2_rows_with_ofi(l2_rows))
+    l2_index = {coin: _with_ofi(index) for coin, index in _coin_index(l2_rows).items()}
     asset_index = _coin_index([row for row in asset_ctx_rows if "ts_ms" in row])
-    asset_static_latest = _latest_static_by_coin(asset_ctx_rows)
-
+    asset_static = {str(row.get("coin")): row for row in asset_ctx_rows if "ts_ms" not in row}
     coins = [str(label["coin"]) for label in label_rows]
-    fill_ts = np.fromiter(
-        (_as_float(label["ts_ms"]) for label in label_rows),
-        dtype=np.float64,
-        count=len(label_rows),
-    )
+    fill_ts = np.fromiter((label["ts_ms"] for label in label_rows), dtype=np.float64, count=len(label_rows))
     l2_pos = _asof_positions(coins, fill_ts, l2_index)
     asset_pos = _asof_positions(coins, fill_ts, asset_index)
-    _assert_point_in_time(coins, fill_ts, l2_pos, l2_index)
-    _assert_point_in_time(coins, fill_ts, asset_pos, asset_index)
-
     out: list[dict[str, Any]] = []
     for i, label in enumerate(label_rows):
-        coin = coins[i]
-        l2_i = int(l2_pos[i])
+        coin, l2_i, asset_i = coins[i], int(l2_pos[i]), int(asset_pos[i])
         if l2_i < 0:
             continue
-        l2_row = l2_index[coin].rows[l2_i]
-        feature_ts = float(l2_index[coin].ts_ms[l2_i])
-        asset_i = int(asset_pos[i])
-        asset_ctx: Mapping[str, Any] | None = None
+        l2, row = l2_index[coin], dict(label)
+        row["feature_ts_ms"] = float(l2.ts_ms[l2_i])
+        for name in _L2_ROW_FEATURES:
+            row[f"l2_{name}"] = float(l2.rows[l2_i][name])
+        for name, values in l2.columns.items():
+            row[f"l2_{name}"] = values[l2_i]
+        asset_ctx = asset_static.get(coin) if coin not in asset_index else None
         if asset_i >= 0:
             asset_ctx = asset_index[coin].rows[asset_i]
-            feature_ts = max(feature_ts, float(asset_index[coin].ts_ms[asset_i]))
-        elif coin not in asset_index:
-            asset_ctx = asset_static_latest.get(coin)
-        out.append(_merge_row(label, l2_row, asset_ctx, feature_ts))
+            row["feature_ts_ms"] = max(row["feature_ts_ms"], float(asset_index[coin].ts_ms[asset_i]))
+        if asset_ctx is not None:
+            for name in ASSET_FEATURES:
+                if asset_ctx.get(name) is not None:
+                    row[f"asset_{name}"] = float(asset_ctx[name])
+        out.append(row)
     return out
 
 
@@ -214,11 +189,11 @@ def verify_training_rows_no_lookahead(
     sample: int = 200,
     seed: int = 0,
 ) -> LookaheadReport:
-    """Fix B3: rebuild sampled rows with all source rows at or after the fill deleted.
+    """Fix B3: rebuild sampled rows with every source row at or after the fill deleted.
 
-    Passing means the join, OFI windows and as-of selection read nothing from the
-    fill's own millisecond or later. The report is written beside each Gold training
-    partition and is the only thing that lets a model report say ``leakage_safe``.
+    Passing means the join, OFI windows and as-of selection read nothing from the fill's own
+    millisecond or later. The report sits beside each Gold training partition and is the
+    only thing that lets a model report say ``leakage_safe``.
     """
     return check_no_lookahead(
         build_hyperliquid_training_rows,
@@ -231,44 +206,13 @@ def verify_training_rows_no_lookahead(
     )
 
 
-def l2_rows_with_ofi(
-    l2_rows: Sequence[Mapping[str, Any]],
-) -> list[dict[str, Any]]:
-    """Attach snapshot-derived event OFI and rolling OFI windows to L2 rows.
-
-    OFI is computed from consecutive top-of-book snapshots using the standard
-    bid/ask price-size pressure formula. The event value is normalized by current
-    plus previous top-of-book size so it is comparable across coins and regimes.
-    Untimestamped rows pass through with zero OFI, ahead of the timed rows.
-    """
-    grouped: dict[str, list[Mapping[str, Any]]] = {}
+def l2_rows_with_ofi(l2_rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Copies of the L2 rows with ``ofi_event`` and the OFI windows, per coin in time order."""
     out: list[dict[str, Any]] = []
-    for row in l2_rows:
-        if "ts_ms" not in row:
-            out.append(_with_zero_ofi(row))
-            continue
-        grouped.setdefault(str(row.get("coin")), []).append(row)
-
-    for rows in grouped.values():
-        times = _column(rows, "ts_ms")
-        order = np.argsort(times, kind="stable")
-        times = times[order]
-        book = {name: _column(rows, name)[order] for name in _BOOK_COLUMNS}
-        events = _normalized_ofi_events(book)
-        prefix = np.concatenate(([0.0], np.cumsum(events)))
-        upto = np.arange(1, times.size + 1)
-        windows = {
-            name: (prefix[upto] - prefix[np.searchsorted(times, times - span, side="left")])
-            for name, span in OFI_WINDOWS_MS.items()
-        }
-        event_list = events.tolist()
-        window_lists = {name: values.tolist() for name, values in windows.items()}
-        for pos, src in enumerate(order.tolist()):
-            enriched = dict(rows[src])
-            enriched["ofi_event"] = event_list[pos]
-            for name, values in window_lists.items():
-                enriched[name] = values[pos]
-            out.append(enriched)
+    for index in _coin_index(l2_rows).values():
+        ofi = _ofi_columns(index)
+        for pos, row in enumerate(index.rows):
+            out.append({**row, **{name: values[pos] for name, values in ofi.items()}})
     return out
 
 
@@ -276,11 +220,8 @@ def prepare_markout_feature_row(
     row: Mapping[str, Any],
     columns: Sequence[str] = HYPERLIQUID_MARKOUT_FEATURE_COLUMNS,
 ) -> dict[str, float]:
-    """Derive a feature vector from one Gold training row.
-
-    ``columns`` picks the set: the v2 list (default, what the deployed model uses)
-    or ``MARKOUT_L0_FEATURE_COLUMNS``.
-    """
+    """One Gold row as the deployed v2 model's feature vector (``frontend/src/lib/features.ts``
+    mirrors it). Missing fees and OFI count as 0."""
     required = (
         "px",
         "sz",
@@ -294,116 +235,83 @@ def prepare_markout_feature_row(
         "asset_open_interest",
         "asset_premium",
     )
-    missing = [name for name in required if name not in row or row[name] is None]
+    missing = [name for name in required if row.get(name) is None]
     if missing:
-        joined = ", ".join(missing[:5])
         suffix = "" if len(missing) <= 5 else f", +{len(missing) - 5} more"
-        raise ValueError(f"Gold row missing markout scoring features: {joined}{suffix}")
-
-    mid = _as_float(row["l2_mid"])
+        raise ValueError(f"Gold row missing markout scoring features: {', '.join(missing[:5])}{suffix}")
+    mid = float(row["l2_mid"])
     if mid <= 0.0:
         raise ValueError("Gold row l2_mid must be positive for bps feature derivation")
-
+    maker_side = float(row["maker_side"])
     features = {
-        "sz": _as_float(row["sz"]),
-        "maker_side": _as_float(row["maker_side"]),
-        "fee_bps": _as_float(row.get("fee_bps", 0.0) or 0.0),
-        "maker_fee_bps": _as_float(row.get("maker_fee_bps", 0.0) or 0.0),
-        "l2_spread_bps": _as_float(row["l2_spread_bps"]),
-        "l2_microprice_offset_bps": (_as_float(row["l2_microprice"]) - mid) / mid * 10_000.0,
-        "l2_top_imbalance": _as_float(row["l2_top_imbalance"]),
-        "fill_vs_mid_bps": (_as_float(row["px"]) - mid) / mid * 10_000.0
-        * _as_float(row["maker_side"]),
-        "asset_basis_bps": _as_float(row["asset_basis_bps"]),
-        "asset_funding": _as_float(row["asset_funding"]),
-        "asset_open_interest": _as_float(row["asset_open_interest"]),
-        "asset_premium": _as_float(row["asset_premium"]),
+        "sz": float(row["sz"]),
+        "maker_side": maker_side,
+        "fee_bps": float(row.get("fee_bps") or 0.0),
+        "maker_fee_bps": float(row.get("maker_fee_bps") or 0.0),
+        "l2_spread_bps": float(row["l2_spread_bps"]),
+        "l2_microprice_offset_bps": (float(row["l2_microprice"]) - mid) / mid * 10_000.0,
+        "l2_top_imbalance": float(row["l2_top_imbalance"]),
+        "fill_vs_mid_bps": (float(row["px"]) - mid) / mid * 10_000.0 * maker_side,
+        "asset_basis_bps": float(row["asset_basis_bps"]),
+        "asset_funding": float(row["asset_funding"]),
+        "asset_open_interest": float(row["asset_open_interest"]),
+        "asset_premium": float(row["asset_premium"]),
+        **{column: float(row.get(column) or 0.0) for column in HYPERLIQUID_OFI_COLUMNS},
     }
-    for column in HYPERLIQUID_OFI_COLUMNS:
-        features[column] = _as_float(row.get(column, 0.0) or 0.0)
     return {name: features[name] for name in columns}
-
-
-def _merge_row(
-    label_row: Mapping[str, Any],
-    l2_row: Mapping[str, Any],
-    asset_ctx_row: Mapping[str, Any] | None,
-    feature_ts_ms: float,
-) -> dict[str, Any]:
-    row = dict(label_row)
-    row["feature_ts_ms"] = feature_ts_ms
-    for name in L2_FEATURES:
-        row[f"l2_{name}"] = _as_float(l2_row[name])
-    if asset_ctx_row is not None:
-        for name in ASSET_FEATURES:
-            value = asset_ctx_row.get(name)
-            if value is not None:
-                row[f"asset_{name}"] = _as_float(value)
-    return row
 
 
 def _coin_index(rows: Sequence[Mapping[str, Any]]) -> dict[str, _CoinIndex]:
     grouped: dict[str, list[Mapping[str, Any]]] = {}
     for row in rows:
-        if "ts_ms" in row:
-            grouped.setdefault(str(row.get("coin")), []).append(row)
+        grouped.setdefault(str(row.get("coin")), []).append(row)
     index: dict[str, _CoinIndex] = {}
     for coin, coin_rows in grouped.items():
         times = _column(coin_rows, "ts_ms")
         order = np.argsort(times, kind="stable")
-        index[coin] = _CoinIndex(
-            ts_ms=times[order],
-            rows=[coin_rows[i] for i in order.tolist()],
-        )
+        index[coin] = _CoinIndex(ts_ms=times[order], rows=[coin_rows[i] for i in order.tolist()], columns={})
     return index
 
 
-def _asof_positions(
-    coins: Sequence[str],
-    fill_ts: FloatArray,
-    index: Mapping[str, _CoinIndex],
-) -> npt.NDArray[np.intp]:
+def _with_ofi(index: _CoinIndex) -> _CoinIndex:
+    return _CoinIndex(index.ts_ms, index.rows, _ofi_columns(index))
+
+
+def _ofi_columns(index: _CoinIndex) -> dict[str, list[float]]:
+    """``ofi_event`` per row and its sums over each window ``[t - span, t]``.
+
+    NOTE: after a book reset (a jump of more than ``STALE_BOOK_MS``) the first row has no
+    previous book to difference against, like the first row of the data: its event is 0
+    and no window reaches back across the jump. The prefix sum still runs over the raw
+    events, so a window that does not touch a reset is bit-identical to one without.
+    """
+    times = index.ts_ms
+    events = _normalized_ofi_events({name: _column(index.rows, name) for name in _BOOK_COLUMNS})
+    reset = np.concatenate(([False], np.diff(times) > STALE_BOOK_MS))
+    floor = np.maximum.accumulate(np.where(reset, np.arange(1, times.size + 1), 0))
+    prefix = np.concatenate(([0.0], np.cumsum(events)))
+    upto = np.arange(1, times.size + 1)
+    columns = {"ofi_event": np.where(reset, 0.0, events).tolist()}
+    for name, span in OFI_WINDOWS_MS.items():
+        start = np.maximum(np.searchsorted(times, times - span, side="left"), floor)
+        columns[name] = (prefix[upto] - prefix[start]).tolist()
+    return columns
+
+
+def _asof_positions(coins: Sequence[str], fill_ts: FloatArray, index: Mapping[str, _CoinIndex]) -> npt.NDArray[np.intp]:
     positions = np.full(fill_ts.size, -1, dtype=np.intp)
     coin_array = np.asarray(coins, dtype=object)
     for coin, coin_index in index.items():
         mask = coin_array == coin
         if mask.any():
-            positions[mask] = coin_index.latest_before(fill_ts[mask])
+            positions[mask] = found = coin_index.latest_before(fill_ts[mask])
+            assert np.all(coin_index.ts_ms[found[found >= 0]] < fill_ts[mask][found >= 0]), "look-ahead in the as-of join"
     return positions
 
 
-def _assert_point_in_time(
-    coins: Sequence[str],
-    fill_ts: FloatArray,
-    positions: npt.NDArray[np.intp],
-    index: Mapping[str, _CoinIndex],
-) -> None:
-    """Vectorized form of ``assert_strictly_before`` over every resolved join."""
-    coin_array = np.asarray(coins, dtype=object)
-    for coin, coin_index in index.items():
-        mask = (coin_array == coin) & (positions >= 0)
-        if not mask.any():
-            continue
-        feature_ts = coin_index.ts_ms[positions[mask]]
-        late = feature_ts >= fill_ts[mask]
-        if late.any():
-            raise LeakageError(
-                f"look-ahead: feature ts {feature_ts[late].max()} >= fill ts "
-                f"{fill_ts[mask][late].min()}"
-            )
-
-
-def _latest_static_by_coin(
-    rows: Sequence[Mapping[str, Any]],
-) -> dict[str, Mapping[str, Any]]:
-    latest: dict[str, Mapping[str, Any]] = {}
-    for row in rows:
-        if "ts_ms" not in row:
-            latest[str(row.get("coin"))] = row
-    return latest
-
-
 def _normalized_ofi_events(book: Mapping[str, FloatArray]) -> FloatArray:
+    """Top-of-book OFI between consecutive rows (bid/ask price-size pressure), divided by the
+    sum of both rows' top sizes so it is comparable across coins; 0 for the first row."""
     bid_px, bid_sz = book["bid_px"], book["bid_sz"]
     ask_px, ask_sz = book["ask_px"], book["ask_sz"]
     events = np.zeros(bid_px.size, dtype=np.float64)
@@ -413,12 +321,8 @@ def _normalized_ofi_events(book: Mapping[str, FloatArray]) -> FloatArray:
     prev_ask_px, prev_ask_sz = ask_px[:-1], ask_sz[:-1]
     cur_bid_px, cur_bid_sz = bid_px[1:], bid_sz[1:]
     cur_ask_px, cur_ask_sz = ask_px[1:], ask_sz[1:]
-    bid_pressure = np.where(cur_bid_px >= prev_bid_px, cur_bid_sz, 0.0) - np.where(
-        cur_bid_px <= prev_bid_px, prev_bid_sz, 0.0
-    )
-    ask_pressure = np.where(cur_ask_px >= prev_ask_px, prev_ask_sz, 0.0) - np.where(
-        cur_ask_px <= prev_ask_px, cur_ask_sz, 0.0
-    )
+    bid_pressure = np.where(cur_bid_px >= prev_bid_px, cur_bid_sz, 0.0) - np.where(cur_bid_px <= prev_bid_px, prev_bid_sz, 0.0)
+    ask_pressure = np.where(cur_ask_px >= prev_ask_px, prev_ask_sz, 0.0) - np.where(cur_ask_px <= prev_ask_px, cur_ask_sz, 0.0)
     denominator = prev_bid_sz + prev_ask_sz + cur_bid_sz + cur_ask_sz
     raw = bid_pressure + ask_pressure
     safe = np.where(denominator > 0.0, denominator, 1.0)
@@ -427,21 +331,4 @@ def _normalized_ofi_events(book: Mapping[str, FloatArray]) -> FloatArray:
 
 
 def _column(rows: Sequence[Mapping[str, Any]], name: str) -> FloatArray:
-    return np.fromiter((_as_float(row[name]) for row in rows), dtype=np.float64, count=len(rows))
-
-
-def _as_float(value: object) -> float:
-    if type(value) is float:
-        return value
-    try:
-        return float(cast(Any, value))
-    except TypeError as exc:
-        raise ValueError(f"expected a number, got {value!r}") from exc
-
-
-def _with_zero_ofi(row: Mapping[str, Any]) -> dict[str, Any]:
-    enriched = dict(row)
-    enriched["ofi_event"] = 0.0
-    for name in OFI_WINDOWS_MS:
-        enriched[name] = 0.0
-    return enriched
+    return np.fromiter((row[name] for row in rows), dtype=np.float64, count=len(rows))

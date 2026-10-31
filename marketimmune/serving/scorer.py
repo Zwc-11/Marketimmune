@@ -1,4 +1,9 @@
-"""Runtime scorer for promoted Hyperliquid markout CatBoost artifacts."""
+"""Score fills with a promoted markout model: the CatBoost ``.cbm`` or its compact JSON trees,
+then the trainer's isotonic calibrator and deployment threshold.
+
+The maths is pinned to ``frontend/src/lib/obliviousTrees.ts`` by the parity fixture
+(``marketimmune.cli.make_parity_fixtures``).
+"""
 
 from __future__ import annotations
 
@@ -7,31 +12,21 @@ import time
 from bisect import bisect_left
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from importlib import import_module
 from pathlib import Path
 from typing import Any, Protocol, cast
+
+import numpy as np
 
 from marketimmune.serving.oblivious_trees import load_compact
 
 
-class MarkoutScorerError(RuntimeError):
-    """Raised when a promoted markout artifact cannot be loaded or scored."""
-
-
-class MissingFeatureError(ValueError):
-    """Raised when a scoring request is missing required model features."""
-
-
 class ProbabilityModel(Protocol):
-    """Small protocol shared by CatBoost and test doubles."""
-
-    def predict_proba(self, rows: Sequence[Sequence[float]]) -> Any:  # pragma: no cover
-        """Return class probabilities for each row."""
+    def predict_proba(self, rows: Sequence[Sequence[float]]) -> Any: ...
 
 
 @dataclass(frozen=True)
 class IsotonicCalibrator:
-    """Portable isotonic calibration artifact emitted by the trainer."""
+    """The trainer's JSON calibrator: a piecewise-linear map through the isotonic knots."""
 
     enabled: bool
     x_thresholds: tuple[float, ...]
@@ -41,49 +36,43 @@ class IsotonicCalibrator:
 
     @classmethod
     def from_path(cls, path: Path) -> IsotonicCalibrator:
-        artifact = _read_json(path)
-        return cls.from_mapping(artifact)
+        return cls.from_mapping(_read_json(path))
 
     @classmethod
     def from_mapping(cls, artifact: Mapping[str, Any]) -> IsotonicCalibrator:
-        x_thresholds = tuple(float(item) for item in artifact.get("x_thresholds", ()))
-        y_thresholds = tuple(float(item) for item in artifact.get("y_thresholds", ()))
-        if len(x_thresholds) != len(y_thresholds):
-            raise MarkoutScorerError("Isotonic calibrator threshold arrays must have equal length.")
-        feature_columns = tuple(str(item) for item in artifact.get("feature_columns", ()))
-        threshold = _optional_float(artifact.get("deployment_decision_threshold"))
+        # A disabled calibrator is written without knots.
+        xs = tuple(float(item) for item in artifact.get("x_thresholds", ()))
+        ys = tuple(float(item) for item in artifact.get("y_thresholds", ()))
+        assert len(xs) == len(ys), f"isotonic calibrator thresholds must have equal length: {len(xs)=} {len(ys)=}"
+        threshold = artifact.get("deployment_decision_threshold")
         return cls(
             enabled=bool(artifact.get("enabled", True)),
-            x_thresholds=x_thresholds,
-            y_thresholds=y_thresholds,
-            feature_columns=feature_columns,
-            deployment_decision_threshold=threshold,
+            x_thresholds=xs,
+            y_thresholds=ys,
+            feature_columns=tuple(str(item) for item in artifact.get("feature_columns", ())),
+            deployment_decision_threshold=None if threshold is None else float(threshold),
         )
 
     def transform_one(self, probability: float) -> float:
-        """Calibrate one raw positive-class probability (binary search, O(log k))."""
+        """Calibrate one raw probability (binary search over the knots)."""
         probability = _clamp01(probability)
-        if not self.enabled or not self.x_thresholds:
-            return probability
         xs, ys = self.x_thresholds, self.y_thresholds
+        if not self.enabled or not xs:
+            return probability
         if probability <= xs[0]:
             return _clamp01(ys[0])
         if probability >= xs[-1]:
             return _clamp01(ys[-1])
-        # First knot with x >= p; matches the linear scan's "probability <= next_x".
+        # NOTE: the first knot with x >= p, so a repeated knot takes its left segment.
         right = bisect_left(xs, probability)
         left = right - 1
         weight = (probability - xs[left]) / (xs[right] - xs[left])
         return _clamp01(ys[left] + (ys[right] - ys[left]) * weight)
 
-    def transform(self, probabilities: Sequence[float]) -> list[float]:
-        """Calibrate many probabilities; identical to mapping ``transform_one``."""
-        return [self.transform_one(probability) for probability in probabilities]
-
 
 @dataclass(frozen=True)
 class MarkoutPrediction:
-    """One calibrated toxicity decision from the promoted markout model."""
+    """One calibrated toxicity decision."""
 
     raw_score: float
     calibrated_score: float
@@ -101,7 +90,7 @@ class MarkoutPrediction:
 
 @dataclass(frozen=True)
 class HyperliquidMarkoutScorer:
-    """Load and score a promoted Hyperliquid CatBoost markout model."""
+    """A loaded model, its calibrator and report; scores feature dicts keyed by column name."""
 
     model: ProbabilityModel
     calibrator: IsotonicCalibrator
@@ -114,25 +103,20 @@ class HyperliquidMarkoutScorer:
     decision_threshold: float | None
 
     @classmethod
-    def load(
-        cls,
-        model_path: Path,
-        calibrator_path: Path,
-        report_path: Path,
-    ) -> HyperliquidMarkoutScorer:
-        model_path = model_path.resolve()
-        calibrator_path = calibrator_path.resolve()
-        report_path = report_path.resolve()
-        _require_file(model_path, "model")
-        _require_file(calibrator_path, "calibrator")
-        _require_file(report_path, "report")
-
+    def load(cls, model_path: Path, calibrator_path: Path, report_path: Path) -> HyperliquidMarkoutScorer:
+        model_path, calibrator_path, report_path = model_path.resolve(), calibrator_path.resolve(), report_path.resolve()
+        if not model_path.is_file():
+            raise FileNotFoundError(f"Promoted markout artifact not found: {model_path}")
         report = _read_json(report_path)
         calibrator = IsotonicCalibrator.from_path(calibrator_path)
-        feature_columns = _feature_columns(report, calibrator)
-        model = _load_model(model_path)
+        feature_columns = calibrator.feature_columns or tuple(str(item) for item in report.get("feature_columns", ()))
+        assert feature_columns, f"{report_path} defines no feature_columns"
+        threshold = calibrator.deployment_decision_threshold
+        if threshold is None and "policy" in report:
+            value = report["policy"].get("deployment_decision_threshold")
+            threshold = None if value is None else float(value)
         return cls(
-            model=model,
+            model=_load_model(model_path),
             calibrator=calibrator,
             report=report,
             model_path=model_path,
@@ -140,177 +124,70 @@ class HyperliquidMarkoutScorer:
             report_path=report_path,
             model_name=str(report.get("model_name") or model_path.stem),
             feature_columns=feature_columns,
-            decision_threshold=_decision_threshold(report, calibrator),
+            decision_threshold=threshold,
         )
 
-    def vectorize(
-        self,
-        features: Mapping[str, float],
-        *,
-        fill_missing: float | None = None,
-    ) -> list[float]:
-        missing = [name for name in self.feature_columns if name not in features]
-        if missing and fill_missing is None:
-            joined = ", ".join(missing[:5])
-            suffix = "" if len(missing) <= 5 else f", +{len(missing) - 5} more"
-            raise MissingFeatureError(f"Missing markout model features: {joined}{suffix}")
-        if fill_missing is None:
-            return [float(features[name]) for name in self.feature_columns]
-        fallback = float(fill_missing)
-        return [
-            float(features[name]) if name in features else fallback
-            for name in self.feature_columns
-        ]
+    def predict(self, features: Mapping[str, float]) -> MarkoutPrediction:
+        return self.predict_batch([features])[0]
 
-    def predict(
-        self,
-        features: Mapping[str, float],
-        *,
-        fill_missing: float | None = None,
-    ) -> MarkoutPrediction:
-        return self.predict_batch([features], fill_missing=fill_missing)[0]
+    def predict_batch(self, rows: Sequence[Mapping[str, float]]) -> list[MarkoutPrediction]:
+        """Score many fills in one model call.
 
-    def predict_batch(
-        self,
-        rows: Sequence[Mapping[str, float]],
-        *,
-        fill_missing: float | None = None,
-    ) -> list[MarkoutPrediction]:
-        """Score many fills with one model call.
-
-        Batch-invariant: a fill gets the same score whether it is scored alone or
-        inside any batch (CatBoost evaluates trees per row; calibration is per row).
-        ``tests/models/test_hyperliquid_markout_scorer.py`` pins that property.
+        Batch-invariant: a fill scores the same alone or inside any batch (trees are
+        evaluated per row, calibration is per row).
         """
         if not rows:
             return []
-        matrix = [self.vectorize(features, fill_missing=fill_missing) for features in rows]
-        raw_scores = _positive_class_probabilities(self.model.predict_proba(matrix), len(rows))
+        matrix = [self._vector(features) for features in rows]
+        raw_scores = [_clamp01(float(row[1])) for row in self.model.predict_proba(matrix)]
+        assert len(raw_scores) == len(rows), f"{len(raw_scores)=} {len(rows)=}"
         threshold = self.decision_threshold
         predictions: list[MarkoutPrediction] = []
         for raw_score in raw_scores:
-            calibrated_score = self.calibrator.transform_one(raw_score)
-            action = (
-                "withhold_quote"
-                if threshold is not None and calibrated_score >= threshold
-                else "quote"
-            )
-            predictions.append(MarkoutPrediction(
-                raw_score=raw_score,
-                calibrated_score=calibrated_score,
-                decision_threshold=threshold,
-                action=action,
-            ))
+            calibrated = self.calibrator.transform_one(raw_score)
+            action = "withhold_quote" if threshold is not None and calibrated >= threshold else "quote"
+            predictions.append(MarkoutPrediction(raw_score, calibrated, threshold, action))
         return predictions
 
     def latency_ms(self, features: Mapping[str, float], *, samples: int = 128) -> dict[str, float]:
-        samples = max(1, int(samples))
+        """Wall time of single-fill ``predict`` calls."""
         values: list[float] = []
-        for _ in range(samples):
+        for _ in range(max(1, samples)):
             started = time.perf_counter()
-            self.predict(features, fill_missing=0.0)
+            self.predict(features)
             values.append((time.perf_counter() - started) * 1000.0)
-        return {
-            "p50_ms": _percentile(values, 50),
-            "p95_ms": _percentile(values, 95),
-            "p99_ms": _percentile(values, 99),
-            "mean_ms": sum(values) / len(values),
-        }
+        p50, p95, p99 = np.percentile(values, (50, 95, 99)).tolist()
+        return {"p50_ms": p50, "p95_ms": p95, "p99_ms": p99, "mean_ms": sum(values) / len(values)}
 
     def zero_feature_sample(self) -> dict[str, float]:
-        return {name: 0.0 for name in self.feature_columns}
+        return dict.fromkeys(self.feature_columns, 0.0)
+
+    def _vector(self, features: Mapping[str, float]) -> list[float]:
+        missing = [name for name in self.feature_columns if name not in features]
+        if missing:
+            raise ValueError(
+                f"Missing markout model features: {', '.join(missing[:5])}{f', +{len(missing) - 5} more' if len(missing) > 5 else ''}"
+            )
+        return [float(features[name]) for name in self.feature_columns]
 
 
 def _load_model(path: Path) -> ProbabilityModel:
-    """Load a compact oblivious-tree JSON (no CatBoost needed) or a CatBoost .cbm."""
+    """The compact JSON needs no CatBoost; a ``.cbm`` needs the training extra."""
     if path.suffix == ".json":
         return cast(ProbabilityModel, load_compact(path))
-    return _load_catboost_model(path)
+    from catboost import CatBoostClassifier
 
-
-def _load_catboost_model(path: Path) -> ProbabilityModel:
-    try:
-        catboost_module = import_module("catboost")
-    except ImportError as exc:
-        raise MarkoutScorerError(
-            "CatBoost is not installed. Install the training extra to load promoted artifacts."
-        ) from exc
-    classifier_type = catboost_module.__dict__["CatBoostClassifier"]
-    model = classifier_type()
+    model = CatBoostClassifier()
     model.load_model(str(path))
     return cast(ProbabilityModel, model)
 
 
-def _feature_columns(
-    report: Mapping[str, Any],
-    calibrator: IsotonicCalibrator,
-) -> tuple[str, ...]:
-    if calibrator.feature_columns:
-        return calibrator.feature_columns
-    columns = report.get("feature_columns", ())
-    feature_columns = tuple(str(item) for item in columns)
-    if not feature_columns:
-        raise MarkoutScorerError("Promoted markout report does not define feature_columns.")
-    return feature_columns
-
-
-def _decision_threshold(
-    report: Mapping[str, Any],
-    calibrator: IsotonicCalibrator,
-) -> float | None:
-    if calibrator.deployment_decision_threshold is not None:
-        return calibrator.deployment_decision_threshold
-    policy = report.get("policy")
-    if isinstance(policy, Mapping):
-        return _optional_float(policy.get("deployment_decision_threshold"))
-    return _optional_float(report.get("decision_threshold"))
-
-
-def _positive_class_probabilities(probabilities: Any, expected: int) -> list[float]:
-    try:
-        scores = [
-            float(row[1] if len(row) > 1 else row[0])
-            for row in probabilities
-        ]
-    except (IndexError, KeyError, TypeError) as exc:
-        raise MarkoutScorerError("Model predict_proba did not return class probabilities.") from exc
-    if len(scores) != expected:
-        raise MarkoutScorerError("Model predict_proba did not return class probabilities.")
-    return [_clamp01(score) for score in scores]
-
-
-def _percentile(values: Sequence[float], percentile: float) -> float:
-    ordered = sorted(values)
-    if not ordered:
-        raise ValueError("cannot compute percentile for an empty sequence")
-    if len(ordered) == 1:
-        return float(ordered[0])
-    position = (len(ordered) - 1) * percentile / 100.0
-    lower = int(position)
-    upper = min(lower + 1, len(ordered) - 1)
-    weight = position - lower
-    return float(ordered[lower] + (ordered[upper] - ordered[lower]) * weight)
-
-
-def _optional_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    return float(value)
-
-
 def _read_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
-        payload = json.load(handle)
-    if not isinstance(payload, dict):
-        raise MarkoutScorerError(f"{path} must contain a JSON object.")
-    return payload
-
-
-def _require_file(path: Path, label: str) -> None:
-    if not path.exists():
-        raise FileNotFoundError(f"Promoted markout {label} artifact not found: {path}")
     if not path.is_file():
-        raise MarkoutScorerError(f"Promoted markout {label} path is not a file: {path}")
+        raise FileNotFoundError(f"Promoted markout artifact not found: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict), f"{path} must contain a JSON object"
+    return payload
 
 
 def _clamp01(value: float) -> float:

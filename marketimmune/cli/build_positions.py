@@ -2,11 +2,11 @@
 
     python -m marketimmune.cli.build_positions --coin SOL --dates 20251201..20251231
 
-Writes ``silver/hyperliquid/positions/<COIN>/<COIN>-<date>.parquet`` (one row per
-wallet side of every fill: position after it, average entry, whether the chain
-held) and ``<same>.stats.json`` (chain-break rate, forced liquidations that
-reduced the position, long/short size over the wallets seen, open wallets).
-State carries across dates, so run the dates in one call.
+Writes ``silver/hyperliquid/positions/<COIN>/<COIN>-<date>.parquet`` (one row per wallet side
+of every fill: position after it, average entry, whether the chain held) and
+``<same>.stats.json`` (chain-break rate, forced liquidations that reduced the position,
+long/short size over the wallets seen, open wallets). State carries across dates, so run the
+dates in one call.
 """
 
 from __future__ import annotations
@@ -19,14 +19,12 @@ from typing import Any
 
 import pandas as pd
 
-from marketimmune.cli._train_data import parse_date_spec
-from marketimmune.forced.positions import (
-    long_short_open_interest,
-    open_positions,
-    roll_positions,
-    wallet_events,
-)
+from marketimmune.forced.positions import FILL_COLUMNS, WalletState, long_short_open_interest, open_positions, roll_positions, wallet_events
 from marketimmune.lake.tables import HyperliquidLakeLayout
+from marketimmune.logger import init_logger
+from marketimmune.utils import parse_date_spec
+
+logger = init_logger(__name__)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -45,15 +43,14 @@ def positions_path(lake_root: Path, coin: str, date: str) -> Path:
 def build(args: argparse.Namespace) -> list[dict[str, Any]]:
     coin = args.coin.upper()
     layout = HyperliquidLakeLayout(args.lake_root)
-    state: dict[str, Any] = {}
+    state: dict[str, WalletState] = {}
     summaries: list[dict[str, Any]] = []
     t0 = time.perf_counter()
     for date in parse_date_spec(args.dates):
         fills_path = layout.silver_fills_path(coin, date)
         if not fills_path.exists():
             continue
-        events = wallet_events(pd.read_parquet(fills_path))
-        rolled, state, stats = roll_positions(events, state)
+        rolled, state, stats = roll_positions(wallet_events(pd.read_parquet(fills_path, columns=list(FILL_COLUMNS))), state)
         out = positions_path(args.lake_root, coin, date)
         out.parent.mkdir(parents=True, exist_ok=True)
         rolled.to_parquet(out, compression="zstd", index=False)
@@ -66,7 +63,7 @@ def build(args: argparse.Namespace) -> list[dict[str, Any]]:
         }
         out.with_suffix(".stats.json").write_text(json.dumps(summary, indent=2) + "\n")
         summaries.append(summary)
-        print(json.dumps(summary), flush=True)
+        logger.info(json.dumps(summary))
     return summaries
 
 

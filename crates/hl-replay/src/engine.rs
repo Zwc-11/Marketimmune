@@ -12,7 +12,7 @@
 //! unknown, applying the rule per block is an approximation, and how often it
 //! bites is something to measure, not assume.
 
-use crate::book::{Book, BookError, MatchOut, Stp};
+use crate::book::{Book, MatchOut, Stp};
 use crate::types::{Lots, Oid, Side, Tick, UserId};
 
 /// Processing group inside a batch. The discriminant is the sort key.
@@ -96,7 +96,6 @@ pub struct BatchOut {
     pub statuses: Vec<Status>,
     /// Fills and self-trade cancels in execution order.
     pub matched: MatchOut,
-    order: Vec<u32>,
 }
 
 /// Apply `actions` (one consensus batch, in proposer order) to `book`.
@@ -104,51 +103,40 @@ pub fn apply_batch(book: &mut Book, actions: &[Action], cfg: &EngineConfig, out:
     out.statuses.clear();
     out.statuses.resize(actions.len(), Status::CancelMissing);
     out.matched.clear();
-    out.order.clear();
     // Three passes instead of a sort: O(n), and each class keeps proposer order.
     for cls in [Cls::PostOnly, Cls::Cancel, Cls::Taker] {
-        out.order.extend((0..actions.len() as u32).filter(|&i| actions[i as usize].cls() == cls));
-    }
-
-    for &i in &out.order {
-        let a = &actions[i as usize];
-        out.statuses[i as usize] = match a.op {
-            Op::Cancel { oid } => match book.cancel(oid) {
-                Some(lots) => Status::Canceled { lots },
-                None => Status::CancelMissing,
-            },
-            Op::Order { lots: 0, .. } => Status::ZeroSize,
-            Op::Order { oid, .. } if book.contains(oid) => Status::DuplicateOid,
-            Op::Order { oid, side, tick, lots, tif: Tif::Alo } => {
-                if book.crosses(side, tick) {
-                    Status::AloRejected
-                } else {
-                    rest(book, oid, a.user, side, tick, lots, 0)
-                }
-            }
-            Op::Order { oid, side, tick, lots, tif } => {
-                let before = out.matched.fills.len();
-                let left = book.take(oid, a.user, side, tick, lots, cfg.stp, &mut out.matched);
-                debug_assert!(
-                    out.matched.fills[before..].iter().map(|f| f.lots).sum::<Lots>() == lots - left
-                );
-                let filled = lots - left;
-                match (left, tif) {
-                    (0, _) => Status::Filled { filled },
-                    (_, Tif::Gtc) => rest(book, oid, a.user, side, tick, left, filled),
-                    _ => Status::IocCanceled { filled },
-                }
-            }
-        };
+        for (a, s) in actions.iter().zip(&mut out.statuses).filter(|(a, _)| a.cls() == cls) {
+            *s = apply(book, a, cfg.stp, &mut out.matched);
+        }
     }
 }
 
-fn rest(book: &mut Book, oid: Oid, user: UserId, side: Side, tick: Tick, lots: Lots, filled: Lots) -> Status {
-    match book.add(oid, user, side, tick, lots) {
-        Ok(()) => Status::Resting { filled },
-        Err(BookError::DuplicateOid(_)) => Status::DuplicateOid,
-        Err(BookError::ZeroLots) => Status::ZeroSize,
-        Err(e) => unreachable!("add cannot fail with {e}"),
+fn apply(book: &mut Book, a: &Action, stp: Stp, matched: &mut MatchOut) -> Status {
+    match a.op {
+        Op::Cancel { oid } => {
+            book.cancel(oid).map_or(Status::CancelMissing, |lots| Status::Canceled { lots })
+        }
+        Op::Order { lots: 0, .. } => Status::ZeroSize,
+        Op::Order { oid, .. } if book.contains(oid) => Status::DuplicateOid,
+        Op::Order { side, tick, tif: Tif::Alo, .. } if book.crosses(side, tick) => Status::AloRejected,
+        Op::Order { oid, side, tick, lots, tif: Tif::Alo } => {
+            book.add(oid, a.user, side, tick, lots);
+            Status::Resting { filled: 0 }
+        }
+        Op::Order { oid, side, tick, lots, tif } => {
+            let before = matched.fills.len();
+            let left = book.take(oid, a.user, side, tick, lots, stp, matched);
+            let filled = lots - left;
+            debug_assert_eq!(matched.fills[before..].iter().map(|f| f.lots).sum::<Lots>(), filled);
+            match (left, tif) {
+                (0, _) => Status::Filled { filled },
+                (_, Tif::Gtc) => {
+                    book.add(oid, a.user, side, tick, left);
+                    Status::Resting { filled }
+                }
+                _ => Status::IocCanceled { filled },
+            }
+        }
     }
 }
 
@@ -170,7 +158,7 @@ mod tests {
     fn cancel_beats_taker_in_same_batch() {
         for taker_first in [true, false] {
             let mut book = Book::new();
-            book.add(1, 1, Side::Ask, 100, 5).unwrap();
+            book.add(1, 1, Side::Ask, 100, 5);
             let snipe = Action { prio_gas: 80_000, ..order(2, 9, Side::Bid, 100, 5, Tif::Ioc) };
             let pull = cancel(1, 1);
             let batch = if taker_first { vec![snipe, pull] } else { vec![pull, snipe] };
@@ -193,7 +181,7 @@ mod tests {
     #[test]
     fn snipe_in_earlier_batch_wins() {
         let mut book = Book::new();
-        book.add(1, 1, Side::Ask, 100, 5).unwrap();
+        book.add(1, 1, Side::Ask, 100, 5);
         let mut out = BatchOut::default();
         let cfg = EngineConfig::default();
         apply_batch(&mut book, &[order(2, 9, Side::Bid, 100, 5, Tif::Ioc)], &cfg, &mut out);
@@ -211,13 +199,13 @@ mod tests {
         let mut out = BatchOut::default();
         apply_batch(&mut book, &batch, &EngineConfig::default(), &mut out);
         assert_eq!(out.statuses, vec![Status::Filled { filled: 3 }, Status::Resting { filled: 0 }]);
-        assert_eq!(book.best_ask(), Some((100, 2)));
+        assert_eq!(book.best(Side::Ask), Some((100, 2)));
     }
 
     #[test]
     fn alo_that_crosses_is_rejected() {
         let mut book = Book::new();
-        book.add(1, 1, Side::Ask, 100, 5).unwrap();
+        book.add(1, 1, Side::Ask, 100, 5);
         let mut out = BatchOut::default();
         apply_batch(
             &mut book,
@@ -232,16 +220,16 @@ mod tests {
     #[test]
     fn gtc_remainder_rests_ioc_remainder_drops() {
         let mut book = Book::new();
-        book.add(1, 1, Side::Ask, 100, 2).unwrap();
-        book.add(2, 1, Side::Ask, 101, 2).unwrap();
+        book.add(1, 1, Side::Ask, 100, 2);
+        book.add(2, 1, Side::Ask, 101, 2);
         let mut out = BatchOut::default();
         let cfg = EngineConfig::default();
         apply_batch(&mut book, &[order(2, 9, Side::Bid, 100, 5, Tif::Gtc)], &cfg, &mut out);
         assert_eq!(out.statuses, vec![Status::Resting { filled: 2 }]);
-        assert_eq!(book.best_bid(), Some((100, 3)));
+        assert_eq!(book.best(Side::Bid), Some((100, 3)));
         apply_batch(&mut book, &[order(3, 10, Side::Ask, 99, 9, Tif::Ioc)], &cfg, &mut out);
         assert_eq!(out.statuses, vec![Status::IocCanceled { filled: 3 }]);
-        assert_eq!(book.best_bid(), None);
+        assert_eq!(book.best(Side::Bid), None);
     }
 
     #[test]

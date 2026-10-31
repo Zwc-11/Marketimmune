@@ -16,30 +16,43 @@ from marketimmune.forced.positions import (
 
 
 def _fills(rows: list[tuple]) -> pd.DataFrame:
-    cols = ["ts_ms", "px", "sz", "taker_side", "taker_user", "maker_user",
-            "taker_start_position", "maker_start_position", "liquidation"]
+    cols = ["ts_ms", "px", "sz", "taker_side", "taker_user", "maker_user", "taker_start_position", "maker_start_position", "liquidation"]
     return pd.DataFrame(rows, columns=cols)
 
 
-def test_wallet_events_signs_and_validation() -> None:
-    ev = wallet_events(_fills([(1, 100.0, 2.0, "B", "t", "m", 0.0, 5.0, False)]))
-    by_role = ev.set_index("role")
-    assert by_role.loc["taker", "delta"] == 2.0 and by_role.loc["maker", "delta"] == -2.0
-    assert not by_role.loc["maker", "forced"]
-    with pytest.raises(ValueError, match="missing columns"):
-        wallet_events(pd.DataFrame({"ts_ms": [1]}))
+def test_wallet_events_signs_and_order() -> None:
+    ev = wallet_events(
+        _fills(
+            [
+                (2, 101.0, 1.0, "A", "u", "v", 0.0, 0.0, True),
+                (1, 100.0, 2.0, "B", "t", None, 0.0, 5.0, False),
+                (2, 102.0, 3.0, "B", "w", "x", 1.0, None, False),
+            ]
+        )
+    )
+    # time order, maker before taker; a side with no wallet or no start position is dropped
+    assert list(zip(ev.ts_ms, ev.seq, ev.role, ev.wallet, strict=True)) == [
+        (1, 1, "taker", "t"),
+        (2, 0, "maker", "v"),
+        (2, 0, "taker", "u"),
+        (2, 2, "taker", "w"),
+    ]
+    assert ev.delta.tolist() == [2.0, 1.0, -1.0, 3.0]
+    assert ev.forced.tolist() == [False, False, True, False]
 
 
 def test_roll_tracks_entry_detects_breaks_and_liquidations() -> None:
-    fills = _fills([
-        (1, 100.0, 2.0, "B", "a", "m", 0.0, 10.0, False),   # a opens long 2 @100
-        (2, 110.0, 2.0, "B", "a", "m", 2.0, 8.0, False),    # a adds: entry 105
-        (3, 120.0, 1.0, "A", "a", "m", 4.0, 6.0, False),    # a reduces: entry stays 105
-        (4, 90.0, 3.0, "A", "a", "m", 3.0, 7.0, True),      # forced sell of a, to flat
-        (5, 95.0, 1.0, "A", "a", "m", 0.0, 10.0, False),    # a opens short 1 @95
-        (6, 96.0, 2.0, "B", "a", "m", -1.0, 11.0, False),   # a flips to long 1 @96
-        (7, 97.0, 1.0, "B", "a", "m", 5.0, 9.0, False),     # a's start_pos jumped: break
-    ])
+    fills = _fills(
+        [
+            (1, 100.0, 2.0, "B", "a", "m", 0.0, 10.0, False),  # a opens long 2 @100
+            (2, 110.0, 2.0, "B", "a", "m", 2.0, 8.0, False),  # a adds: entry 105
+            (3, 120.0, 1.0, "A", "a", "m", 4.0, 6.0, False),  # a reduces: entry stays 105
+            (4, 90.0, 3.0, "A", "a", "m", 3.0, 7.0, True),  # forced sell of a, to flat
+            (5, 95.0, 1.0, "A", "a", "m", 0.0, 10.0, False),  # a opens short 1 @95
+            (6, 96.0, 2.0, "B", "a", "m", -1.0, 11.0, False),  # a flips to long 1 @96
+            (7, 97.0, 1.0, "B", "a", "m", 5.0, 9.0, False),  # a's start_pos jumped: break
+        ]
+    )
     rolled, state, stats = roll_positions(wallet_events(fills))
     a = rolled[rolled.wallet == "a"].reset_index(drop=True)
     assert a.position_after.tolist() == [2.0, 4.0, 3.0, 0.0, -1.0, 1.0, 6.0]

@@ -21,7 +21,7 @@ CONFIGS = REPO / "configs"
 RESULTS = REPO / "eval"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Paths:
     root: Path
 

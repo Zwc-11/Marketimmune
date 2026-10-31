@@ -49,24 +49,17 @@ MAINNET_TIERS: dict[str, tuple[Tier, ...]] = {
 
 
 def tiers_for(coin: str) -> tuple[Tier, ...]:
-    try:
-        return MAINNET_TIERS[coin.upper()]
-    except KeyError:
-        raise KeyError(f"no margin tiers recorded for {coin!r}; add them from the docs") from None
+    assert coin.upper() in MAINNET_TIERS, f"no margin tiers recorded for {coin!r}; add them from the docs"
+    return MAINNET_TIERS[coin.upper()]
 
 
 def _tier_index(tiers: Sequence[Tier], notional: float) -> int:
-    k = 0
-    for i, t in enumerate(tiers):
-        if notional > t.lower_usd:
-            k = i
-    return k
+    return max(i for i, t in enumerate(tiers) if notional > t.lower_usd or i == 0)
 
 
 def maintenance_deduction(tiers: Sequence[Tier], k: int) -> float:
     """Sum over tier boundaries up to ``k`` of lower bound x rate increase."""
-    return sum(tiers[i].lower_usd * (tiers[i].maintenance_rate - tiers[i - 1].maintenance_rate)
-               for i in range(1, k + 1))
+    return sum(tiers[i].lower_usd * (tiers[i].maintenance_rate - tiers[i - 1].maintenance_rate) for i in range(1, k + 1))
 
 
 def maintenance_margin(coin: str, notional_usd: float) -> float:
@@ -80,8 +73,7 @@ def maintenance_margin(coin: str, notional_usd: float) -> float:
 def liquidation_price(coin: str, size: float, price: float, margin_available: float) -> float:
     """The docs' formula; ``l`` from the tier of the position's notional at ``price``
     (the docs use the notional at the liquidation price; within one tier they agree)."""
-    if size == 0.0:
-        raise ValueError("no position")
+    assert size != 0.0, "no position"
     side = 1.0 if size > 0 else -1.0
     tiers = tiers_for(coin)
     l_rate = tiers[_tier_index(tiers, abs(size) * price)].maintenance_rate
@@ -94,8 +86,3 @@ def max_leverage_distance(coin: str, side: int, notional_usd: float = 0.0) -> fl
     tiers = tiers_for(coin)
     lev = tiers[_tier_index(tiers, notional_usd)].max_leverage
     return 1.0 / (2.0 * lev - 1.0) if side > 0 else 1.0 / (2.0 * lev + 1.0)
-
-
-def backstop_equity_fraction() -> float:
-    """Equity below this fraction of maintenance margin hands the position to the backstop."""
-    return 2.0 / 3.0

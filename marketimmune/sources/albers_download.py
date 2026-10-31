@@ -23,7 +23,6 @@ import argparse
 import hashlib
 import json
 import shutil
-import sys
 import threading
 import time
 import urllib.error
@@ -61,7 +60,7 @@ _print_lock = threading.Lock()
 _progress: dict[str, int] = {}  # key -> bytes on disk, for the monitor thread
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class RemoteFile:
     key: str
     size: int
@@ -81,8 +80,7 @@ def fetch_index() -> dict[str, RemoteFile]:
     out = {}
     for f in meta["files"]:
         algo, digest = f["checksum"].split(":", 1)
-        if algo != "md5":
-            raise ValueError(f"unexpected checksum type {algo} for {f['key']}")
+        assert algo == "md5", f"unexpected checksum type {algo} for {f['key']}"
         out[f["key"]] = RemoteFile(f["key"], int(f["size"]), digest, f["links"]["self"])
     return out
 
@@ -141,19 +139,13 @@ def download(rf: RemoteFile, dest: Path, segments: int) -> Path:
     else:
         ranges = split(rf.size, segments)
         plan_path.write_text(json.dumps({"size": rf.size, "md5": rf.md5, "ranges": ranges}))
-        legacy = dest / f"{rf.key}.part"  # single-stream partial from an older run
-        if legacy.exists() and legacy.stat().st_size <= ranges[0][1] - ranges[0][0]:
-            legacy.rename(segdir / "seg000")
     seg_paths = [segdir / f"seg{i:03d}" for i in range(len(ranges))]
     with _print_lock:
         _progress[rf.key] = sum(p.stat().st_size for p in seg_paths if p.exists())
 
     log(f"{rf.key}: {rf.size / 1e9:.2f} GB in {len(ranges)} segment(s)")
     with ThreadPoolExecutor(max_workers=len(ranges)) as pool:
-        futs = [
-            pool.submit(fetch_range, rf.url, s, e, p, rf.key)
-            for (s, e), p in zip(ranges, seg_paths, strict=True)
-        ]
+        futs = [pool.submit(fetch_range, rf.url, s, e, p, rf.key) for (s, e), p in zip(ranges, seg_paths, strict=True)]
         for f in as_completed(futs):
             f.result()
 
@@ -171,10 +163,7 @@ def download(rf: RemoteFile, dest: Path, segments: int) -> Path:
         raise RuntimeError(f"{rf.key}: md5 {h.hexdigest()} != {rf.md5}; kept as {rf.key}.bad")
     tmp.replace(final)
     marker.write_text(rf.md5 + "\n")
-    try:
-        shutil.rmtree(segdir)
-    except OSError as e:  # e.g. a sandbox that forbids deletes; harmless leftovers
-        log(f"{rf.key}: could not remove {segdir.name} ({e}); delete it by hand")
+    shutil.rmtree(segdir)
     log(f"{rf.key}: verified")
     return final
 
@@ -188,27 +177,16 @@ def monitor(total: int, stop: threading.Event, every_s: float = 60.0) -> None:
             done = sum(_progress.values())
         rate = (done - start) / max(time.time() - t0, 1e-9) / 1e6
         eta_h = (total - done) / 1e6 / rate / 3600 if rate > 0 else float("inf")
-        log(
-            f"progress {done / 1e9:.1f}/{total / 1e9:.1f} GB ({100 * done / total:.1f}%) "
-            f"{rate:.1f} MB/s, eta {eta_h:.1f} h"
-        )
+        log(f"progress {done / 1e9:.1f}/{total / 1e9:.1f} GB ({100 * done / total:.1f}%) {rate:.1f} MB/s, eta {eta_h:.1f} h")
 
 
 def write_manifest(dest: Path, index: dict[str, RemoteFile], keys: list[str]) -> None:
     """Record ``keys`` plus every file an earlier run already listed, so running
     another set (``--set trades`` after ``needed``) never drops rows."""
     path = dest / "MANIFEST.json"
-    listed: list[str] = []
-    if path.exists():
-        try:
-            listed = [r["key"] for r in json.loads(path.read_text())["files"]]
-        except (ValueError, KeyError, TypeError):
-            listed = []
+    listed = [r["key"] for r in json.loads(path.read_text())["files"]] if path.exists() else []
     ordered = list(dict.fromkeys([k for k in listed if k in index] + keys))
-    rows = [
-        {**asdict(index[k]), "verified": (dest / f"{k}.md5ok").exists() and (dest / k).exists()}
-        for k in ordered
-    ]
+    rows = [{**asdict(index[k]), "verified": (dest / f"{k}.md5ok").exists() and (dest / k).exists()} for k in ordered]
     manifest = {
         "record": f"https://zenodo.org/records/{RECORD_ID}",
         "doi": "10.5281/zenodo.18184441",
@@ -235,10 +213,7 @@ def main(argv: list[str] | None = None) -> int:
         log(f"not in record: {missing}")
         return 2
     total = sum(index[k].size for k in keys)
-    log(
-        f"set={args.set}: {len(keys)} files, {total / 1e9:.1f} GB -> {args.dest} "
-        f"({args.jobs} files x {args.segments} connections)"
-    )
+    log(f"set={args.set}: {len(keys)} files, {total / 1e9:.1f} GB -> {args.dest} ({args.jobs} files x {args.segments} connections)")
     if args.dry_run:
         for k in keys:
             log(f"  {k} {index[k].size / 1e9:.2f} GB md5={index[k].md5}")
@@ -266,4 +241,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

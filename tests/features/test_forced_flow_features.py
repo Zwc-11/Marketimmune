@@ -10,7 +10,6 @@ import pytest
 from marketimmune.features.forced_flow_features import (
     FORECAST_FEATURE_COLUMNS,
     GRID_INPUTS,
-    empty_grid,
     forecast_features,
     verify_forecast_features_no_lookahead,
 )
@@ -28,8 +27,7 @@ def _grid() -> dict[str, np.ndarray]:
 
 
 def test_strictly_before_and_maker_relative() -> None:
-    f = forecast_features(np.array([20_000.0, 20_001.0, 25_000.0, 5_000.0, 400_000.0]),
-                          np.array([1.0, 1.0, -1.0, 1.0, 1.0]), _grid())
+    f = forecast_features(np.array([20_000.0, 20_001.0, 25_000.0, 5_000.0, 400_000.0]), np.array([1.0, 1.0, -1.0, 1.0, 1.0]), _grid())
     assert set(f) == set(FORECAST_FEATURE_COLUMNS)
     # a fill at exactly 20000 uses the 10000 row, not its own grid time
     assert f["fc_same_15s"][0] == 1.0 and f["fc_opp_15s"][0] == 10.0
@@ -46,5 +44,5 @@ def test_no_lookahead_check_and_empty_grid() -> None:
     side = np.where(np.arange(50) % 2 == 0, 1.0, -1.0)
     rep = verify_forecast_features_no_lookahead(t, side, _grid())
     assert rep["passed"] and rep["n_checked"] == 50 and rep["rows_with_forecast"] > 0
-    f = forecast_features(t, side, empty_grid())
+    f = forecast_features(t, side, {c: np.zeros(0) for c in GRID_INPUTS})
     assert np.isnan(f["fc_same_60s"]).all()

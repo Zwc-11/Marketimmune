@@ -1,1 +1,1 @@
-"""Django app behind the terminal: live Hyperliquid data, backfill jobs, scored fills."""
+"""Django app behind the terminal: backfill jobs and the promoted model's scored fills."""

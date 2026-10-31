@@ -1,5 +1,5 @@
 # Assets and date ranges per experiment. Dates are UTC, inclusive.
-# Anything marked TBD is set by Gate G0 (docs/g0_note.md) and must be filled
+# Anything marked TBD is set by Gate G0 (docs/research/g0_probe_note.md) and must be filled
 # in before the phase that uses it.
 
 coins: [BTC, ETH, SOL]
@@ -25,12 +25,6 @@ priority_fees:
   hip3_ioc_launch: 2026-04-13     # alpha mainnet launch, IOC on HIP-3 only
   core_perp_launch: null          # TBD: measured, not published
   alo_launch_approx: 2026-07-01   # inferred from order_book_server insertBefore; verify
-
-s3:
-  node_bucket: hl-mainnet-node-data
-  archive_bucket: hyperliquid-archive
-  node_region: ap-northeast-1
-  archive_region: us-east-1
 
 binance:
   symbols: {BTC: BTCUSDT, ETH: ETHUSDT, SOL: SOLUSDT}

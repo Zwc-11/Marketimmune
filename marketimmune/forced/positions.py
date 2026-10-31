@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 TOLERANCE = 1e-6  # sizes are decimal strings with <= 8 decimals; float noise sits far below
@@ -57,44 +58,51 @@ class RollStats:
             "break_abs_size_p50": float(np.median(sizes)) if sizes.size else None,
             "break_abs_size_p95": float(np.quantile(sizes, 0.95)) if sizes.size else None,
             "liquidation_events": self.liquidation_events,
-            "liquidation_reducing_share": (
-                self.liquidation_reducing / self.liquidation_events
-                if self.liquidation_events else None
-            ),
+            "liquidation_reducing_share": (self.liquidation_reducing / self.liquidation_events if self.liquidation_events else None),
             "unknown_entry_share": self.unknown_entry_events / self.events if self.events else None,
         }
 
 
-def wallet_events(fills: pd.DataFrame) -> pd.DataFrame:
-    """One row per (fill, wallet side) from Silver fills (``MatchFill`` columns).
+FILL_COLUMNS = (
+    "ts_ms",
+    "px",
+    "sz",
+    "taker_side",
+    "maker_user",
+    "taker_user",
+    "maker_start_position",
+    "taker_start_position",
+    "liquidation",
+)
 
-    ``delta`` is the wallet's signed size change; ``forced`` marks the side the
-    liquidation engine traded for (the taker of a liquidation fill).
-    """
-    need = ["ts_ms", "px", "sz", "taker_side", "maker_user", "taker_user",
-            "maker_start_position", "taker_start_position", "liquidation"]
-    missing = [c for c in need if c not in fills.columns]
-    if missing:
-        raise ValueError(f"fills missing columns: {missing}")
-    seq = np.arange(len(fills))
-    taker_sign = np.where(fills["taker_side"].to_numpy() == "B", 1.0, -1.0)
-    sz = fills["sz"].to_numpy(dtype=np.float64)
-    liq = fills["liquidation"].fillna(False).to_numpy(dtype=bool)
-    parts = []
-    for role, sign, forced in (("taker", taker_sign, liq), ("maker", -taker_sign, np.zeros_like(liq))):
-        parts.append(pd.DataFrame({
-            "ts_ms": fills["ts_ms"].to_numpy(dtype=np.int64),
-            "seq": seq,
-            "wallet": fills[f"{role}_user"].to_numpy(dtype=object),
-            "start_pos": fills[f"{role}_start_position"].to_numpy(dtype=np.float64),
-            "delta": sign * sz,
-            "px": fills["px"].to_numpy(dtype=np.float64),
-            "role": role,
-            "forced": forced,
-        }))
-    events = pd.concat(parts, ignore_index=True)
-    events = events[events["wallet"].notna() & events["start_pos"].notna()]
-    return events.sort_values(["ts_ms", "seq", "role"], kind="stable").reset_index(drop=True)
+
+def wallet_events(fills: pd.DataFrame) -> pd.DataFrame:
+    """One row per (fill, wallet side) from Silver fills, in (time, fill, role) order.
+
+    ``delta`` is the wallet's signed size change; ``forced`` marks the side the liquidation
+    engine traded for (the taker of a liquidation fill)."""
+    order = np.argsort(fills["ts_ms"].to_numpy(dtype=np.int64), kind="stable")
+    rows = np.repeat(order, 2)  # maker, then taker ("maker" < "taker")
+    taker = np.tile([False, True], len(fills))
+
+    def pick(column: str, dtype: type) -> npt.NDArray[Any]:
+        maker_col, taker_col = (fills[f"{role}_{column}"].to_numpy(dtype=dtype)[rows] for role in ("maker", "taker"))
+        return np.where(taker, taker_col, maker_col)
+
+    taker_sign = np.where(fills["taker_side"].to_numpy()[rows] == "B", 1.0, -1.0)
+    events = pd.DataFrame(
+        {
+            "ts_ms": fills["ts_ms"].to_numpy(dtype=np.int64)[rows],
+            "seq": rows.astype(np.int64),
+            "wallet": pick("user", object),
+            "start_pos": pick("start_position", np.float64),
+            "delta": np.where(taker, taker_sign, -taker_sign) * fills["sz"].to_numpy(dtype=np.float64)[rows],
+            "px": fills["px"].to_numpy(dtype=np.float64)[rows],
+            "role": np.where(taker, "taker", "maker").astype(object),
+            "forced": fills["liquidation"].fillna(False).to_numpy(dtype=bool)[rows] & taker,
+        }
+    )
+    return events[events["wallet"].notna() & events["start_pos"].notna()].reset_index(drop=True)
 
 
 def roll_positions(
@@ -109,22 +117,13 @@ def roll_positions(
     pos_after = np.empty(n)
     entry_after = np.empty(n)
     chain_ok = np.ones(n, dtype=bool)
-    wallets = events["wallet"].tolist()
-    start = events["start_pos"].to_numpy(dtype=np.float64)
-    delta = events["delta"].to_numpy(dtype=np.float64)
-    px = events["px"].to_numpy(dtype=np.float64)
-    ts = events["ts_ms"].to_numpy(dtype=np.int64)
-    forced = events["forced"].to_numpy(dtype=bool)
-    seen: set[str] = set()
-    for i in range(n):
-        w = wallets[i]
+    columns = (events[c].tolist() for c in ("wallet", "start_pos", "delta", "px", "ts_ms", "forced"))
+    for i, (w, s0, d, px, ts, forced) in enumerate(zip(*columns, strict=True)):
         st = state.get(w)
-        s0 = start[i]
         if st is None:
             # First sight of the wallet: the fill's start_pos is the truth, entry unknown
-            # unless it starts flat.
-            st = WalletState(position=s0)  # entry unknown unless it opens from flat below
-            state[w] = st
+            # unless it opens from flat below.
+            st = state[w] = WalletState(position=s0)
         else:
             stats.chained += 1
             if abs(st.position - s0) > TOLERANCE * max(1.0, abs(s0)):
@@ -133,28 +132,25 @@ def roll_positions(
                 chain_ok[i] = False
                 st.entry_px = math.nan  # the unseen change had an unseen price
             st.position = s0
-        seen.add(w)
-        d = delta[i]
         new = s0 + d
-        flips = (s0 > 0) != (new > 0) and abs(new) > TOLERANCE
-        if abs(s0) <= TOLERANCE or flips:
+        if abs(s0) <= TOLERANCE or ((s0 > 0) != (new > 0) and abs(new) > TOLERANCE):
             # opening from flat, or flipping through zero: the remainder is at this price
-            st.entry_px = px[i] if abs(new) > TOLERANCE else math.nan
+            st.entry_px = px if abs(new) > TOLERANCE else math.nan
         elif abs(new) > abs(s0):
             if not math.isnan(st.entry_px):
-                st.entry_px = (st.entry_px * abs(s0) + px[i] * abs(d)) / abs(new)
+                st.entry_px = (st.entry_px * abs(s0) + px * abs(d)) / abs(new)
         elif abs(new) <= TOLERANCE:
             st.entry_px = math.nan
-        if forced[i]:
+        if forced:
             stats.liquidation_events += 1
             stats.liquidation_reducing += int(abs(new) < abs(s0) - TOLERANCE)
         st.position = new
-        st.last_ts_ms = int(ts[i])
+        st.last_ts_ms = ts
         pos_after[i] = new
         entry_after[i] = st.entry_px
         stats.unknown_entry_events += int(abs(new) > TOLERANCE and math.isnan(st.entry_px))
     stats.events = n
-    stats.wallets = len(seen)
+    stats.wallets = int(events["wallet"].nunique())
     out = events.assign(position_after=pos_after, entry_px_after=entry_after, chain_ok=chain_ok)
     return out, state, stats
 
@@ -173,4 +169,3 @@ def long_short_open_interest(state: Mapping[str, WalletState]) -> dict[str, floa
     """Sum of long and of short sizes over the wallets seen (a lower bound on OI)."""
     pos = np.fromiter((s.position for s in state.values()), dtype=np.float64)
     return {"long": float(pos[pos > 0].sum()), "short": float(-pos[pos < 0].sum())}
-

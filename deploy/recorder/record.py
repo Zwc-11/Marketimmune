@@ -41,9 +41,7 @@ HL_PING_S = 50.0  # Hyperliquid drops connections idle for 60 s
 FLUSH_S = 1.0
 
 
-def hl_subscriptions(
-    coins: Sequence[str] = COINS, channels: Sequence[str] = HL_CHANNELS
-) -> list[dict[str, Any]]:
+def hl_subscriptions(coins: Sequence[str] = COINS, channels: Sequence[str] = HL_CHANNELS) -> list[dict[str, Any]]:
     return [{"method": "subscribe", "subscription": {"type": t, "coin": c}} for c in coins for t in channels]
 
 
@@ -112,9 +110,7 @@ async def run_feed(
     backoff = 1.0
     while not stop.is_set():
         try:
-            async with websockets.connect(
-                feed.url, ping_interval=20, ping_timeout=20, max_size=2**24, open_timeout=15
-            ) as ws:
+            async with websockets.connect(feed.url, ping_interval=20, ping_timeout=20, max_size=2**24, open_timeout=15) as ws:
                 for s in feed.subscriptions:
                     await ws.send(json.dumps(s))
                 gaps.write(venue=feed.venue, event="connected", url=feed.url)
@@ -165,9 +161,7 @@ async def _app_ping(ws: Any, feed: Feed) -> None:
         await ws.send(json.dumps(feed.app_ping))
 
 
-async def _flusher(
-    writers: Sequence[HourlyWriter], counts: Counter[str], stats: JsonlLog, stop: asyncio.Event
-) -> None:
+async def _flusher(writers: Sequence[HourlyWriter], counts: Counter[str], stats: JsonlLog, stop: asyncio.Event) -> None:
     last_stats = time.monotonic()
     while not stop.is_set():
         with contextlib.suppress(TimeoutError):
@@ -180,9 +174,7 @@ async def _flusher(
             last_stats = time.monotonic()
 
 
-async def record(
-    out: Path, feeds: Sequence[Feed], max_seconds: float | None = None, handle_signals: bool = False
-) -> dict[str, int]:
+async def record(out: Path, feeds: Sequence[Feed], max_seconds: float | None = None, handle_signals: bool = False) -> dict[str, int]:
     """Record until ``max_seconds`` elapse or, with ``handle_signals``, SIGINT/SIGTERM."""
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

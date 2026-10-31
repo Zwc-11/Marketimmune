@@ -27,27 +27,14 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 
-from marketimmune.cli._train_data import parse_date_spec
-from marketimmune.cli.build_albers_gold import PREV_DAY_SPAN_MS, _shift, load_mids
+from marketimmune.cli.build_albers_gold import PREV_DAY_SPAN_MS, load_mids
 from marketimmune.cli.compare_rungs import KEY
-from marketimmune.features.cex_gap import (
-    CEX_FEATURE_COLUMNS,
-    PriceSeries,
-    cex_gap_features,
-    read_binance_aggtrades_zip,
-)
+from marketimmune.features.cex_gap import CEX_FEATURE_COLUMNS, PriceSeries, cex_gap_features, read_binance_aggtrades_zip
 from marketimmune.lake.tables import HyperliquidLakeLayout
-from marketimmune.sim.pnl import (
-    CostModel,
-    compare_policies,
-    daily_policy_pnl,
-    fill_components,
-    policy_mask,
-    summarise,
-)
+from marketimmune.sim.pnl import CostModel, compare_policies, daily_policy_pnl, fill_components, policy_mask, summarise
+from marketimmune.utils import parse_date_spec, shift_date, split_csv
 
-GOLD_COLUMNS = ("ts_ms", "px", "sz", "maker_side", "mid_before", "oid", "tid",
-                "markout_bps_1s", "markout_bps_10s", "markout_bps_60s")
+GOLD_COLUMNS = ("ts_ms", "px", "sz", "maker_side", "mid_before", "oid", "tid", "markout_bps_1s", "markout_bps_10s", "markout_bps_60s")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -61,13 +48,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--notional-usd", type=float, default=1_000.0)
     parser.add_argument("--oof", type=Path, default=None)
     parser.add_argument("--policy", choices=["quantile", "prob", "rule"], default="quantile")
-    parser.add_argument("--op", choices=["le", "ge"], default="le",
-                        help="rule: pull when the column is at or below (le) / above (ge)")
-    parser.add_argument("--cex-latency-ms", type=float, default=None,
-                        help="rule on a cex_* column: recompute it with this total delay "
-                             "(feed + cancel) instead of Gold's 300 ms feed latency")
-    parser.add_argument("--binance-dir", type=Path,
-                        default=Path("data/bronze/binance/aggTrades"))
+    parser.add_argument("--op", choices=["le", "ge"], default="le", help="rule: pull when the column is at or below (le) / above (ge)")
+    parser.add_argument(
+        "--cex-latency-ms",
+        type=float,
+        default=None,
+        help="rule on a cex_* column: recompute it with this total delay (feed + cancel) instead of Gold's 300 ms feed latency",
+    )
+    parser.add_argument("--binance-dir", type=Path, default=Path("data/bronze/binance/aggTrades"))
     parser.add_argument("--column", default="q10")
     parser.add_argument("--limit-bps", type=float, default=2.0)
     parser.add_argument("--threshold", type=float, default=0.6)
@@ -75,25 +63,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def load_gold(layout: HyperliquidLakeLayout, coin: str, dates: tuple[str, ...],
-              extra: tuple[str, ...] = ()) -> pd.DataFrame:
+def load_gold(layout: HyperliquidLakeLayout, coin: str, dates: tuple[str, ...], extra: tuple[str, ...] = ()) -> pd.DataFrame:
+    columns = list(dict.fromkeys((*GOLD_COLUMNS, *extra)))
     frames = []
     for date in dates:
         path = layout.gold_training_path(coin, date)
-        if not path.exists():
-            continue
-        names = set(pq.read_schema(path).names)
-        frame = pq.read_table(path, columns=[c for c in (*GOLD_COLUMNS, *extra)
-                                             if c in names]).to_pandas()
-        frame["partition_date"] = date
-        frames.append(frame)
+        if path.exists():
+            frames.append(pq.read_table(path, columns=columns).to_pandas().assign(partition_date=date))
     if not frames:
         raise SystemExit("no Gold training partitions for those dates")
     return pd.concat(frames, ignore_index=True)
 
 
-def recompute_cex(gold: pd.DataFrame, layout: HyperliquidLakeLayout, coin: str,
-                  binance_dir: Path, latency_ms: float) -> pd.DataFrame:
+def recompute_cex(gold: pd.DataFrame, layout: HyperliquidLakeLayout, coin: str, binance_dir: Path, latency_ms: float) -> pd.DataFrame:
     """Replace the CEX-gap columns with ones read ``latency_ms`` before each fill.
 
     Gold's columns assume the maker sees Binance 300 ms late and can still cancel
@@ -102,17 +84,14 @@ def recompute_cex(gold: pd.DataFrame, layout: HyperliquidLakeLayout, coin: str,
     out = gold.copy()
     symbol = f"{coin}USDT"
     for date, idx in out.groupby("partition_date").groups.items():
-        zips = [binance_dir / symbol / f"{symbol}-aggTrades-{d[:4]}-{d[4:6]}-{d[6:]}.zip"
-                for d in (_shift(str(date), -1), str(date))]
-        if not zips[1].exists():
-            out.loc[idx, list(CEX_FEATURE_COLUMNS)] = np.nan
-            continue
+        zips = [binance_dir / symbol / f"{symbol}-aggTrades-{d[:4]}-{d[4:6]}-{d[6:]}.zip" for d in (shift_date(str(date), -1), str(date))]
+        assert zips[1].exists(), f"missing {zips[1]}"
         cex = PriceSeries.concat([read_binance_aggtrades_zip(z) for z in zips if z.exists()])
         hl_ts, hl_mid = load_mids(layout, coin, str(date), prev_tail_ms=PREV_DAY_SPAN_MS)
         rows = out.loc[idx]
-        feats = cex_gap_features(rows["ts_ms"].to_numpy(np.float64),
-                                 rows["maker_side"].to_numpy(np.float64), hl_ts, hl_mid, cex,
-                                 latency_ms=latency_ms)
+        feats = cex_gap_features(
+            rows["ts_ms"].to_numpy(np.float64), rows["maker_side"].to_numpy(np.float64), hl_ts, hl_mid, cex, latency_ms=latency_ms
+        )
         for name, values in feats.items():
             out.loc[idx, name] = values
     return out
@@ -133,39 +112,35 @@ def attach_predictions(gold: pd.DataFrame, oof: pd.DataFrame, column: str) -> pd
 def run(args: argparse.Namespace) -> dict[str, Any]:
     layout = HyperliquidLakeLayout(args.lake_root)
     rule = args.oof is None and args.policy == "rule"
-    gold = load_gold(layout, args.coin.upper(), parse_date_spec(args.dates),
-                     (args.column,) if rule else ())
+    gold = load_gold(layout, args.coin.upper(), parse_date_spec(args.dates), (args.column,) if rule else ())
     costs = CostModel(args.maker_fee_bps, args.hedge_cost_bps, args.notional_usd)
     spec: dict[str, Any] = {"kind": "all"}
     if rule:
         if args.cex_latency_ms is not None and args.column in CEX_FEATURE_COLUMNS:
-            gold = recompute_cex(gold, layout, args.coin.upper(), args.binance_dir,
-                                 args.cex_latency_ms)
-        if args.column not in gold.columns:
-            raise SystemExit(f"Gold has no column {args.column!r}")
+            gold = recompute_cex(gold, layout, args.coin.upper(), args.binance_dir, args.cex_latency_ms)
         gold = gold[gold[args.column].notna()].reset_index(drop=True)
-        spec = {"kind": "rule", "column": args.column, "op": args.op,
-                "threshold": args.threshold, "cex_latency_ms": args.cex_latency_ms}
+        spec = {"kind": "rule", "column": args.column, "op": args.op, "threshold": args.threshold, "cex_latency_ms": args.cex_latency_ms}
     elif args.oof is not None:
         gold = attach_predictions(gold, pd.read_parquet(args.oof), args.column)
-        spec = ({"kind": "quantile", "column": args.column, "limit_bps": args.limit_bps}
-                if args.policy == "quantile"
-                else {"kind": "prob", "column": args.column, "threshold": args.threshold})
+        spec = (
+            {"kind": "quantile", "column": args.column, "limit_bps": args.limit_bps}
+            if args.policy == "quantile"
+            else {"kind": "prob", "column": args.column, "threshold": args.threshold}
+        )
     days = gold["partition_date"].to_numpy()
     result: dict[str, Any] = {
-        "coin": args.coin.upper(), "dates": args.dates, "rows": len(gold),
-        "costs": {"maker_fee_bps": costs.maker_fee_bps, "hedge_cost_bps": costs.hedge_cost_bps,
-                  "notional_usd": costs.notional_usd},
-        "policy": spec, "approximation": "fill filter (queue position ignored)",
+        "coin": args.coin.upper(),
+        "dates": args.dates,
+        "rows": len(gold),
+        "costs": {"maker_fee_bps": costs.maker_fee_bps, "hedge_cost_bps": costs.hedge_cost_bps, "notional_usd": costs.notional_usd},
+        "policy": spec,
+        "approximation": "fill filter (queue position ignored)",
     }
-    for h in [x.strip() for x in args.horizons.split(",") if x.strip()]:
-        if f"markout_bps_{h}" not in gold.columns:
-            continue
+    for h in split_csv(args.horizons):
         valid = gold[f"markout_bps_{h}"].notna() & gold["mid_before"].notna()
         comps = fill_components(gold.loc[valid], h, costs)
-        s1 = daily_policy_pnl(comps, days[valid.to_numpy()], [True] * len(comps), costs)
-        entry: dict[str, Any] = {"S1_quote_all": summarise(s1),
-                                 "S1_daily": s1.to_dict(orient="records")}
+        s1 = daily_policy_pnl(comps, days[valid.to_numpy()], np.ones(len(comps), dtype=bool), costs)
+        entry: dict[str, Any] = {"S1_quote_all": summarise(s1), "S1_daily": s1.to_dict(orient="records")}
         if spec["kind"] != "all":
             take = policy_mask(gold.loc[valid], spec)
             pol = daily_policy_pnl(comps, days[valid.to_numpy()], take, costs)
@@ -184,13 +159,17 @@ def main(argv: list[str] | None = None) -> int:
     for h in ("1s", "10s", "60s"):
         if h in result:
             s = result[h]["S1_quote_all"]
-            line = (f"{h}: S1 fills={s['fills']:,} spread={s['spread_bps']:+.2f} "
-                    f"adverse={s['adverse_bps']:+.2f} total={s['total_bps']:+.2f} bps/$")
+            line = (
+                f"{h}: S1 fills={s['fills']:,} spread={s['spread_bps']:+.2f} "
+                f"adverse={s['adverse_bps']:+.2f} total={s['total_bps']:+.2f} bps/$"
+            )
             if "policy" in result[h]:
                 p, c = result[h]["policy"], result[h]["policy_vs_S1"]
-                line += (f" | policy quote_rate={result[h]['policy_quote_rate']:.2f} "
-                         f"total={p.get('total_bps', float('nan')):+.2f} "
-                         f"vs S1 mean/day=${c['mean_daily_usd']:+,.0f}")
+                line += (
+                    f" | policy quote_rate={result[h]['policy_quote_rate']:.2f} "
+                    f"total={p.get('total_bps', float('nan')):+.2f} "
+                    f"vs S1 mean/day=${c['mean_daily_usd'] or float('nan'):+,.0f}"
+                )
             print(line)
     print(f"Wrote {args.out}")
     return 0

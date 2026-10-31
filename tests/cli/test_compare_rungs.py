@@ -16,21 +16,23 @@ from marketimmune.cli.train import write_oof_predictions
 def _gold_frame(n_days: int = 4, per_day: int = 50, seed: int = 0) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     n = n_days * per_day
-    return pd.DataFrame({
-        "ts_ms": np.arange(n) * 1000.0,
-        "partition_coin": "SOL",
-        "partition_date": np.repeat([f"202512{d + 1:02d}" for d in range(n_days)], per_day),
-        "px": 100.0,
-        "sz": 1.0,
-        "maker_side": rng.choice([-1, 1], n),
-        "oid": np.arange(n) // 2,  # two fills per taker order: duplicates on the key
-        "liquidation": np.arange(n) % 10 == 0,
-        "cex_ret_1000ms_bps": rng.normal(scale=3.0, size=n),
-        "forced_same_notional_60000ms": np.where(np.arange(n) % 7 == 0, 5e3, 0.0),
-        "forced_opp_notional_60000ms": 0.0,
-        "toxic_1s": rng.random(n) < 0.4,
-        "markout_bps_1s": rng.normal(size=n),
-    })
+    return pd.DataFrame(
+        {
+            "ts_ms": np.arange(n) * 1000.0,
+            "partition_coin": "SOL",
+            "partition_date": np.repeat([f"202512{d + 1:02d}" for d in range(n_days)], per_day),
+            "px": 100.0,
+            "sz": 1.0,
+            "maker_side": rng.choice([-1, 1], n),
+            "oid": np.arange(n) // 2,  # two fills per taker order: duplicates on the key
+            "liquidation": np.arange(n) % 10 == 0,
+            "cex_ret_1000ms_bps": rng.normal(scale=3.0, size=n),
+            "forced_same_notional_60000ms": np.where(np.arange(n) % 7 == 0, 5e3, 0.0),
+            "forced_opp_notional_60000ms": 0.0,
+            "toxic_1s": rng.random(n) < 0.4,
+            "markout_bps_1s": rng.normal(size=n),
+        }
+    )
 
 
 def test_oof_export_and_comparison(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -40,16 +42,20 @@ def test_oof_export_and_comparison(tmp_path: Path, capsys: pytest.CaptureFixture
     paths = {}
     for name, prob in (("base", np.full(len(frame), 0.4)), ("chal", good)):
         paths[name] = write_oof_predictions(
-            tmp_path / f"{name}.oof.parquet", frame, horizon="1s", probabilities=prob,
-            raw_probabilities=prob, baseline_probabilities=prob, feature_set=name,
+            tmp_path / f"{name}.oof.parquet",
+            frame,
+            horizon="1s",
+            probabilities=prob,
+            raw_probabilities=prob,
+            baseline_probabilities=prob,
+            feature_set=name,
         )
     oof = pd.read_parquet(paths["chal"])
     assert {"oid", "liquidation", "cex_ret_1000ms_bps", "label", "prob"} <= set(oof.columns)
 
     # the challenger dropped a few rows (missing features): compare on the overlap
     pd.read_parquet(paths["chal"]).iloc[5:].to_parquet(paths["chal"])
-    assert compare_rungs.main(["--base", str(paths["base"]), "--challenger",
-                               str(paths["chal"])]) == 0
+    assert compare_rungs.main(["--base", str(paths["base"]), "--challenger", str(paths["chal"])]) == 0
     out = json.loads((tmp_path / "chal_vs_base.json").read_text())
     assert out["rows_matched"] == len(frame) - 5
     assert out["all"]["days_improved"] == 4 and out["all"]["diebold_mariano"]["t_stat"] > 0
@@ -61,9 +67,9 @@ def test_oof_export_and_comparison(tmp_path: Path, capsys: pytest.CaptureFixture
 def test_align_rejects_mismatched_labels() -> None:
     a = pd.DataFrame({"partition_date": ["d"], "ts_ms": [1.0], "label": [True], "prob": [0.5]})
     b = a.assign(label=[False])
-    with pytest.raises(ValueError, match="labels disagree"):
+    with pytest.raises(AssertionError, match="labels disagree"):
         compare_rungs.align(a, b)
-    with pytest.raises(ValueError, match="ts_ms"):
+    with pytest.raises(AssertionError, match="ts_ms"):
         compare_rungs.align(a.drop(columns="ts_ms"), b.drop(columns="ts_ms"))
 
 
@@ -77,8 +83,7 @@ def test_pinball_comparison_on_quantile_oof(tmp_path: Path) -> None:
         out["q10"] = q10
         paths[name] = tmp_path / f"{name}.oof.parquet"
         out.to_parquet(paths[name])
-    assert compare_rungs.main(["--loss", "pinball", "--tau", "0.1", "--base", str(paths["base"]),
-                               "--challenger", str(paths["chal"])]) == 0
+    assert compare_rungs.main(["--loss", "pinball", "--tau", "0.1", "--base", str(paths["base"]), "--challenger", str(paths["chal"])]) == 0
     result = json.loads((tmp_path / "chal_vs_base.json").read_text())
     assert result["tau"] == 0.1 and result["all"]["days_improved"] == 4
 
@@ -94,21 +99,27 @@ def test_mcs_rungs_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> No
     }
     paths = []
     for name, prob in probs.items():
-        paths.append(write_oof_predictions(
-            tmp_path / f"{name}.oof.parquet", frame, horizon="1s", probabilities=prob,
-            raw_probabilities=prob, baseline_probabilities=prob, feature_set=name,
-        ))
+        paths.append(
+            write_oof_predictions(
+                tmp_path / f"{name}.oof.parquet",
+                frame,
+                horizon="1s",
+                probabilities=prob,
+                raw_probabilities=prob,
+                baseline_probabilities=prob,
+                feature_set=name,
+            )
+        )
     assert mcs_rungs.main([*map(str, paths), "--n-boot", "500"]) == 0
     out = json.loads((tmp_path / "mcs_brier.json").read_text())
     assert out["days"] == 6 and out["elimination_order"][0] == "flat"
     assert "flat" not in out["included"]
     assert "IN " in capsys.readouterr().out
-    with pytest.raises(SystemExit):
+    with pytest.raises(AssertionError, match="at least two"):
         mcs_rungs.main([str(paths[0])])
 
 
 def test_mcs_common_rows_rejects_mismatched_targets() -> None:
     a = pd.DataFrame({"partition_date": ["d"], "ts_ms": [1.0], "label": [True], "prob": [0.5]})
-    with pytest.raises(ValueError, match="targets disagree"):
-        mcs_rungs.common_rows({"a": a, "b": a.assign(label=[False])},
-                              target="label", prediction="prob")
+    with pytest.raises(AssertionError, match="targets disagree"):
+        mcs_rungs.common_rows({"a": a, "b": a.assign(label=[False])}, target="label", prediction="prob")

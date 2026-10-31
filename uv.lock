@@ -18,19 +18,6 @@ wheels = [
 ]
 
 [[package]]
-name = "anyio"
-version = "4.15.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "idna" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a9/d2/f4d173e22df740bc37b1db102b386ba719b66e95b0f0d751f556b387e6d2/anyio-4.15.1.tar.gz", hash = "sha256:9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94", size = 276966, upload-time = "2026-09-05T10:42:39.44Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/12/b8/4bd346e22b28902df4d651910f5242c28d84e4a5c2435ca5c3f797ed7e2e/anyio-4.15.1-py3-none-any.whl", hash = "sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101", size = 132079, upload-time = "2026-09-05T10:42:37.923Z" },
-]
-
-[[package]]
 name = "arch"
 version = "8.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -855,31 +842,6 @@ wheels = [
 ]
 
 [[package]]
-name = "django-cors-headers"
-version = "4.9.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "asgiref" },
-    { name = "django" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/21/39/55822b15b7ec87410f34cd16ce04065ff390e50f9e29f31d6d116fc80456/django_cors_headers-4.9.0.tar.gz", hash = "sha256:fe5d7cb59fdc2c8c646ce84b727ac2bca8912a247e6e68e1fb507372178e59e8", size = 21458, upload-time = "2025-09-18T10:40:52.326Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/30/d8/19ed1e47badf477d17fb177c1c19b5a21da0fd2d9f093f23be3fb86c5fab/django_cors_headers-4.9.0-py3-none-any.whl", hash = "sha256:15c7f20727f90044dcee2216a9fd7303741a864865f0c3657e28b7056f61b449", size = 12809, upload-time = "2025-09-18T10:40:50.843Z" },
-]
-
-[[package]]
-name = "djangorestframework"
-version = "3.18.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8d/b2/1cee76b188301f7d03169ca77fab2b3d3ec5d01b3469189f944af2d7f11a/djangorestframework-3.18.3.tar.gz", hash = "sha256:446a9b352e7eff630421ab3f2328bd2401b109a9470afa4a31189994911ed030", size = 923563, upload-time = "2026-10-06T21:33:51.521Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/dd/de5f4543765bec94e036a5e9593a42f8fa7efec8de78eb56b9ca834385f3/djangorestframework-3.18.3-py3-none-any.whl", hash = "sha256:8544bb674846731b1e3c9b309236ee1dc412905a0aa725be2ec193ca950a7d12", size = 903986, upload-time = "2026-10-06T21:33:49.917Z" },
-]
-
-[[package]]
 name = "eth-abi"
 version = "6.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1105,15 +1067,6 @@ wheels = [
 ]
 
 [[package]]
-name = "h11"
-version = "0.16.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz", hash = "sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1", size = 101250, upload-time = "2025-04-24T03:35:25.427Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl", hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86", size = 37515, upload-time = "2025-04-24T03:35:24.344Z" },
-]
-
-[[package]]
 name = "hexbytes"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1205,34 +1158,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a4/54/e1a0ea0b8db8460fdedf584b4136a5b9e7f9d7072ee008f825f29b103660/htmltools-0.7.0.tar.gz", hash = "sha256:b95f922b7038f1b935ce24691ae74cb1ab9526d9c9cf1c2e2f329c38ef227a10", size = 105807, upload-time = "2026-05-21T15:02:33.357Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2f/b2/bd9bfa6d77641bd3be57c7cd6ce10294d26db20cb9aedf19ac5d78845886/htmltools-0.7.0-py3-none-any.whl", hash = "sha256:92e5d06aeadb56e0ff63b236971bc58bb9cf6058c7235e3af57868e7bf113e1b", size = 89598, upload-time = "2026-05-21T15:02:32.171Z" },
-]
-
-[[package]]
-name = "httpcore"
-version = "1.0.9"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "certifi" },
-    { name = "h11" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz", hash = "sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8", size = 85484, upload-time = "2025-04-24T22:06:22.219Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl", hash = "sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55", size = 78784, upload-time = "2025-04-24T22:06:20.566Z" },
-]
-
-[[package]]
-name = "httpx"
-version = "0.28.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "anyio" },
-    { name = "certifi" },
-    { name = "httpcore" },
-    { name = "idna" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406, upload-time = "2024-12-06T15:37:23.222Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517, upload-time = "2024-12-06T15:37:21.509Z" },
 ]
 
 [[package]]
@@ -1848,7 +1773,7 @@ name = "marketimmune"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [
-    { name = "httpx" },
+    { name = "isal" },
     { name = "lz4" },
     { name = "numpy" },
     { name = "pandas" },
@@ -1856,6 +1781,7 @@ dependencies = [
     { name = "pyarrow" },
     { name = "pyyaml" },
     { name = "scikit-learn" },
+    { name = "scipy" },
 ]
 
 [package.optional-dependencies]
@@ -1878,9 +1804,6 @@ dev = [
     { name = "ruff" },
     { name = "types-pyyaml" },
 ]
-fast = [
-    { name = "isal" },
-]
 hl = [
     { name = "hyperliquid-python-sdk" },
 ]
@@ -1889,8 +1812,6 @@ recorder = [
 ]
 server = [
     { name = "django" },
-    { name = "django-cors-headers" },
-    { name = "djangorestframework" },
     { name = "python-dotenv" },
 ]
 signal = [
@@ -1923,12 +1844,9 @@ requires-dist = [
     { name = "catboost", marker = "extra == 'training'", specifier = ">=1.2.10" },
     { name = "coverage", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=7.5" },
     { name = "django", marker = "extra == 'server'", specifier = ">=5.1" },
-    { name = "django-cors-headers", marker = "extra == 'server'", specifier = ">=4.4" },
-    { name = "djangorestframework", marker = "extra == 'server'", specifier = ">=3.15" },
     { name = "hftbacktest", marker = "extra == 'sim'", specifier = "==2.4.4" },
-    { name = "httpx", specifier = ">=0.27" },
     { name = "hyperliquid-python-sdk", marker = "extra == 'hl'", specifier = "==0.24.0" },
-    { name = "isal", marker = "extra == 'fast'", specifier = ">=1.7" },
+    { name = "isal", specifier = ">=1.8" },
     { name = "lifelines", marker = "extra == 'survival'", specifier = "==0.30.3" },
     { name = "lightgbm", marker = "extra == 'signal'", specifier = ">=4.6" },
     { name = "lightgbm", marker = "extra == 'training'", specifier = ">=4.5" },
@@ -1950,12 +1868,13 @@ requires-dist = [
     { name = "rdrobust", marker = "extra == 'causal'", specifier = "==2.1.1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
     { name = "scikit-learn", specifier = ">=1.5" },
+    { name = "scipy", specifier = ">=1.14" },
     { name = "scipy", marker = "extra == 'stats'", specifier = ">=1.14" },
     { name = "statsmodels", marker = "extra == 'stats'", specifier = ">=0.14" },
     { name = "types-pyyaml", marker = "extra == 'dev'" },
     { name = "websockets", marker = "extra == 'recorder'", specifier = ">=15" },
 ]
-provides-extras = ["training", "fast", "aws", "server", "recorder", "causal", "survival", "signal", "stats", "sim", "hl", "viz", "dev"]
+provides-extras = ["training", "aws", "server", "recorder", "causal", "survival", "signal", "stats", "sim", "hl", "viz", "dev"]
 
 [[package]]
 name = "markupsafe"

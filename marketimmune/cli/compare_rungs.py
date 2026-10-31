@@ -33,11 +33,10 @@ import numpy as np
 import pandas as pd
 
 from marketimmune.models.compare import LOSSES, compare_rungs
+from marketimmune.models.decomposition import FORCED_60S
 from marketimmune.models.quantile_ladder import quantile_column
 
-REGIME_COLUMNS = ("cex_ret_1000ms_bps", "liquidation", "forced_same_notional_60000ms",
-                  "forced_opp_notional_60000ms")
-FORCED_60S = REGIME_COLUMNS[2:]
+REGIME_COLUMNS = ("cex_ret_1000ms_bps", "liquidation", *FORCED_60S)
 KEY = ("partition_date", "ts_ms", "px", "sz", "maker_side", "oid", "tid")
 
 
@@ -53,38 +52,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def align(
-    base: pd.DataFrame,
-    challenger: pd.DataFrame,
-    *,
-    target: str = "label",
-    prediction: str = "prob",
-) -> pd.DataFrame:
-    """Inner-join two OOF frames on the fill key (duplicates matched in order).
+def keyed_by_fill(frame: pd.DataFrame, key: list[str]) -> pd.DataFrame:
+    """A copy with the key columns as strings (dtypes differ between writers) and ``_dup``, the
+    occurrence number of a repeated key, so duplicate fills are matched in order."""
+    out = frame.copy()
+    out[key] = out[key].astype(str)
+    out["_dup"] = out.groupby(key, sort=False).cumcount()
+    return out
 
-    The result has ``y_base``/``y_challenger`` (the ``target`` column) and
-    ``pred_base``/``pred_challenger`` (the ``prediction`` column)."""
+
+def align(base: pd.DataFrame, challenger: pd.DataFrame, *, target: str = "label", prediction: str = "prob") -> pd.DataFrame:
+    """Inner-join two OOF frames on the fill key: ``y_base``/``y_challenger`` hold ``target``
+    and ``pred_base``/``pred_challenger`` hold ``prediction``."""
     key = [c for c in KEY if c in base.columns and c in challenger.columns]
-    if "ts_ms" not in key:
-        raise ValueError("OOF files need at least ts_ms to align")
-    b = base.copy()
-    c = challenger.copy()
-    for frame in (b, c):
-        for col in key:
-            frame[col] = frame[col].astype(str)
-        frame["_dup"] = frame.groupby(key, sort=False).cumcount()
-    for frame in (b, c):
-        frame["y"] = frame[target]
-        frame["pred"] = frame[prediction]
-    extra = [col for col in REGIME_COLUMNS if col in b.columns]
+    assert "ts_ms" in key, "OOF files need at least ts_ms to align"
+    extra = [c for c in REGIME_COLUMNS if c in base.columns]
+    b, c = (keyed_by_fill(f, key).rename(columns={target: "y", prediction: "pred"}) for f in (base, challenger))
     merged = b[[*key, "_dup", "y", "pred", *extra]].merge(
-        c[[*key, "_dup", "y", "pred"]],
-        on=[*key, "_dup"],
-        suffixes=("_base", "_challenger"),
+        c[[*key, "_dup", "y", "pred"]], on=[*key, "_dup"], suffixes=("_base", "_challenger")
     )
-    if not np.allclose(merged["y_base"].astype(float), merged["y_challenger"].astype(float),
-                       equal_nan=True):
-        raise ValueError("labels disagree on matched rows: the runs used different horizons")
+    assert np.allclose(merged["y_base"].astype(float), merged["y_challenger"].astype(float), equal_nan=True), (
+        "labels disagree on matched rows: the runs used different horizons"
+    )
     return merged
 
 
@@ -93,8 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     base = pd.read_parquet(args.base)
     challenger = pd.read_parquet(args.challenger)
     if args.loss == "pinball":
-        merged = align(base, challenger, target="markout_bps",
-                       prediction=quantile_column(args.tau))
+        merged = align(base, challenger, target="markout_bps", prediction=quantile_column(args.tau))
     else:
         merged = align(base, challenger)
     regimes: dict[str, Any] = {}

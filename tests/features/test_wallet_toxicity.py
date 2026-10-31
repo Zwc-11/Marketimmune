@@ -34,11 +34,11 @@ def test_wallet_toxicity_features_and_validation() -> None:
     assert set(f) == set(WALLET_FEATURE_COLUMNS)
     assert f["taker_log_n"].tolist() == [0.0, 0.0]  # the 10 s label is not known by 2 s
     assert f["taker_tox_1s"][1] == pytest.approx((1.0 + 20.0 * 1.0) / 21.0)
-    with pytest.raises(ValueError, match="same length"):
+    with pytest.raises(AssertionError, match="codes.size=0"):
         shrunk_wallet_scores([0.0], [], [1.0], 1.0)
-    with pytest.raises(ValueError, match="prior_weight"):
+    with pytest.raises(AssertionError, match="prior_weight"):
         shrunk_wallet_scores([0.0], ["a"], [1.0], 1.0, prior_weight=0.0)
-    with pytest.raises(ValueError, match="horizon"):
+    with pytest.raises(AssertionError, match="horizon"):
         wallet_toxicity_features([0.0], ["a"], {"10m": [1.0]})
 
 

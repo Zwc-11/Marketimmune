@@ -1,12 +1,11 @@
-"""Export a promoted CatBoost markout model for the web terminal and CatBoost-free serving.
+"""Export a trained CatBoost markout model as one compact JSON for the web terminal and
+CatBoost-free serving (trees + isotonic calibrator + deployment threshold).
 
-Writes one compact JSON (trees + isotonic calibrator + policy threshold) that both
-``frontend/src/lib/obliviousTrees.ts`` and ``marketimmune.serving.oblivious_trees``
-evaluate. Run after training:
-
-    python -m marketimmune.cli.export_web_model \\
-        --model data/models/hyperliquid_catboost_SOL_10s.cbm \\
+    python -m marketimmune.cli.export_web_model --model data/models/hyperliquid_catboost_SOL_10s.cbm \\
         --report eval/hyperliquid_markout_SOL_panel.json
+
+Both ``frontend/src/lib/obliviousTrees.ts`` and ``marketimmune.serving.oblivious_trees``
+evaluate the output.
 """
 
 from __future__ import annotations
@@ -17,35 +16,28 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from catboost import CatBoostClassifier
+
 from marketimmune.serving.oblivious_trees import compact_from_catboost_json
 
 DEFAULT_OUT = Path("frontend/public/model/markout.json")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description="Export a CatBoost markout model as compact JSON.")
     parser.add_argument("--model", type=Path, required=True, help="CatBoost .cbm file")
-    parser.add_argument(
-        "--calibrator",
-        type=Path,
-        default=None,
-        help="Isotonic JSON; defaults to <model>.isotonic.json",
-    )
-    parser.add_argument("--report", type=Path, required=True, help="Training report JSON")
+    parser.add_argument("--calibrator", type=Path, default=None, help="isotonic JSON; defaults to <model>.isotonic.json")
+    parser.add_argument("--report", type=Path, required=True, help="training report JSON")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     return parser.parse_args(argv)
 
 
-def build_web_artifact(
-    catboost_json: dict[str, Any],
-    calibrator: dict[str, Any],
-    report: dict[str, Any],
-) -> dict[str, Any]:
+def build_web_artifact(catboost_json: dict[str, Any], calibrator: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
     feature_columns = calibrator.get("feature_columns") or report.get("feature_columns")
     if not feature_columns:
         raise ValueError("feature_columns missing from calibrator and report")
     holdout = report.get("holdout_split") or {}
-    holdout_delta = (holdout.get("baseline_comparison") or {}).get("event_ofi", {})
+    holdout_delta = holdout.get("baseline_comparison", {}).get("event_ofi", {})
     return compact_from_catboost_json(
         catboost_json,
         feature_columns=[str(name) for name in feature_columns],
@@ -54,6 +46,7 @@ def build_web_artifact(
             "coin": report.get("coin"),
             "horizon": report.get("horizon"),
             "dataset_label": report.get("dataset_label"),
+            # NOTE: the deployed v2 report predates the cv_scheme field; it was purged k-fold.
             "cv_scheme": report.get("cv_scheme", "purged_kfold"),
             "decision_threshold": calibrator.get("deployment_decision_threshold"),
             "calibrator": {
@@ -72,10 +65,6 @@ def build_web_artifact(
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    try:
-        from catboost import CatBoostClassifier
-    except ImportError as exc:  # pragma: no cover - environment boundary.
-        raise SystemExit("Install the training extra: pip install -e '.[training]'") from exc
     model = CatBoostClassifier()
     model.load_model(str(args.model))
     with tempfile.TemporaryDirectory() as tmp:

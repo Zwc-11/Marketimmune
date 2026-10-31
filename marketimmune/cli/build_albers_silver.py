@@ -1,25 +1,18 @@
-"""Rebuild a coin's December 2025 book from the Albers L4 archives -> Silver L2.
-
-Reads the archives from data/bronze/albers (``make download-albers``; nothing is extracted
-to disk) and writes, per UTC date:
-
-* ``silver/hyperliquid/l2_book/<COIN>/<COIN>-<date>.parquet``: one row per block
-  whose top five levels changed (archive-snapshot Silver L2 columns plus ``ts_ns``),
-  and ``<same>.validation.json``;
-* ``silver/hyperliquid/order_events/<COIN>/<COIN>-<date>.parquet``: forced-liquidation
-  fills and unfilled IOCs, with the wallet address and whether the IOC was
-  marketable at the start of its block.
+"""Rebuild a coin's December 2025 book from the Albers L4 archives -> Silver L2 and order events.
 
     python -m marketimmune.cli.build_albers_silver --coin SOL --dates 20251201..20251231
 
-Order statuses are a sequential ``.tar.xz``, so a run always decompresses from
-Dec 1 up to its last date; book diffs are an uncompressed tar read by seek. The
-book starts empty, so rows from the first ``--warmup-minutes`` of a run are
-dropped (orders resting from before the run never appear).
+Writes, per UTC date, ``silver/hyperliquid/l2_book/<COIN>/<COIN>-<date>.parquet`` (one row
+per block whose top five levels changed) with a ``.validation.json`` beside it, and
+``silver/hyperliquid/order_events/<COIN>/<COIN>-<date>.parquet`` (forced-liquidation fills
+and unfilled IOCs, see :meth:`AlbersBook.replay_hour`).
 
-Each hourly diff member holds every coin (about 1.6 GB of JSON), and parsing it
-costs about as much as replaying the hour. ``--diff-workers`` processes parse the
-next hours' diffs while this one replays (default 1; 0 parses in-process).
+Order statuses are a sequential ``.tar.xz``, so a run always decompresses from Dec 1 up
+to its last date; book diffs are an uncompressed tar read by offset. The book starts
+empty, so rows from the first ``--warmup-minutes`` of a run, and of the book rebuilt
+after each data gap, are dropped. Each hourly diff member holds every coin (about 1.6 GB
+of JSON) and parsing it costs more than replaying the hour, so ``--diff-workers``
+processes parse the next hours' diffs while this one replays.
 """
 
 from __future__ import annotations
@@ -29,9 +22,9 @@ import io
 import json
 import tarfile
 import time
+from collections import deque
 from collections.abc import Iterator
-from concurrent.futures import Executor, Future, ProcessPoolExecutor
-from datetime import UTC, datetime, timedelta
+from concurrent.futures import Future, ProcessPoolExecutor
 from multiprocessing import get_context
 from pathlib import Path
 from typing import Any
@@ -41,21 +34,27 @@ import numpy.typing as npt
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from marketimmune.cli._train_data import parse_date_spec
-from marketimmune.lake.tables import L2_DEPTH, HyperliquidLakeLayout
+from marketimmune.lake.tables import HyperliquidLakeLayout
+from marketimmune.logger import init_logger
 from marketimmune.sources.albers_l4 import (
+    EVENT_SCHEMA,
+    L2_SCHEMA,
+    SOURCE,
     AlbersBook,
     ReplayStats,
+    Rested,
     gunzip,
+    l2_table,
+    merge_rested,
     read_status_records,
     read_users_csv,
     rested_orders_gz,
 )
+from marketimmune.utils import parse_date_spec, shift_date
 
-SOURCE = "albers-l4 doi:10.5281/zenodo.18184441"
-_INT_COLUMNS = {"ts_ms", "ts_ns", "bid_n", "ask_n"} | {
-    f"{side}_n_{i}" for side in ("bid", "ask") for i in range(1, L2_DEPTH + 1)
-}
+logger = init_logger(__name__)
+
+_EMPTY: Rested = (np.zeros(0, dtype=np.uint64), np.zeros(0))
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -63,22 +62,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--coin", default="SOL")
     parser.add_argument("--dates", default="20251201", help="YYYYMMDD, lists or a..b ranges")
     parser.add_argument("--hours", default="0-23", help="e.g. 0-23 or 0-1 (for a probe)")
-    parser.add_argument(
-        "--albers-dir",
-        type=Path,
-        default=Path("data/bronze/albers"),
-    )
+    parser.add_argument("--albers-dir", type=Path, default=Path("data/bronze/albers"))
     parser.add_argument("--lake-root", type=Path, default=Path("data"))
     parser.add_argument("--warmup-minutes", type=float, default=10.0)
     parser.add_argument(
-        "--gap-seconds",
-        type=float,
-        default=30.0,
-        help="a jump between blocks longer than this resets the book and restarts warm-up",
+        "--gap-seconds", type=float, default=30.0, help="a jump between blocks longer than this resets the book and restarts warm-up"
     )
-    parser.add_argument(
-        "--diff-workers", type=int, default=1, help="processes parsing book diffs ahead (0: none)"
-    )
+    parser.add_argument("--diff-workers", type=int, default=2, help="processes parsing book diffs ahead of the replay")
     return parser.parse_args(argv)
 
 
@@ -87,20 +77,26 @@ def parse_hours(spec: str) -> list[int]:
     for token in spec.split(","):
         a, _, b = token.strip().partition("-")
         hours.extend(range(int(a), int(b or a) + 1))
-    if not hours or min(hours) < 0 or max(hours) > 23:
-        raise ValueError(f"hours must be within 0-23: {spec!r}")
+    assert hours and min(hours) >= 0 and max(hours) <= 23, f"hours must be within 0-23: {spec=}"
     return sorted(set(hours))
 
 
-def iter_status_members(path: Path, coin: str, wanted: set[str]) -> Iterator[tuple[str, bytes]]:
+def next_hour(date: str, hour: int) -> tuple[str, int]:
+    return (shift_date(date, 1), 0) if hour == 23 else (date, hour + 1)
+
+
+def diff_member(date: str, hour: int) -> str:
+    return f"{date}/ex{hour}.gz"
+
+
+def iter_status_members(path: Path, wanted: set[str]) -> Iterator[tuple[str, bytes]]:
     """Yield ``(member name, decompressed bytes)`` for wanted members, in archive order."""
     last = ""
     with tarfile.open(path, mode="r|xz") as tf:
         for member in tf:
             if not member.isfile():
                 continue
-            if member.name < last:
-                raise ValueError(f"{path.name} is not in name order at {member.name}")
+            assert member.name >= last, f"{path.name} is not in name order at {member.name}"
             last = member.name
             if member.name in wanted:
                 handle = tf.extractfile(member)
@@ -111,31 +107,48 @@ def iter_status_members(path: Path, coin: str, wanted: set[str]) -> Iterator[tup
                     return
 
 
-RestedArrays = tuple[npt.NDArray[np.uint64], npt.NDArray[np.float64]]
-_PREFETCH_HOURS = 3
+def parse_diff_member(tar_path: str, offset: int, size: int, coin: str) -> Rested:
+    """``coin``'s ``new`` diffs in the member stored at ``offset``. Module-level so a
+    worker process can run it; the arrays pickle as one buffer each."""
+    with open(tar_path, "rb") as fh:
+        fh.seek(offset)
+        return rested_orders_gz(fh.read(size), coin)
 
 
-def parse_diff_member(tar_path: str, name: str, coin: str) -> RestedArrays:
-    """``(oids, sizes)`` of ``coin``'s ``new`` diffs in one hourly member; empty if absent.
+class DiffReader:
+    """Each hour's diffs from ``book_diffs_202512.tar``, parsed ahead of use.
 
-    Module-level so a worker process can run it; arrays pickle as one buffer each.
+    ``names`` is every member the run will ask for, in order; up to ``workers + 2``
+    of them are queued on the worker processes while earlier hours replay. A
+    member the archive lacks has no diffs.
     """
-    with tarfile.open(tar_path, mode="r:") as tar:
-        try:
-            member = tar.getmember(name)
-        except KeyError:
-            return np.zeros(0, dtype=np.uint64), np.zeros(0, dtype=np.float64)
-        handle = tar.extractfile(member)
-        assert handle is not None
-        rested = rested_orders_gz(handle.read(), coin)
-    oids = np.fromiter(rested.keys(), dtype=np.uint64, count=len(rested))
-    sizes = np.fromiter(rested.values(), dtype=np.float64, count=len(rested))
-    return oids, sizes
+
+    def __init__(self, tar_path: Path, coin: str, names: list[str], workers: int) -> None:
+        assert workers >= 1, f"{workers=}"
+        with tarfile.open(tar_path, mode="r:") as tar:
+            spans = {m.name: (m.offset_data, m.size) for m in tar.getmembers()}
+        self._todo = deque((name, spans.get(name)) for name in dict.fromkeys(names))
+        self._args = (str(tar_path), coin)
+        self._ahead: deque[tuple[str, Future[Rested] | None]] = deque()
+        self._depth = workers + 2
+        self.pool = ProcessPoolExecutor(workers, mp_context=get_context("spawn"))
+
+    def get(self, name: str) -> Rested:
+        """Diffs of member ``name``; members queued before it that nobody asked for are dropped."""
+        while True:
+            while self._todo and len(self._ahead) < self._depth:
+                nxt, span = self._todo.popleft()
+                path, coin = self._args
+                self._ahead.append((nxt, None if span is None else self.pool.submit(parse_diff_member, path, *span, coin)))
+            assert self._ahead, f"{name} was not planned"
+            got, future = self._ahead.popleft()
+            if got == name:
+                return _EMPTY if future is None else future.result()
+            if future is not None:
+                future.cancel()
 
 
-def split_at_gaps(
-    records: npt.NDArray[np.void], last_ts: int | None, gap_ns: int
-) -> list[tuple[npt.NDArray[np.void], int | None]]:
+def split_at_gaps(records: npt.NDArray[np.void], last_ts: int | None, gap_ns: int) -> list[tuple[npt.NDArray[np.void], int | None]]:
     """Cut an hour of statuses where consecutive blocks are more than ``gap_ns`` apart
     (including the jump from the previous hour). Each piece comes with the time the
     gap before it started, or None when no gap precedes it."""
@@ -143,193 +156,84 @@ def split_at_gaps(
         return [(records, None)]
     ts = records["ts"].astype(np.int64)
     cuts = (np.flatnonzero(np.diff(ts) > gap_ns) + 1).tolist()
-    starts = [0, *cuts]
-    ends = [*cuts, int(ts.size)]
-    out: list[tuple[npt.NDArray[np.void], int | None]] = []
-    for k, (a, b) in enumerate(zip(starts, ends, strict=True)):
-        if k == 0:
-            before = last_ts if last_ts is not None and int(ts[0]) - last_ts > gap_ns else None
-        else:
-            before = int(ts[a - 1])
-        out.append((records[a:b], before))
-    return out
-
-
-class DiffReader:
-    """``rested`` sets per hour from ``book_diffs_202512.tar``, parsed ahead of use.
-
-    ``names`` is every member the run will ask for, in order; up to
-    ``_PREFETCH_HOURS`` of them are parsed by ``executor`` while earlier hours replay.
-    """
-
-    def __init__(
-        self, tar_path: Path, coin: str, names: list[str], executor: Executor | None = None
-    ) -> None:
-        self.tar_path = str(tar_path)
-        self.coin = coin
-        self.executor = executor
-        self._todo = list(dict.fromkeys(names))
-        self._pending: dict[str, Future[RestedArrays]] = {}
-        self._cache: dict[str, dict[int, float]] = {}
-
-    def _load(self, name: str) -> RestedArrays:
-        if self.executor is None:
-            return parse_diff_member(self.tar_path, name, self.coin)
-        while self._todo and len(self._pending) < _PREFETCH_HOURS:
-            nxt = self._todo.pop(0)
-            if nxt not in self._cache and nxt not in self._pending:
-                self._pending[nxt] = self.executor.submit(
-                    parse_diff_member, self.tar_path, nxt, self.coin
-                )
-        future = self._pending.pop(name, None)
-        if future is None:
-            return parse_diff_member(self.tar_path, name, self.coin)
-        return future.result()
-
-    def rested(self, date: str, hour: int) -> dict[int, float]:
-        name = f"{date}/ex{hour}.gz"
-        if name not in self._cache:
-            oids, sizes = self._load(name)
-            self._cache[name] = dict(zip(oids.tolist(), sizes.tolist(), strict=True))
-        return self._cache[name]
-
-    def forget(self, date: str, hour: int) -> None:
-        self._cache.pop(f"{date}/ex{hour}.gz", None)
-
-
-def next_hour(date: str, hour: int) -> tuple[str, int]:
-    stamp = datetime.strptime(date, "%Y%m%d").replace(tzinfo=UTC) + timedelta(hours=hour + 1)
-    return stamp.strftime("%Y%m%d"), stamp.hour
-
-
-EVENT_SCHEMA = pa.schema(
-    [
-        ("coin", pa.string()), ("ts_ns", pa.int64()), ("ts_ms", pa.int64()),
-        ("kind", pa.string()), ("oid", pa.int64()), ("user_id", pa.int64()),
-        ("user", pa.string()), ("is_ask", pa.bool_()), ("limit_px", pa.float64()),
-        ("sz", pa.float64()), ("orig_sz", pa.float64()), ("tif", pa.string()),
-        ("opposite_best_px", pa.float64()), ("marketable_at_block_start", pa.bool_()),
-    ],
-    metadata={"source": SOURCE},
-)
+    befores = [last_ts if last_ts is not None and int(ts[0]) - last_ts > gap_ns else None, *(int(ts[a - 1]) for a in cuts)]
+    return [(records[a:b], before) for a, b, before in zip([0, *cuts], [*cuts, ts.size], befores, strict=True)]
 
 
 def load_users(albers_dir: Path) -> dict[int, str]:
-    path = albers_dir / "mapdir.tar.xz"
-    if not path.exists():
-        return {}
-    with tarfile.open(path, mode="r:xz") as tf:
+    with tarfile.open(albers_dir / "mapdir.tar.xz", mode="r:xz") as tf:
         handle = tf.extractfile("mapdir/users.csv")
         assert handle is not None
         return read_users_csv(io.TextIOWrapper(handle, encoding="utf-8"))
 
 
-def table_from_rows(rows: list[dict[str, Any]]) -> pa.Table:
-    columns = list(rows[0])
-    schema = pa.schema(
-        [
-            pa.field(
-                name,
-                pa.string()
-                if name == "coin"
-                else pa.int64() if name in _INT_COLUMNS else pa.float64(),
-            )
-            for name in columns
-        ],
-        metadata={"source": SOURCE},
-    )
-    return pa.Table.from_pylist(rows, schema=schema)
-
-
 def build(args: argparse.Namespace) -> dict[str, Any]:
     coin = args.coin.upper()
     dates = parse_date_spec(args.dates)
-    hours = parse_hours(args.hours)
-    plan = [(d, h) for d in dates for h in hours]
-    status_path = args.albers_dir / f"{coin.lower()}_orders_202512.tar.xz"
-    diff_names: list[str] = []
-    for d, h in plan:
-        nd, nh = next_hour(d, h)
-        diff_names += [f"{d}/ex{h}.gz", f"{nd}/ex{nh}.gz"]
-    executor = (
-        ProcessPoolExecutor(args.diff_workers, mp_context=get_context("spawn"))
-        if args.diff_workers > 0
-        else None
-    )
-    diffs = DiffReader(args.albers_dir / "book_diffs_202512.tar", coin, diff_names, executor)
+    plan = [(d, h) for d in dates for h in parse_hours(args.hours)]
     layout = HyperliquidLakeLayout(args.lake_root)
     wanted = {f"{d}/{coin.lower()}_{h:02d}.data.gz": (d, h) for d, h in plan}
-    book = AlbersBook(coin)
-    users = load_users(args.albers_dir)
-    event_writers: dict[str, pq.ParquetWriter] = {}
-    run_start_ns: int | None = None
-    warmup_ns = int(args.warmup_minutes * 60e9)
-    gap_ns = int(args.gap_seconds * 1e9)
+    names = [name for d, h in plan for name in (diff_member(d, h), diff_member(*next_hour(d, h)))]
+    diffs = DiffReader(args.albers_dir / "book_diffs_202512.tar", coin, names, args.diff_workers)
+    book = AlbersBook(coin, load_users(args.albers_dir))
+    warmup_ns, gap_ns = int(args.warmup_minutes * 60e9), int(args.gap_seconds * 1e9)
     last_ts: int | None = None
     warm_from = 0  # rows before this time are dropped (start of run, or after a gap)
+    held: tuple[str, Rested] | None = None  # the next hour's diffs, read for the previous hour
     gaps: dict[str, list[dict[str, Any]]] = {d: [] for d in dates}
-    writers: dict[str, pq.ParquetWriter] = {}
     report: dict[str, list[dict[str, Any]]] = {d: [] for d in dates}
+    writers: dict[str, pq.ParquetWriter] = {}
+    event_writers: dict[str, pq.ParquetWriter] = {}
     t0 = time.perf_counter()
     try:
-        for name, raw in iter_status_members(status_path, coin, set(wanted)):
+        for name, raw in iter_status_members(args.albers_dir / f"{coin.lower()}_orders_202512.tar.xz", set(wanted)):
             date, hour = wanted[name]
             records = read_status_records(raw)
-            rested = dict(diffs.rested(date, hour))
-            rested.update(diffs.rested(*next_hour(date, hour)))
-            diffs.forget(date, hour)
-            events: list[dict[str, Any]] = []
+            this_name, next_name = diff_member(date, hour), diff_member(*next_hour(date, hour))
+            this = held[1] if held is not None and held[0] == this_name else diffs.get(this_name)
+            held = (next_name, diffs.get(next_name))
+            rested = merge_rested(this, held[1])
+            if last_ts is None and records.size:
+                warm_from = int(records["ts"][0]) + warmup_ns
             stats = ReplayStats()
-            rows: list[dict[str, Any]] = []
-            if run_start_ns is None and records.size:
-                run_start_ns = int(records["ts"][0])
-                warm_from = max(warm_from, run_start_ns + warmup_ns)
+            rows: list[list[Any]] = []
+            event_parts: list[pa.Table] = []
             for segment, gap_start in split_at_gaps(records, last_ts, gap_ns):
                 if gap_start is not None:
                     book.reset()
                     gap_end = int(segment["ts"][0])
                     warm_from = gap_end + warmup_ns
-                    gaps[date].append({
-                        "from_ns": gap_start, "to_ns": gap_end,
-                        "seconds": round((gap_end - gap_start) / 1e9, 1),
-                    })
-                part, stats = book.replay_hour(segment, rested, stats, events)
-                rows.extend(r for r in part if r["ts_ns"] >= warm_from)
+                    gaps[date].append({"from_ns": gap_start, "to_ns": gap_end, "seconds": round((gap_end - gap_start) / 1e9, 1)})
+                part, events = book.replay_hour(segment, rested, stats)
+                rows += [r for r in part if r[-1] >= warm_from]  # ts_ns is the last column
+                event_parts.append(events)
             if records.size:
                 last_ts = int(records["ts"][-1])
-            for event in events:
-                event["user"] = users.get(event["user_id"])
-            if events:
-                if date not in event_writers:
-                    path = layout.silver_order_events_path(coin, date)
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    event_writers[date] = pq.ParquetWriter(path, EVENT_SCHEMA, compression="zstd")
-                event_writers[date].write_table(
-                    pa.Table.from_pylist(events, schema=EVENT_SCHEMA)
-                )
-            entry = {"hour": hour, **stats.to_dict(), "rows_written": len(rows)}
-            report[date].append(entry)
+            if date not in event_writers:  # every replayed date gets an events file
+                path = layout.silver_order_events_path(coin, date)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                event_writers[date] = pq.ParquetWriter(path, EVENT_SCHEMA, compression="zstd")
+            events = pa.concat_tables(event_parts)
+            if events.num_rows:
+                event_writers[date].write_table(events)
             if rows:
-                table = table_from_rows(rows)
                 if date not in writers:
                     path = layout.silver_l2_book_path(coin, date)
                     path.parent.mkdir(parents=True, exist_ok=True)
-                    writers[date] = pq.ParquetWriter(path, table.schema, compression="zstd")
-                writers[date].write_table(table)
-            print(
-                f"{name}: {stats.records:,} statuses, {stats.blocks:,} blocks, "
-                f"{len(rows):,} rows, crossed={stats.crossed_blocks}, "
-                f"fills at touch={entry['fill_at_touch_share']}, "
-                f"{time.perf_counter() - t0:.0f}s",
-                flush=True,
+                    writers[date] = pq.ParquetWriter(path, L2_SCHEMA, compression="zstd")
+                writers[date].write_table(l2_table(rows))
+            entry = {"hour": hour, **stats.to_dict(), "rows_written": len(rows)}
+            report[date].append(entry)
+            logger.info(
+                f"{name}: {stats.records:,} statuses, {stats.blocks:,} blocks, {len(rows):,} rows, crossed={stats.crossed_blocks}, "
+                f"fills at touch={entry['fill_at_touch_share']}, {time.perf_counter() - t0:.0f}s"
             )
     finally:
-        if executor is not None:
-            executor.shutdown(cancel_futures=True)
+        diffs.pool.shutdown(cancel_futures=True)
         for writer in (*writers.values(), *event_writers.values()):
             writer.close()
-    for date, hours_report in report.items():
-        if not hours_report:
+    for date, hours in report.items():
+        if not hours:
             continue
         path = layout.silver_l2_book_path(coin, date).with_suffix(".validation.json")
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -339,8 +243,8 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
             "source": SOURCE,
             "warmup_minutes": args.warmup_minutes,
             "gap_seconds": args.gap_seconds,
-            "gaps": gaps.get(date, []),
-            "hours": hours_report,
+            "gaps": gaps[date],
+            "hours": hours,
         }
         path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     return {"dates": list(writers), "elapsed_s": round(time.perf_counter() - t0, 1)}

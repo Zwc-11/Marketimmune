@@ -75,7 +75,8 @@ pub struct Scale {
 impl Scale {
     /// Grid for a Hyperliquid perp with the given `szDecimals` from `meta`.
     pub fn perp(sz_decimals: u32) -> Scale {
-        Scale { px_decimals: 6u32.saturating_sub(sz_decimals), sz_decimals }
+        assert!(sz_decimals <= 6, "perp szDecimals {sz_decimals} > 6");
+        Scale { px_decimals: 6 - sz_decimals, sz_decimals }
     }
 
     pub fn px_to_tick(&self, s: &str) -> Result<Tick, DecimalError> {
@@ -93,15 +94,15 @@ impl Scale {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DecimalError {
-    #[error("empty or malformed decimal")]
+    /// Empty, or not `-?digits[.digits]`.
     Malformed,
-    #[error("more significant decimals than the grid allows")]
+    /// More significant decimals than the grid allows.
     TooPrecise,
-    #[error("value out of range")]
+    /// Out of `i64` range.
     Overflow,
-    #[error("negative value where a size was expected")]
+    /// Negative where a size was expected.
     Negative,
 }
 
@@ -109,33 +110,39 @@ pub enum DecimalError {
 ///
 /// `parse_fixed("96543.21", 2) == Ok(9654321)`; trailing zeros beyond the grid
 /// are accepted (`"1.2300"` at 2 places is `123`), other extra digits are an error.
+/// One pass over the bytes; `Malformed` wins over `TooPrecise`, which wins over `Overflow`.
 pub fn parse_fixed(s: &str, decimals: u32) -> Result<i64, DecimalError> {
-    let (neg, body) = match s.as_bytes().first() {
-        Some(b'-') => (true, &s[1..]),
-        _ => (false, s),
+    let (neg, b) = match s.as_bytes() {
+        [b'-', rest @ ..] => (true, rest),
+        b => (false, b),
     };
-    let (int_part, frac_part) = match body.split_once('.') {
-        Some((i, f)) => (i, f),
-        None => (body, ""),
-    };
-    if int_part.is_empty() && frac_part.is_empty() {
+    // `frac` counts kept fractional digits; digits past the grid only need to be zero.
+    let (mut v, mut frac, mut dot, mut too_precise, mut overflow) = (0i64, 0u32, false, false, false);
+    for &c in b {
+        let digit = c.wrapping_sub(b'0');
+        if digit > 9 {
+            if c != b'.' || dot {
+                return Err(DecimalError::Malformed);
+            }
+            dot = true;
+        } else if dot && frac == decimals {
+            too_precise |= digit != 0;
+        } else {
+            frac += dot as u32;
+            match v.checked_mul(10).and_then(|x| x.checked_add(digit as i64)) {
+                Some(x) => v = x,
+                None => overflow = true,
+            }
+        }
+    }
+    if b.len() == dot as usize {
         return Err(DecimalError::Malformed);
     }
-    if !int_part.bytes().all(|b| b.is_ascii_digit()) || !frac_part.bytes().all(|b| b.is_ascii_digit()) {
-        return Err(DecimalError::Malformed);
-    }
-    let d = decimals as usize;
-    let (kept, dropped) = frac_part.split_at(frac_part.len().min(d));
-    if dropped.bytes().any(|b| b != b'0') {
+    if too_precise {
         return Err(DecimalError::TooPrecise);
     }
-    let mut v: i64 = 0;
-    for b in int_part.bytes().chain(kept.bytes()) {
-        v = v.checked_mul(10).and_then(|x| x.checked_add((b - b'0') as i64)).ok_or(DecimalError::Overflow)?;
-    }
-    for _ in kept.len()..d {
-        v = v.checked_mul(10).ok_or(DecimalError::Overflow)?;
-    }
+    let v = (frac..decimals).try_fold(v, |v, _| v.checked_mul(10)).filter(|_| !overflow);
+    let v = v.ok_or(DecimalError::Overflow)?;
     Ok(if neg { -v } else { v })
 }
 

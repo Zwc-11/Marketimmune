@@ -1,16 +1,15 @@
-"""Gold-label assembly for Hyperliquid markout datasets.
+"""Gold markout labels: fills plus a mid series -> one labelled row per fill.
 
-This module does not fetch data. It combines already parsed fills and L2-book snapshots
-into label rows that can later be joined to point-in-time features. Keeping this pure
-lets the requester-pays backfill remain an I/O adapter while the label logic stays easy
-to test.
+Pure (no I/O), so the backfill and the Albers builds stay thin adapters around it. A
+label is never backfilled: a fill without a future mid for a horizon has no label at
+that horizon, and a fill with none at all has no row.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Protocol
 
 import numpy as np
 import numpy.typing as npt
@@ -41,24 +40,18 @@ class LabelledFill(Protocol):
     @property
     def tid(self) -> int | None: ...
 
+
 DEFAULT_MARKOUT_CONFIG = MarkoutConfig()
 
 
 def horizon_key(seconds: float) -> str:
-    """Stable dict key for a horizon in seconds."""
+    """Stable column suffix for a horizon in seconds."""
     return f"{int(seconds)}s" if float(seconds).is_integer() else f"{seconds:g}s"
-
-
-def book_mid_series(snapshots: Sequence[BookSnapshot]) -> tuple[tuple[float, float], ...]:
-    """Return ``(ts_s, mid)`` pairs sorted by timestamp."""
-    return tuple(
-        sorted((snapshot.ts_ms / 1000.0, snapshot.features()["mid"]) for snapshot in snapshots)
-    )
 
 
 @dataclass(frozen=True, slots=True)
 class MarkoutGoldRow:
-    """One fill with forward markout labels for available horizons."""
+    """One fill with forward markout labels for the horizons it has data for."""
 
     coin: str
     ts_ms: int
@@ -80,30 +73,6 @@ class MarkoutGoldRow:
     priority_gas: float | None = None
     liquidation: bool | None = None
 
-    def to_dict(self) -> dict[str, Any]:
-        """JSON-serializable representation for reports or parquet writers."""
-        return {
-            "coin": self.coin,
-            "ts_ms": self.ts_ms,
-            "px": self.px,
-            "sz": self.sz,
-            "side": self.side,
-            "crossed": self.crossed,
-            "maker_side": self.maker_side,
-            "markout_bps": dict(self.markout_bps),
-            "toxic": dict(self.toxic),
-            "oid": self.oid,
-            "tid": self.tid,
-            "mid_before": self.mid_before,
-            "markout_px_bps": dict(self.markout_px_bps),
-            "maker_user": self.maker_user,
-            "taker_user": self.taker_user,
-            "maker_fee_bps": self.maker_fee_bps,
-            "taker_fee_bps": self.taker_fee_bps,
-            "priority_gas": self.priority_gas,
-            "liquidation": self.liquidation,
-        }
-
 
 def build_markout_gold_rows(
     fills: Sequence[LabelledFill],
@@ -112,24 +81,9 @@ def build_markout_gold_rows(
     *,
     coin: str | None = None,
 ) -> list[MarkoutGoldRow]:
-    """Attach forward markout labels to fills using the book mid series.
-
-    Rows with no available future mid for any requested horizon are skipped rather
-    than backfilled, so the label set never fabricates look-ahead values. With
-    ``config.reference == "pre_fill_mid"`` a fill also needs a mid strictly before
-    it (a snapshot in the fill's own millisecond may already show the fill), and is
-    skipped without one. The forward as-of join is one ``searchsorted`` per horizon.
-
-    Pass deduped ``MatchFill`` rows (``pair_fill_legs``); raw ``NodeFill`` legs label
-    each match twice. Maker/taker users, fees in bps, priority gas and the
-    liquidation flag are copied when the fill type carries them.
-    """
-    mids = book_mid_series(book_snapshots)
-    if not mids:
-        return []
-    mid_ts_s = np.fromiter((ts for ts, _mid in mids), dtype=np.float64, count=len(mids))
-    mid_px = np.fromiter((mid for _ts, mid in mids), dtype=np.float64, count=len(mids))
-    return build_markout_gold_rows_from_mids(fills, mid_ts_s, mid_px, config, coin=coin)
+    """:func:`build_markout_gold_rows_from_mids` on the mids of ``book_snapshots`` (any order)."""
+    mids = sorted((s.ts_ms / 1000.0, s.features()["mid"]) for s in book_snapshots)
+    return build_markout_gold_rows_from_mids(fills, [t for t, _ in mids], [m for _, m in mids], config, coin=coin)
 
 
 def build_markout_gold_rows_from_mids(
@@ -140,97 +94,92 @@ def build_markout_gold_rows_from_mids(
     *,
     coin: str | None = None,
 ) -> list[MarkoutGoldRow]:
-    """:func:`build_markout_gold_rows` on a mid series given as arrays (seconds, price).
+    """Attach forward markout labels to the fills of ``coin`` (all fills when None).
 
-    For sources that already hold mids by block (the Albers rebuild) and would
-    otherwise build a ``BookSnapshot`` per block only to read its mid back.
-    ``mid_ts_s`` must be sorted ascending.
+    ``mid_ts_s`` (seconds, ascending) and ``mid_px`` are the mid series. The future
+    mid of horizon ``h`` is the first at or after ``t + h`` (one ``searchsorted`` per
+    horizon). With ``config.reference == "pre_fill_mid"`` a fill also needs a mid
+    strictly before it (a snapshot in the fill's own millisecond may already show
+    the fill), and has no labels without one.
+
+    Pass deduped ``MatchFill`` rows (``pair_fill_legs``); raw ``NodeFill`` legs label
+    each match twice. Maker/taker users and fees in bps are copied when the fill type
+    carries them.
     """
     mid_ts_s = np.asarray(mid_ts_s, dtype=np.float64)
     mid_px = np.asarray(mid_px, dtype=np.float64)
-    if mid_ts_s.shape != mid_px.shape:
-        raise ValueError("mid_ts_s and mid_px must have the same length")
-    if mid_ts_s.size == 0:
-        return []
-    if np.any(np.diff(mid_ts_s) < 0.0):
-        raise ValueError("mid_ts_s must be sorted ascending")
+    assert mid_ts_s.shape == mid_px.shape, f"{mid_ts_s.shape=} {mid_px.shape=}"
+    assert np.all(mid_ts_s[1:] >= mid_ts_s[:-1]), "mid_ts_s must be sorted ascending"
     selected = [fill for fill in fills if coin is None or fill.coin == coin]
-    if not selected:
+    if mid_ts_s.size == 0 or not selected:
         return []
-    # One pass over the fills; maker_side is a computed property, so read it once.
-    maker_sides = [fill.maker_side for fill in selected]
-    count = len(selected)
-    fill_ts_s = np.fromiter((fill.ts_ms for fill in selected), dtype=np.float64, count=count)
-    fill_ts_s /= 1000.0
-    price = np.fromiter((fill.px for fill in selected), dtype=np.float64, count=count)
-    side = np.asarray(maker_sides, dtype=np.float64)
-    if np.any(price <= 0.0):
-        raise ValueError("fill_price must be positive")
-    if np.any((side != 1.0) & (side != -1.0)):
-        raise ValueError("side must be +1 (maker buy) or -1 (maker sell)")
+    maker_sides = [fill.maker_side for fill in selected]  # a computed property: read it once
+    fill_ts_s = np.array([fill.ts_ms for fill in selected], dtype=np.float64) / 1000.0
+    price = np.array([fill.px for fill in selected], dtype=np.float64)
+    side = np.array(maker_sides, dtype=np.float64)
+    assert np.all(price > 0.0), "fill prices must be positive"
+    assert np.all(np.abs(side) == 1.0), "maker side must be +1 (maker buy) or -1 (maker sell)"
+    assert config.reference in ("pre_fill_mid", "fill_px"), f"{config.reference=}"
 
+    last = mid_ts_s.size - 1
+    lag = config.max_mid_lag_s
     # Last mid strictly before each fill (fix L2): the label's anchor.
     pre_idx = np.searchsorted(mid_ts_s, fill_ts_s, side="left") - 1
     has_pre = pre_idx >= 0
-    lag = config.max_mid_lag_s
     if lag is not None:
         has_pre &= fill_ts_s - mid_ts_s[np.maximum(pre_idx, 0)] <= lag
     mid_before = mid_px[np.maximum(pre_idx, 0)]
-    if config.reference == "pre_fill_mid":
-        anchor, anchor_ok = mid_before, has_pre
-    elif config.reference == "fill_px":
-        anchor, anchor_ok = price, np.ones(count, dtype=bool)
-    else:
-        raise ValueError(f"unknown markout reference {config.reference!r}")
+    anchor, anchor_ok = (mid_before, has_pre) if config.reference == "pre_fill_mid" else (price, np.ones(price.size, dtype=bool))
 
     per_horizon: list[tuple[str, list[float], list[float], list[bool], list[bool]]] = []
     for horizon_s in config.horizons_s:
-        idx = np.searchsorted(mid_ts_s, fill_ts_s + horizon_s, side="left")
-        future_mid = mid_px[np.minimum(idx, mid_ts_s.size - 1)]
-        in_range = idx < mid_ts_s.size
+        target = fill_ts_s + horizon_s
+        idx = np.searchsorted(mid_ts_s, target, side="left")
+        future_mid = mid_px[np.minimum(idx, last)]
+        available = (idx <= last) & anchor_ok
         if lag is not None:
-            in_range &= mid_ts_s[np.minimum(idx, mid_ts_s.size - 1)] - (fill_ts_s + horizon_s) <= lag
+            available &= mid_ts_s[np.minimum(idx, last)] - target <= lag
         markout = side * (future_mid - anchor) / anchor * BPS
         markout_px = side * (future_mid - price) / price * BPS
-        per_horizon.append((
-            horizon_key(horizon_s),
-            markout.tolist(),
-            markout_px.tolist(),
-            (markout < -config.fee_bps).tolist(),
-            (in_range & anchor_ok).tolist(),
-        ))
+        per_horizon.append(
+            (horizon_key(horizon_s), markout.tolist(), markout_px.tolist(), (markout < -config.fee_bps).tolist(), available.tolist())
+        )
 
+    mid_before_or_none = [m if ok else None for m, ok in zip(mid_before.tolist(), has_pre.tolist(), strict=True)]
     rows: list[MarkoutGoldRow] = []
     for i, fill in enumerate(selected):
         markouts: dict[str, float] = {}
         markouts_px: dict[str, float] = {}
         toxic_flags: dict[str, bool] = {}
-        for key, values, values_px, toxic, available in per_horizon:
-            if available[i]:
+        for key, values, values_px, toxic, available_h in per_horizon:
+            if available_h[i]:
                 markouts[key] = values[i]
                 markouts_px[key] = values_px[i]
                 toxic_flags[key] = toxic[i]
         if not markouts:
             continue
-        rows.append(MarkoutGoldRow(
-            coin=fill.coin,
-            ts_ms=fill.ts_ms,
-            px=fill.px,
-            sz=fill.sz,
-            side=fill.side,
-            crossed=fill.crossed,
-            maker_side=maker_sides[i],
-            markout_bps=markouts,
-            toxic=toxic_flags,
-            oid=fill.oid,
-            tid=fill.tid,
-            mid_before=float(mid_before[i]) if has_pre[i] else None,
-            markout_px_bps=markouts_px,
-            maker_user=getattr(fill, "maker_user", None),
-            taker_user=getattr(fill, "taker_user", None),
-            maker_fee_bps=getattr(fill, "maker_fee_bps", None),
-            taker_fee_bps=getattr(fill, "taker_fee_bps", None),
-            priority_gas=getattr(fill, "priority_gas", None),
-            liquidation=getattr(fill, "liquidation", None),
-        ))
+        rows.append(
+            MarkoutGoldRow(
+                coin=fill.coin,
+                ts_ms=fill.ts_ms,
+                px=fill.px,
+                sz=fill.sz,
+                side=fill.side,
+                crossed=fill.crossed,
+                maker_side=maker_sides[i],
+                markout_bps=markouts,
+                toxic=toxic_flags,
+                oid=fill.oid,
+                tid=fill.tid,
+                mid_before=mid_before_or_none[i],
+                markout_px_bps=markouts_px,
+                # NOTE: NodeFill has no maker/taker split; MatchFill has no single-leg fee.
+                maker_user=getattr(fill, "maker_user", None),
+                taker_user=getattr(fill, "taker_user", None),
+                maker_fee_bps=getattr(fill, "maker_fee_bps", None),
+                taker_fee_bps=getattr(fill, "taker_fee_bps", None),
+                priority_gas=getattr(fill, "priority_gas", None),
+                liquidation=getattr(fill, "liquidation", None),
+            )
+        )
     return rows

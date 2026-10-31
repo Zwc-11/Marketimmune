@@ -38,3 +38,6 @@ db.sqlite3-*
 .claude/
 .cursor/
 .ipynb_checkpoints/
+
+# Out-of-fold predictions written next to each eval/ report (large; rebuilt by the trainer)
+*.oof.parquet

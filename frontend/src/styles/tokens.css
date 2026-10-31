@@ -1,6 +1,6 @@
 /* Exchange terminal tokens. Dark only, like the venues it sits next to.
-   Colour carries meaning: green = bid / maker gained, red = ask / maker regretted,
-   amber = attention. Brand is monochrome so the semantic colours stay loud. */
+   Colour carries meaning: green = bid / maker gained, red = ask / maker regretted.
+   Brand is monochrome so the semantic colours stay loud. */
 
 :root {
     color-scheme: dark;
@@ -21,10 +21,6 @@
     --bid-soft: rgba(31, 184, 115, 0.14);
     --ask: #f0464f;
     --ask-soft: rgba(240, 70, 79, 0.14);
-    --warn: #e3a43b;
-    --warn-soft: rgba(227, 164, 59, 0.14);
-    --cta: #f2f5f7;
-    --cta-ink: #0c1015;
 
     --font: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
     --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;

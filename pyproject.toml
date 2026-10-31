@@ -11,7 +11,7 @@ requires-python = ">=3.12,<3.15"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Caesar (Zwc-11)" }]
 dependencies = [
-  "httpx>=0.27",
+  "isal>=1.8",  # gzip for the Albers archives, 2-3x faster than zlib
   "lz4>=4.4",
   "numpy>=2.2",
   "pandas>=2.2",
@@ -19,17 +19,16 @@ dependencies = [
   "pyarrow>=24.0",
   "pyyaml>=6.0",
   "scikit-learn>=1.5",
+  "scipy>=1.14",
 ]
 
 [project.optional-dependencies]
 # Model training and the web-model export.
 training = ["catboost>=1.2.10", "lightgbm>=4.5"]
-# Faster gzip for the Albers archives (python-isal); everything works without it.
-fast = ["isal>=1.7"]
 # Requester-pays Hyperliquid S3 (node fills, L2 archive, replica_cmds).
 aws = ["boto3>=1.34"]
 # Django API that serves the terminal and the scored-fill decisions.
-server = ["django>=5.1", "djangorestframework>=3.15", "django-cors-headers>=4.4", "python-dotenv>=1.0"]
+server = ["django>=5.1", "python-dotenv>=1.0"]
 # Always-on order-book recorder (deploy/recorder); deploy/recorder/requirements.txt mirrors this.
 recorder = ["websockets>=15"]
 # Price of Priority study. Versions named in its plan are pinned as written.
@@ -56,16 +55,17 @@ where = ["."]
 include = ["marketimmune*"]
 
 [tool.ruff]
-line-length = 110
+line-length = 140
 target-version = "py312"
 extend-exclude = ["server/api/static", "frontend", "data", "_to_delete"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+# Same rule set as deepseek-ai/DeepInfer.
+select = ["E", "F", "UP", "B", "SIM", "I", "ANN"]
+ignore = ["ANN202", "ANN401", "F405", "F403", "E731", "F541", "E501", "E402", "B023"]
 
 [tool.ruff.lint.per-file-ignores]
-"server/api/migrations/*.py" = ["E501", "I001"]
-"eval/**/*.py" = ["E402"]  # standalone scripts put the repo on sys.path first
+"server/api/migrations/*.py" = ["I001"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -76,7 +76,7 @@ warn_return_any = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = ["pyarrow", "pyarrow.*", "boto3", "boto3.*", "lz4", "lz4.*", "matplotlib", "matplotlib.*", "catboost", "catboost.*", "pandas", "pandas.*"]
+module = ["pyarrow", "pyarrow.*", "boto3", "boto3.*", "lz4", "lz4.*", "matplotlib", "matplotlib.*", "catboost", "catboost.*", "pandas", "pandas.*", "joblib", "joblib.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

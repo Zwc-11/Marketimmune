@@ -1,15 +1,7 @@
-"""Data checks (Lesson 3.7). Each returns a :class:`Check` and never raises on
-bad data, so a run can report every failure at once.
-
-| Check                         | Catches                                         |
-| ----------------------------- | ----------------------------------------------- |
-| :func:`fill_legs`             | every match must appear as one taker + one maker leg |
-| :func:`heights_contiguous`    | dropped files, wrong height arithmetic          |
-| :func:`block_times_increasing`| out-of-order or duplicated blocks               |
-| :func:`nonce_delays`          | non-clock nonces before they enter x-hat         |
-
-Signer recovery vs Albers users, replay vs L2 snapshots and episode stability
-across theta are added with the code they check (Phases 1 and 3).
+"""Data checks for the priority study. Each returns a :class:`Check` and never raises on
+bad data, so a run can report every failure at once: every match has one taker and one
+maker leg, block heights are contiguous, block times never decrease, and how many actions
+come from clock-nonce signers.
 """
 
 from __future__ import annotations
@@ -20,7 +12,7 @@ from typing import Any
 import polars as pl
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Check:
     name: str
     ok: bool

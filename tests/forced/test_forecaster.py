@@ -39,8 +39,7 @@ def test_trigger_probability_reflection_and_crossed() -> None:
 
 def test_forecast_sides_slices_scale_and_heatmap() -> None:
     deltas = np.array([0.025] * 9)
-    book = PositionBook(size=np.array([10.0, -2000.0, 5.0, 1.0]),
-                        entry=np.array([100.0, 100.0, np.nan, 100.0]))
+    book = PositionBook(size=np.array([10.0, -2000.0, 5.0, 1.0]), entry=np.array([100.0, 100.0, np.nan, 100.0]))
     # mark 97.6: the 10-unit long has lost 2.4% and its liquidation at 97.5 is close
     f = forecast_forced_flow(book, 97.6, 0.001, deltas, [15.0])
     assert f["F_bid_15s"] > 0.0 and f["F_ask_15s"] == pytest.approx(0.0, abs=1e-6)
@@ -55,8 +54,7 @@ def test_forecast_sides_slices_scale_and_heatmap() -> None:
     # survived past every sampled distance: not a max-leverage position, no hazard
     beyond = forecast_forced_flow(book, 102.6, 0.001, deltas, [15.0])
     assert beyond["F_ask_15s"] == 0.0
-    empty = forecast_forced_flow(PositionBook(np.zeros(0), np.zeros(0)), 100.0, 0.001,
-                                 deltas, [5.0])
+    empty = forecast_forced_flow(PositionBook(np.zeros(0), np.zeros(0)), 100.0, 0.001, deltas, [5.0])
     assert set(empty.values()) == {0.0}
     assert {"F_bid_5s", "Fraw_ask_5s", "P_bid_5s", "cascade_5s", "heatmap_bid_1pct"} <= set(empty)
 
@@ -64,8 +62,7 @@ def test_forecast_sides_slices_scale_and_heatmap() -> None:
 def test_raw_binary_and_cascade_pass() -> None:
     deltas = np.array([0.025] * 9)
     book = PositionBook(size=np.array([10.0, 500.0, -3.0]), entry=np.array([100.0] * 3))
-    base = forecast_forced_flow(book, 97.6, 0.001, deltas, [15.0], {15.0: 0.5},
-                                binary_usd=10_000.0)
+    base = forecast_forced_flow(book, 97.6, 0.001, deltas, [15.0], {15.0: 0.5}, binary_usd=10_000.0)
     # raw is the unscaled first pass; scaled F is half of it (no probability capped)
     assert base["Fraw_bid_15s"] == pytest.approx(2.0 * base["F_bid_15s"], rel=1e-9)
     assert base["cascade_15s"] == 0.0
@@ -74,11 +71,9 @@ def test_raw_binary_and_cascade_pass() -> None:
     assert base["P_bid_15s"] == pytest.approx(0.5 * pi, rel=1e-9)
     assert base["P_ask_15s"] == 0.0
     # forced selling pushes the mark down: the second pass forecasts more long flow
-    casc = forecast_forced_flow(book, 97.6, 0.001, deltas, [15.0], {15.0: 0.5},
-                                impact_bps_per_musd=1_000.0)
+    casc = forecast_forced_flow(book, 97.6, 0.001, deltas, [15.0], {15.0: 0.5}, impact_bps_per_musd=1_000.0)
     assert casc["F_bid_15s"] > base["F_bid_15s"]
-    assert casc["cascade_15s"] == pytest.approx(casc["F_bid_15s"] + casc["F_ask_15s"]
-                                                - base["F_bid_15s"] - base["F_ask_15s"])
+    assert casc["cascade_15s"] == pytest.approx(casc["F_bid_15s"] + casc["F_ask_15s"] - base["F_bid_15s"] - base["F_ask_15s"])
     assert casc["Fraw_bid_15s"] == base["Fraw_bid_15s"]
 
 
@@ -86,9 +81,9 @@ def test_impact_samples_and_slope() -> None:
     mid_ts = np.array([0.0, 1_000.0, 1_500.0, 3_000.0, 3_500.0])
     mid = np.array([100.0, 100.0, 99.0, 99.0, 99.5])
     # one forced sell block at t=1000 (two orders), one forced buy at t=3000
-    x, y = forced_impact_samples(np.array([1_000.0, 1_000.0, 3_000.0]),
-                                 np.array([True, True, False]), np.array([400.0, 600.0, 500.0]),
-                                 mid_ts, mid)
+    x, y = forced_impact_samples(
+        np.array([1_000.0, 1_000.0, 3_000.0]), np.array([True, True, False]), np.array([400.0, 600.0, 500.0]), mid_ts, mid
+    )
     assert x.tolist() == [-1_000.0, 500.0]
     assert y[0] == pytest.approx(1e4 * math.log(0.99))  # mid before t vs last mid by t+1s
     assert y[1] == pytest.approx(1e4 * math.log(99.5 / 99.0))
@@ -105,9 +100,9 @@ def test_sigma_realised_flow_and_brier() -> None:
     sig = ewma_sigma_1s(ts, mid, np.array([500.0, 60_000.0]))
     assert math.isnan(sig[0]) and sig[1] == pytest.approx(2e-4, rel=0.05)
     assert math.isnan(ewma_sigma_1s(ts[:1], mid[:1], np.array([1000.0]))[0])
-    bid, ask = realised_forced_notional(np.array([1000.0, 2000.0, 9000.0]),
-                                        np.array([True, False, True]),
-                                        np.array([5.0, 7.0, 11.0]), np.array([0.0, 1000.0]), 5.0)
+    bid, ask = realised_forced_notional(
+        np.array([1000.0, 2000.0, 9000.0]), np.array([True, False, True]), np.array([5.0, 7.0, 11.0]), np.array([0.0, 1000.0]), 5.0
+    )
     assert bid.tolist() == [5.0, 0.0] and ask.tolist() == [7.0, 7.0]  # window is (t, t+h]
     dec = brier_decomposition(np.array([0.1, 0.1, 0.9, 0.9]), np.array([0.0, 0.0, 1.0, 1.0]))
     assert dec["brier"] == pytest.approx(0.01) and dec["uncertainty"] == pytest.approx(0.25)
@@ -115,11 +110,17 @@ def test_sigma_realised_flow_and_brier() -> None:
 
 
 def test_liquidation_distances_from_positions() -> None:
-    rows = pd.DataFrame({
-        "wallet": ["a", "a", "b"], "ts_ms": [1, 2, 3], "seq": [0, 1, 2],
-        "start_pos": [0.0, 2.0, 0.0], "px": [100.0, 97.5, 50.0],
-        "entry_px_after": [100.0, np.nan, 50.0], "forced": [False, True, True],
-    })
+    rows = pd.DataFrame(
+        {
+            "wallet": ["a", "a", "b"],
+            "ts_ms": [1, 2, 3],
+            "seq": [0, 1, 2],
+            "start_pos": [0.0, 2.0, 0.0],
+            "px": [100.0, 97.5, 50.0],
+            "entry_px_after": [100.0, np.nan, 50.0],
+            "forced": [False, True, True],
+        }
+    )
     assert liquidation_distances(rows).tolist() == pytest.approx([0.025])
 
 

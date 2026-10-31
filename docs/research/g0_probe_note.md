@@ -9,7 +9,7 @@ been run against the official bucket yet (needs the AWS account, deploy/ec2_toky
 | 1 | Are responses (`resps`) in `replica_cmds`, with order ids? | TBD | `eval/probe_<date>.json` → `q1_*` |
 | 2 | What does one processed day cost? | TBD | `q2_one_day` (Python prototype; re-measure with the Rust extractor) |
 | 3 | Which dates can E1 use? | TBD (follows from 1) | `q3_e1_dates` |
-| 4 | When did priority fees reach core perps? | TBD | `python -m marketimmune.priority.fills first-priority --coin BTC` over Mar–Jun 2026 |
+| 4 | When did priority fees reach core perps? | TBD | `python -m marketimmune.cli.find_first_priority_day first-priority --coin BTC` over Mar–Jun 2026 |
 
 ## What is already known (before the probe)
 

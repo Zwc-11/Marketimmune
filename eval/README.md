@@ -5,7 +5,7 @@ committed result. A number quoted anywhere in the repo links to a file here.
 
 | Folder | What | Rerun |
 |---|---|---|
-| `markout_sol_10s/` | SOL maker-fill markout model: purged k-fold CV on May 27 to 31, 2026, forward holdout June 1 | `python -m marketimmune.cli.train --coin SOL --dates 20260527..20260531 --holdout-date 20260601 --horizon 10s --iterations 150 --n-splits 5 --cv-scheme purged_kfold` (needs the local Gold partitions) |
+| `markout_sol_10s/` | SOL maker-fill markout model (the deployed v2 model): purged k-fold CV on May 27 to 31, 2026, forward holdout June 1 | Purged k-fold was removed from the trainer (v3 validates with the rolling daily walk-forward only); at commit `8f731c0`, with the local Gold partitions: `python -m marketimmune.cli.train --coin SOL --dates 20260527..20260531 --holdout-date 20260601 --horizon 10s --iterations 150 --n-splits 5 --cv-scheme purged_kfold` |
 | `pipeline_speed/` | Stage timings on a synthetic panel shaped like the SOL run | `python eval/pipeline_speed/bench.py --out eval/pipeline_speed/results.json` |
 
 The Rust replay benchmark is `cargo bench -p hl-replay --bench replay`

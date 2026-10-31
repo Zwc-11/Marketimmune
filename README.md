@@ -47,12 +47,14 @@ The policy skips a fill when `p(regret) >= 0.30`; skipped fills count as 0 bps.
   k-fold (5 folds, 60 s purge and 60 s embargo, so no training label overlaps a
   test fill). Four of those five folds also train on later days, which is why the
   holdout, not the CV average, is the number to quote.
-- **Forward-only CV by default.** `--cv-scheme rolling_daily` (the default) and
-  `walk_forward` train every fold strictly on earlier fills; `--cv-scheme
-  purged_kfold` reproduces the committed report exactly. Reports record `cv_scheme`.
+- **Forward-only CV since v3.** The trainer now has one scheme, the rolling daily
+  walk-forward: each fold tests one day and trains on the 7 days before it, minus
+  a 60 s purge. Purged k-fold was removed; the committed report reproduces at
+  commit `8f731c0`.
 - **Point-in-time features.** Every feature joins the latest book and asset
-  context at or before the fill; a vectorized as-of check raises `LeakageError`
-  on any look-ahead.
+  context strictly before the fill. Each Gold partition carries a no-look-ahead
+  check (features recomputed with the future deleted), and a training report is
+  `leakage_safe` only if every partition passed.
 
 ## The terminal
 
@@ -103,7 +105,7 @@ within 2e-13. Details and methodology in [docs/performance.md](docs/performance.
 ## Quickstart
 
 ```powershell
-python -m pip install -e ".[training,server,aws,fast,dev]"    # or: uv sync --extra training --extra server --extra dev
+python -m pip install -e ".[training,server,aws,dev]"    # or: uv sync --extra training --extra server --extra dev
 
 # Terminal only (no backend needed): http://127.0.0.1:5173/#/terminal
 npm --prefix frontend install
@@ -123,19 +125,25 @@ Every pipeline command is `python -m marketimmune.cli.<command> --help`; the
 | `download_albers` | Albers et al. Dec 2025 L4 archives into `data/bronze/albers` (166 GB, resumable) |
 | `download_binance` | Binance aggTrades for the CEX-gap feature |
 | `build_albers_silver` / `build_albers_fills` / `build_albers_gold` | Albers archives to Silver book + fills, then Gold labels and training rows |
-| `run_albers_month` | The three Albers stages for a date range |
+| `run_albers_month` | Every Albers stage for a date range: Silver, fills, positions, forced-flow forecast, Gold, enrich |
+| `build_positions` / `forced_forecast` | Wallet positions from fills; forced-liquidation flow forecast and its evaluation |
+| `enrich_albers` | Ladder columns L2 and L3 (wallet scores, lost races, realised and forecast forced flow) |
 | `backfill_day` | One day from the requester-pays Hyperliquid S3 archive to Gold |
 | `rebuild_training_rows` | Recompute Gold training rows and their leakage sidecars |
-| `train` | CatBoost markout model, CV report, calibrator |
+| `train` / `train_quantile` | CatBoost classifier (report, calibrator) / LightGBM quantile ladder, out of fold |
+| `compare_rungs` / `mcs_rungs` | Diebold-Mariano by day and the Model Confidence Set over rungs |
+| `simulate_policy` / `decompose` | Maker PnL under quoting policies; adverse selection by regime and feature group |
 | `export_web_model` | Compact model JSON for the browser and CatBoost-free serving |
 | `probe_s3_day`, `find_first_priority_day`, `snapshot_asset_meta` | Price of Priority data probes |
 
 ### Reproduce the benchmark
 
 Needs the local Gold partitions under `data/gold/hyperliquid/training/SOL/`
-(produced by `python -m marketimmune.cli.backfill_day` from the requester-pays archive):
+(produced by `python -m marketimmune.cli.backfill_day` from the requester-pays archive)
+and the trainer as of commit `8f731c0`, the last one with purged k-fold:
 
 ```powershell
+git checkout 8f731c0
 python -m pip install -e ".[training,aws,dev]"
 python -m marketimmune.cli.train --coin SOL --dates 20260527..20260531 `
   --holdout-date 20260601 --horizon 10s --iterations 150 --n-splits 5 `
@@ -143,8 +151,6 @@ python -m marketimmune.cli.train --coin SOL --dates 20260527..20260531 `
   --report eval/markout_sol_10s/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json `
   --model-out data/models/hyperliquid_catboost_SOL_10s.cbm
 ```
-
-Drop `--cv-scheme purged_kfold` to run the walk-forward version.
 
 ### Score live fills in the terminal
 
@@ -174,7 +180,6 @@ benchmarks in `eval/` next to the results they produced.
 MarketImmune/
 ├── marketimmune/              Python package, one sub-package per pipeline stage
 │   ├── sources/               Bronze: fetch and parse external data
-│   │   ├── hyperliquid_info_api.py     public Info API (candles, meta, asset contexts)
 │   │   ├── hyperliquid_l2_archive.py   S3 l2Book archive
 │   │   ├── hyperliquid_asset_ctxs.py   funding / open interest / basis
 │   │   ├── hyperliquid_node_fills.py   node_fills_by_block; pair maker and taker legs
@@ -187,17 +192,22 @@ MarketImmune/
 │   ├── lake/                  Silver/Gold parquet: tables.py (layout + writers), gold.py
 │   │                          (markout labels), backfill.py (daily S3 -> Gold), checks.py
 │   ├── labels/                markout.py (the regret label), leakage.py (point-in-time checks)
-│   ├── features/              training_rows.py (as-of join, OFI windows), cex_gap.py
-│   ├── models/                cross_validation.py, evaluation.py, calibration.py, promotion.py
+│   ├── features/              training_rows.py (as-of join, OFI windows), cex_gap.py, order_events.py,
+│   │                          wallet_toxicity.py, forced_flow_features.py (ladder rungs L1 to L3)
+│   ├── forced/                positions.py, forecaster.py, evaluate.py, margin_tiers.py (forced flow)
+│   ├── models/                cross_validation.py, evaluation.py, quantile_ladder.py, compare.py (DM),
+│   │                          mcs.py, decomposition.py
+│   ├── sim/                   pnl.py (maker PnL under quoting policies, fill filter)
 │   ├── serving/               scorer.py (CatBoost), oblivious_trees.py (no CatBoost), gold_scoring.py
 │   ├── priority/              Price of Priority study: fills.py (priority fees), nonces.py (arrival)
 │   ├── cli/                   python -m marketimmune.cli.<command>
 │   ├── config.py              data paths and configs/*.yaml
-│   └── resilience.py          retries and timeouts for network calls
+│   ├── utils.py               date and list parsing shared by every stage
+│   └── logger.py              init_logger(__name__)
 ├── crates/                    Rust (cargo workspace)
 │   ├── hl-replay/             order book under HyperCore's cancel-first batch order
 │   └── hl-replay-py/          PyO3 bindings, Python module hl_replay
-├── server/                    Django: settings.py, urls.py, manage.py
+├── server/                    Django: settings.py, manage.py
 │   └── api/                   models, views, services, migrations, static/terminal (built UI)
 ├── frontend/                  React + TypeScript + Vite terminal
 ├── eval/                      benchmark harnesses and committed results

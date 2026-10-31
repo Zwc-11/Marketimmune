@@ -32,9 +32,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker(skip)
 
 
-def block_line(
-    height: int, time: str, bundles: list[list[dict[str, Any]]], resps: list[list[dict[str, Any]]] | None
-) -> str:
+def block_line(height: int, time: str, bundles: list[list[dict[str, Any]]], resps: list[list[dict[str, Any]]] | None) -> str:
     """One synthetic replica_cmds line in the documented shape."""
     rec: dict[str, Any] = {
         "abci_block": {

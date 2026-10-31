@@ -1,8 +1,9 @@
 //! Python bindings for `hl-replay` (built with maturin; `import hl_replay`).
 //!
-//! Exposes the book so Python tests and notebooks can drive it. The
-//! `replay(path, coin) -> pyarrow.Table` entry point lands with the Phase 1
-//! readers.
+//! Exposes the book so Python tests and notebooks can drive it. Python input is
+//! untrusted, so it is checked here and raised as `ValueError`; the core book
+//! asserts instead. The `replay(path, coin) -> pyarrow.Table` entry point lands
+//! with the Phase 1 readers.
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -26,7 +27,15 @@ impl PyBook {
     }
 
     fn add(&mut self, oid: u64, user: u32, side_: &str, tick: i64, lots: u64) -> PyResult<()> {
-        self.inner.add(oid, user, side(side_)?, tick, lots).map_err(|e| PyValueError::new_err(e.to_string()))
+        let side = side(side_)?;
+        if lots == 0 {
+            return Err(PyValueError::new_err("order size is zero"));
+        }
+        if self.inner.contains(oid) {
+            return Err(PyValueError::new_err(format!("order {oid} is already resting")));
+        }
+        self.inner.add(oid, user, side, tick, lots);
+        Ok(())
     }
 
     fn cancel(&mut self, oid: u64) -> Option<u64> {
@@ -34,11 +43,11 @@ impl PyBook {
     }
 
     fn best_bid(&self) -> Option<(i64, u64)> {
-        self.inner.best_bid()
+        self.inner.best(Side::Bid)
     }
 
     fn best_ask(&self) -> Option<(i64, u64)> {
-        self.inner.best_ask()
+        self.inner.best(Side::Ask)
     }
 
     fn depth(&self, side_: &str, n: usize) -> PyResult<Vec<(i64, u64, u32)>> {

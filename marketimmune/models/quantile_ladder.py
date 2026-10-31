@@ -1,81 +1,75 @@
-"""The v3 detector's model: quantile regressions of the maker's markout.
+"""The v3 detector's model: LightGBM quantile regressions of the maker's markout.
 
-The plan's Integration section specifies LightGBM quantile regressions at
-tau = 0.1, 0.5, 0.9 of the maker's markout (bps) on the next fill, retrained on
-a rolling window and scored on the next day. Unlike the toxic/not-toxic
-classifier, the quantiles say *how bad* a fill is likely to be, and the 10th
-percentile feeds the quoting rule "pull when the 10th-percentile markout is
-below a limit".
+The plan's Integration section specifies quantile regressions at tau = 0.1, 0.5, 0.9 of the
+maker's markout (bps) on the next fill, retrained on a rolling window and scored on the next
+day. The quantiles say how bad a fill is likely to be; the 10th percentile feeds the quoting
+rule "pull when the 10th-percentile markout is below a limit".
 
-Out-of-fold predictions are produced on the same temporal folds as the
-classifier (``rolling_daily`` by default). Quantile crossing is removed by
-sorting each row's predictions (Chernozhukov, Fernandez-Val & Galichon, 2010).
-Each fold also gets a climatology forecast (the training window's empirical
-quantiles), so skill is reported as ``1 - pinball_model / pinball_climatology``.
+Out-of-fold predictions use the classifier's rolling daily folds.
+Quantile crossing is removed by sorting each row's predictions (Chernozhukov, Fernandez-Val &
+Galichon, 2010). Each fold also gets a climatology forecast (the training window's empirical
+quantiles), so skill is ``1 - pinball_model / pinball_climatology``.
+
+NOTE: one binned ``lightgbm.Dataset`` per fold serves every tau; the seed is per fold, so the
+bins are the ones a dataset per tau would get. Training runs on the physical core count (the
+scikit-learn wrapper's default, which the pre-registered numbers were made with: the thread
+count can change LightGBM's histogram sums). Prediction is per row and uses every core.
 """
 
 from __future__ import annotations
 
-import math
-from collections.abc import Callable, Mapping, Sequence
+import os
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any
 
+import lightgbm as lgb
 import numpy as np
 import numpy.typing as npt
+from joblib import cpu_count
 
-from marketimmune.models.cross_validation import CvScheme, temporal_fold_arrays
+from marketimmune.models.compare import pinball_loss
+from marketimmune.models.cross_validation import temporal_fold_arrays
 from marketimmune.models.decomposition import group_contributions
 
 FloatArray = npt.NDArray[np.float64]
 DEFAULT_TAUS = (0.1, 0.5, 0.9)
 
 
-class QuantileRegressor(Protocol):
-    def fit(self, x: Any, y: Any) -> Any: ...
-    def predict(self, x: Any) -> Any: ...
+@dataclass(frozen=True, slots=True)
+class LgbParams:
+    """Pre-registered settings (docs/preregistration/sol-dec-2025-ladder.md)."""
+
+    n_estimators: int = 300
+    learning_rate: float = 0.05
+    num_leaves: int = 31
+    min_child_samples: int = 200
+    subsample: float = 0.8
+    subsample_freq: int = 1
+    colsample_bytree: float = 0.9
+
+    def booster_params(self, tau: float, seed: int) -> dict[str, Any]:
+        return {
+            "objective": "quantile",
+            "alpha": tau,
+            "learning_rate": self.learning_rate,
+            "num_leaves": self.num_leaves,
+            "min_child_samples": self.min_child_samples,
+            "subsample": self.subsample,
+            "subsample_freq": self.subsample_freq,
+            "colsample_bytree": self.colsample_bytree,
+            "random_state": seed,
+            "num_threads": cpu_count(only_physical_cores=True),
+            "verbose": -1,
+        }
 
 
-RegressorFactory = Callable[[float, int], QuantileRegressor]
-
-
-def pinball_loss(y: npt.ArrayLike, q: npt.ArrayLike, tau: float) -> FloatArray:
-    """Elementwise pinball (quantile) loss of prediction ``q`` at level ``tau``."""
-    if not 0.0 < tau < 1.0:
-        raise ValueError("tau must be in (0, 1)")
-    diff = np.asarray(y, dtype=np.float64) - np.asarray(q, dtype=np.float64)
-    out: FloatArray = np.maximum(tau * diff, (tau - 1.0) * diff)
-    return out
+PREREGISTERED = LgbParams()
 
 
 def quantile_column(tau: float) -> str:
     """``0.1 -> "q10"``, ``0.5 -> "q50"``, ``0.95 -> "q95"``."""
     return f"q{round(tau * 100):02d}"
-
-
-def lightgbm_factory(**params: Any) -> RegressorFactory:
-    """LightGBM ``objective="quantile"`` regressors (imported lazily)."""
-
-    def make(tau: float, seed: int) -> QuantileRegressor:
-        from lightgbm import LGBMRegressor
-
-        settings: dict[str, Any] = {
-            "n_estimators": 300,
-            "learning_rate": 0.05,
-            "num_leaves": 31,
-            "min_child_samples": 200,
-            "subsample": 0.8,
-            "subsample_freq": 1,
-            "colsample_bytree": 0.9,
-            "verbose": -1,
-        }
-        settings.update(params)
-        model: QuantileRegressor = LGBMRegressor(
-            objective="quantile", alpha=tau, random_state=seed, **settings
-        )
-        return model
-
-    return make
 
 
 @dataclass
@@ -100,66 +94,55 @@ def train_quantile_oof(
     ts_ms: npt.ArrayLike,
     *,
     taus: Sequence[float] = DEFAULT_TAUS,
-    factory: RegressorFactory | None = None,
-    scheme: CvScheme = "rolling_daily",
+    params: LgbParams = PREREGISTERED,
     train_days: int | None = None,
-    n_splits: int = 5,
     purge_ms: float = 60_000.0,
-    embargo_ms: float = 0.0,
     seed: int = 42,
     contrib_tau: float | None = None,
     contrib_groups: Mapping[str, Sequence[int]] | None = None,
 ) -> QuantileOOF:
-    """Fit one regressor per (fold, tau); predict the fold's test rows.
+    """Fit one booster per (fold, tau) with seed ``seed + fold``; predict the fold's test rows.
 
-    With ``contrib_tau`` and ``contrib_groups`` (LightGBM models), the per-feature
-    contributions of that tau's model (``pred_contrib=True``, before the
-    no-crossing sort) are summed by group for every test row."""
+    With ``contrib_tau`` and ``contrib_groups``, that tau's per-feature contributions
+    (TreeSHAP, before the no-crossing sort) are summed by group for every test row."""
     xs = np.asarray(x, dtype=np.float32)
     ys = np.asarray(y, dtype=np.float64)
     ts = np.asarray(ts_ms, dtype=np.float64)
-    if xs.shape[0] != ys.size or ys.size != ts.size:
-        raise ValueError("x, y and ts_ms must have the same number of rows")
+    assert xs.shape[0] == ys.size == ts.size, f"{xs.shape=} {ys.size=} {ts.size=}"
     ordered = tuple(sorted(float(t) for t in taus))
-    for tau in ordered:
-        if not 0.0 < tau < 1.0:
-            raise ValueError("every tau must be in (0, 1)")
-    make = factory or lightgbm_factory()
+    assert all(0.0 < t < 1.0 for t in ordered), f"{taus=}"
     preds: dict[float, FloatArray] = {t: np.full(ys.size, np.nan) for t in ordered}
     clim: dict[float, FloatArray] = {t: np.full(ys.size, np.nan) for t in ordered}
+    groups = contrib_groups if contrib_tau is not None else None
+    contrib: dict[str, FloatArray] = {g: np.full(ys.size, np.nan) for g in (*groups, "bias")} if groups is not None else {}
     summaries: list[dict[str, Any]] = []
-    contrib: dict[str, FloatArray] = {}
-    if contrib_tau is not None and contrib_groups is not None:
-        contrib = {g: np.full(ys.size, np.nan) for g in (*contrib_groups, "bias")}
-    folds = temporal_fold_arrays(
-        ts, n_splits=n_splits, purge_ms=purge_ms, embargo_ms=embargo_ms,
-        scheme=scheme, train_days=train_days,
-    )
-    for fold_id, fold in enumerate(folds, start=1):
+    threads = os.cpu_count() or 1
+    for fold_id, fold in enumerate(temporal_fold_arrays(ts, purge_ms=purge_ms, train_days=train_days), start=1):
         if fold.train.size < 2 or fold.test.size == 0:
             continue
+        y_train, x_test = ys[fold.train], xs[fold.test]
+        train = lgb.Dataset(xs[fold.train], label=y_train)
         for tau in ordered:
-            model = make(tau, seed + fold_id)
-            model.fit(xs[fold.train], ys[fold.train])
-            preds[tau][fold.test] = np.asarray(model.predict(xs[fold.test]), dtype=np.float64)
-            clim[tau][fold.test] = float(np.quantile(ys[fold.train], tau))
-            if contrib and contrib_groups is not None and math.isclose(tau, contrib_tau or -1.0):
-                raw = model.predict(xs[fold.test], pred_contrib=True)  # type: ignore[call-arg]
-                for g, values in group_contributions(raw, contrib_groups).items():
+            booster = lgb.train(params.booster_params(tau, seed + fold_id), train, num_boost_round=params.n_estimators)
+            preds[tau][fold.test] = booster.predict(x_test, num_threads=threads)
+            clim[tau][fold.test] = float(np.quantile(y_train, tau))
+            if groups is not None and tau == contrib_tau:
+                raw = booster.predict(x_test, pred_contrib=True, num_threads=threads)
+                for g, values in group_contributions(raw, groups).items():
                     contrib[g][fold.test] = values
-        summaries.append({
-            "fold_id": fold_id,
-            "n_train": int(fold.train.size),
-            "n_test": int(fold.test.size),
-            "test_start_ms": fold.test_start_ms,
-            "test_end_ms": fold.test_end_ms,
-        })
+        summaries.append(
+            {
+                "fold_id": fold_id,
+                "n_train": int(fold.train.size),
+                "n_test": int(fold.test.size),
+                "test_start_ms": fold.test_start_ms,
+                "test_end_ms": fold.test_end_ms,
+            }
+        )
     if len(ordered) > 1:
         stacked = np.sort(np.vstack([preds[t] for t in ordered]), axis=0)  # no crossing
-        for k, tau in enumerate(ordered):
-            preds[tau] = stacked[k]
-    return QuantileOOF(taus=ordered, predictions=preds, climatology=clim,
-                       fold_summaries=summaries, contributions=contrib)
+        preds = {tau: stacked[k] for k, tau in enumerate(ordered)}
+    return QuantileOOF(taus=ordered, predictions=preds, climatology=clim, fold_summaries=summaries, contributions=contrib)
 
 
 def quantile_report(oof: QuantileOOF, y: npt.ArrayLike) -> dict[str, Any]:
@@ -169,22 +152,22 @@ def quantile_report(oof: QuantileOOF, y: npt.ArrayLike) -> dict[str, Any]:
     out: dict[str, Any] = {"rows_tested": int(tested.sum()), "per_tau": {}}
     if not tested.any():
         return out
+    yt = ys[tested]
     for tau in oof.taus:
-        model = float(pinball_loss(ys[tested], oof.predictions[tau][tested], tau).mean())
-        base = float(pinball_loss(ys[tested], oof.climatology[tau][tested], tau).mean())
-        hit = float(np.mean(ys[tested] <= oof.predictions[tau][tested]))
+        model = float(pinball_loss(yt, oof.predictions[tau][tested], tau).mean())
+        base = float(pinball_loss(yt, oof.climatology[tau][tested], tau).mean())
         out["per_tau"][quantile_column(tau)] = {
             "pinball": model,
             "pinball_climatology": base,
             "skill": 1.0 - model / base if base > 0 else None,
-            "hit_rate": hit,  # should be close to tau
+            "hit_rate": float(np.mean(yt <= oof.predictions[tau][tested])),  # should be close to tau
         }
     lo, hi = oof.taus[0], oof.taus[-1]
     if hi > lo:
         q_lo, q_hi = oof.predictions[lo][tested], oof.predictions[hi][tested]
         out["interval"] = {
             "nominal": hi - lo,
-            "coverage": float(np.mean((ys[tested] >= q_lo) & (ys[tested] <= q_hi))),
+            "coverage": float(np.mean((yt >= q_lo) & (yt <= q_hi))),
             "mean_width_bps": float(np.mean(q_hi - q_lo)),
         }
     return out

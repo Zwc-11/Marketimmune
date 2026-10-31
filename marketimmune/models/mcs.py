@@ -23,25 +23,9 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
+from marketimmune.models.compare import stationary_bootstrap_indices
+
 FloatArray = npt.NDArray[np.float64]
-
-
-def stationary_bootstrap_indices(
-    n: int, n_boot: int, mean_block: float, rng: np.random.Generator
-) -> npt.NDArray[np.int64]:
-    """``(n_boot, n)`` index paths: geometric blocks with mean length ``mean_block``."""
-    if n < 1:
-        raise ValueError("need at least one observation")
-    if mean_block < 1.0:
-        raise ValueError("mean_block must be >= 1")
-    starts = rng.integers(0, n, size=(n_boot, n))
-    new_block = rng.random((n_boot, n)) < 1.0 / mean_block
-    new_block[:, 0] = True
-    idx = np.empty((n_boot, n), dtype=np.int64)
-    idx[:, 0] = starts[:, 0]
-    for j in range(1, n):
-        idx[:, j] = np.where(new_block[:, j], starts[:, j], (idx[:, j - 1] + 1) % n)
-    return idx
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,17 +41,12 @@ class MCSResult:
         return tuple(n for n, p in zip(self.names, self.p_values, strict=True) if p > self.alpha)
 
     def to_dict(self) -> dict[str, Any]:
-        rows = sorted(
-            zip(self.names, self.mean_loss, self.p_values, strict=True), key=lambda r: r[1]
-        )
+        rows = sorted(zip(self.names, self.mean_loss, self.p_values, strict=True), key=lambda r: r[1])
         return {
             "alpha": self.alpha,
             "included": list(self.included),
             "elimination_order": list(self.elimination_order),
-            "models": [
-                {"name": n, "mean_loss": m, "mcs_p_value": p, "in_mcs": p > self.alpha}
-                for n, m, p in rows
-            ],
+            "models": [{"name": n, "mean_loss": m, "mcs_p_value": p, "in_mcs": p > self.alpha} for n, m, p in rows],
         }
 
 
@@ -82,19 +61,10 @@ def model_confidence_set(
 ) -> MCSResult:
     """MCS with the T_max statistic on a ``(days, models)`` loss matrix."""
     loss = np.asarray(losses, dtype=np.float64)
-    if loss.ndim != 2 or loss.shape[1] != len(names):
-        raise ValueError("losses must be (days, models) with one name per column")
-    if loss.shape[1] < 2:
-        raise ValueError("need at least two models")
-    if np.isnan(loss).any():
-        raise ValueError("losses contain NaN; align the models on common days first")
-    if not 0.0 < alpha < 1.0:
-        raise ValueError("alpha must be in (0, 1)")
-    n = loss.shape[0]
-    if n < 3:
-        raise ValueError("need at least 3 days")
-    rng = np.random.default_rng(seed)
-    idx = stationary_bootstrap_indices(n, n_boot, mean_block, rng)
+    assert loss.ndim == 2 and loss.shape[1] == len(names) >= 2, f"losses must be (days, models >= 2), one name per column: {loss.shape=}"
+    assert loss.shape[0] >= 3 and not np.isnan(loss).any(), f"need at least 3 common days without NaN: {loss.shape=}"
+    assert 0.0 < alpha < 1.0, f"{alpha=}"
+    idx = stationary_bootstrap_indices(loss.shape[0], n_boot, mean_block, np.random.default_rng(seed))
     boot_means = loss[idx].mean(axis=1)  # (n_boot, models): one draw reused across steps
     full_means = loss.mean(axis=0)
 

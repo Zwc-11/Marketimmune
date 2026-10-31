@@ -21,13 +21,26 @@ def _write_day(layout: HyperliquidLakeLayout, day: int, rng: np.random.Generator
     ofi = rng.normal(size=n)
     side = rng.choice([-1.0, 1.0], n)
     markout = -2.0 * side * ofi + rng.normal(scale=0.5, size=n)
-    frame = pd.DataFrame({
-        "coin": "SOL", "ts_ms": ts, "px": 100.0, "sz": rng.uniform(0.1, 5, n),
-        "maker_side": side, "l2_mid": 100.0, "l2_spread_bps": 1.0, "l2_microprice": 100.0,
-        "l2_top_imbalance": rng.normal(size=n), "l2_ofi_event": ofi, "l2_ofi_1s": ofi,
-        "l2_ofi_5s": ofi, "l2_ofi_10s": ofi, "markout_bps_1s": markout,
-        "toxic_1s": markout < -1.0, "oid": np.arange(n),
-    })
+    frame = pd.DataFrame(
+        {
+            "coin": "SOL",
+            "ts_ms": ts,
+            "px": 100.0,
+            "sz": rng.uniform(0.1, 5, n),
+            "maker_side": side,
+            "l2_mid": 100.0,
+            "l2_spread_bps": 1.0,
+            "l2_microprice": 100.0,
+            "l2_top_imbalance": rng.normal(size=n),
+            "l2_ofi_event": ofi,
+            "l2_ofi_1s": ofi,
+            "l2_ofi_5s": ofi,
+            "l2_ofi_10s": ofi,
+            "markout_bps_1s": markout,
+            "toxic_1s": markout < -1.0,
+            "oid": np.arange(n),
+        }
+    )
     path = layout.gold_training_path("SOL", date)
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_parquet(path)
@@ -42,11 +55,24 @@ def test_train_quantile_end_to_end(tmp_path: Path, capsys: pytest.CaptureFixture
         _write_day(layout, day, rng)
     report = tmp_path / "eval" / "q.json"
     try:
-        code = train_quantile.main([
-            "--dates", "20251201..20251204", "--lake-root", str(tmp_path / "lake"),
-            "--feature-set", "l0_book", "--train-days", "2", "--n-estimators", "40",
-            "--min-child-samples", "20", "--report", str(report),
-        ])
+        code = train_quantile.main(
+            [
+                "--dates",
+                "20251201..20251204",
+                "--lake-root",
+                str(tmp_path / "lake"),
+                "--feature-set",
+                "l0_book",
+                "--train-days",
+                "2",
+                "--n-estimators",
+                "40",
+                "--min-child-samples",
+                "20",
+                "--report",
+                str(report),
+            ]
+        )
     finally:
         use_feature_set("l0")
     assert code == 0

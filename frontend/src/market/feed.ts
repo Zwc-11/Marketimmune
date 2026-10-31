@@ -2,10 +2,11 @@
 // the bootstrap, one WebSocket for the stream). No backend is needed for the book,
 // tape, candles, or live labels.
 //
-// Rendering discipline: WebSocket messages mutate private state and mark slices
-// dirty; one requestAnimationFrame flush publishes a new snapshot per frame. A
-// slice keeps its object identity until it changes, so components subscribed to
-// the book do not re-render when only the tape moved (see useMarket.ts).
+// Rendering discipline: a WebSocket message replaces the snapshot slices it changes
+// (a slice is never mutated once published, except the newest bar of `candles`,
+// which goes out through `lastCandle`), and listeners hear about it once per
+// animation frame. A slice keeps its identity until it changes, so components
+// subscribed to the book do not re-render when only the tape moved (useMarket.ts).
 
 import {
     BOOK_DEPTH,
@@ -24,19 +25,20 @@ import {
 } from '../config';
 import { assetFeatures, bookTop, featureValues, vectorFor, type BookTop } from '../lib/features';
 import { priceDecimals } from '../lib/format';
-import { calibrate, ObliviousModel, type CompactModel } from '../lib/obliviousTrees';
+import { calibrate, ObliviousModel, type IsotonicArtifact } from '../lib/obliviousTrees';
 import { OfiWindows, type OfiValues } from '../lib/ofi';
-import { RegretTracker, type RegretStats, type TapeFill } from '../lib/regret';
+import { RegretTracker, type RegretStats, type ResolvedFill, type TapeFill } from '../lib/regret';
 
 export type FeedStatus = 'connecting' | 'live' | 'reconnecting';
 
 export interface Level {
     px: number;
     sz: number;
-    n: number;
+    /** Cumulative size from the touch through this level. */
+    total: number;
 }
 
-export interface BookState {
+interface BookState {
     time: number;
     bids: Level[];
     asks: Level[];
@@ -44,12 +46,11 @@ export interface BookState {
     ofi: OfiValues;
 }
 
-export interface AssetCtxState {
+interface AssetCtxState {
     /** UTC receipt time; the context API does not supply an exchange timestamp. */
     observedAt: number;
     markPx: number;
     oraclePx: number;
-    midPx: number | null;
     funding: number;
     openInterest: number;
     premium: number;
@@ -66,48 +67,51 @@ export interface CandleBar {
     volume: number;
 }
 
-export type ModelStatus =
+type ModelStatus =
     | { state: 'loading' }
     | { state: 'missing' }
     | { state: 'error'; message: string }
-    | { state: 'ready'; meta: Omit<CompactModel, 'trees'>; treeCount: number };
-
-export interface FeedInfo {
-    status: FeedStatus;
-    connectedAt: number | null;
-    lastMessageAt: number | null;
-    reconnectAt: number | null;
-    error: string | null;
-    priceDecimals: number;
-    /** Local clock minus exchange clock, smoothed; used to age fills on screen. */
-    clockOffsetMs: number;
-}
+    | { state: 'ready'; name: string | null; treeCount: number; threshold: number };
 
 export interface MarketSnapshot {
-    feed: FeedInfo;
+    status: FeedStatus;
+    lastMessageAt: number | null;
+    priceDecimals: number;
     book: BookState | null;
     ctx: AssetCtxState | null;
     candleInterval: CandleInterval;
     candles: CandleBar[];
     lastCandle: CandleBar | null;
     tape: TapeFill[];
-    resolved: TapeFill[];
+    resolved: ResolvedFill[];
     stats: RegretStats;
     model: ModelStatus;
 }
 
-type Slice = keyof MarketSnapshot;
+interface Scorer {
+    model: ObliviousModel;
+    calibrator: IsotonicArtifact | undefined;
+    threshold: number;
+}
 
 const BOOK_HISTORY = 64;
 const CTX_HISTORY = 64;
 const RESOLVED_LIMIT = 200;
+const CANDLE_LIMIT = 720;
+const SEEN_LIMIT = 5_000;
 const PING_MS = 30_000;
 const STATS_MIN_INTERVAL_MS = 250;
+/** The withhold cut when an exported artifact carries no tuned threshold. */
+const DEFAULT_THRESHOLD = 0.5;
+const UNSCORED = { score: null, action: null } as const;
 
 interface RawLevel {
     px: string;
     sz: string;
-    n: number;
+}
+interface RawBook {
+    time: number;
+    levels: [RawLevel[], RawLevel[]];
 }
 interface RawTrade {
     side: string;
@@ -116,9 +120,10 @@ interface RawTrade {
     time: number;
     tid: number;
 }
+type RawCtx = Record<string, string | null>;
 interface RawCandle {
     t: number;
-    i?: string;
+    i: string;
     o: string | number;
     h: string | number;
     l: string | number;
@@ -127,41 +132,32 @@ interface RawCandle {
 }
 
 export class MarketFeed {
-    private snapshot: MarketSnapshot;
+    /** Each key is reassigned to a new slice on change; listeners hear once per frame. */
+    private readonly snapshot: MarketSnapshot;
     private readonly listeners = new Set<() => void>();
-    private readonly dirty = new Set<Slice>();
     private flushHandle: number | null = null;
     private started = false;
     private pingTimer: number | null = null;
     private retry = 0;
+    private ws: WebSocket | null = null;
 
     private ofi = new OfiWindows();
     private readonly tracker = new RegretTracker(HORIZON_MS, TOXIC_FEE_BPS, STATS_WINDOW_MS);
     private readonly bookHistory: BookState[] = [];
     private readonly ctxHistory: AssetCtxState[] = [];
-    private model: ObliviousModel | null = null;
+    private scorer: Scorer | null = null;
     private statsAt = 0;
-    private lastMessageAt: number | null = null;
-    private ws: WebSocket | null = null;
     /** Exchange time of the first book since the last (re)connect. */
     private coverageStart: number | null = null;
     private readonly seenTrades = new Set<string>();
     private readonly seenOrder: string[] = [];
     private clockOffset: number | null = null;
-    private candles: CandleBar[] = [];
 
     constructor() {
-        const emptyStats = this.tracker.stats(0);
         this.snapshot = {
-            feed: {
-                status: 'connecting',
-                connectedAt: null,
-                lastMessageAt: null,
-                reconnectAt: null,
-                error: null,
-                priceDecimals: 3,
-                clockOffsetMs: 0,
-            },
+            status: 'connecting',
+            lastMessageAt: null,
+            priceDecimals: 3,
             book: null,
             ctx: null,
             candleInterval: DEFAULT_CANDLE_INTERVAL,
@@ -169,7 +165,7 @@ export class MarketFeed {
             lastCandle: null,
             tape: [],
             resolved: [],
-            stats: emptyStats,
+            stats: this.tracker.stats(0),
             model: { state: 'loading' },
         };
     }
@@ -182,41 +178,27 @@ export class MarketFeed {
 
     getSnapshot = (): MarketSnapshot => this.snapshot;
 
+    /** Local clock minus exchange clock, smoothed; used to age fills on screen. */
+    get clockOffsetMs(): number {
+        return this.clockOffset ?? 0;
+    }
+
     start(): void {
-        if (this.started || typeof window === 'undefined') return;
+        if (this.started) return;
         this.started = true;
-        void this.bootstrap();
+        void this.loadCandles(this.snapshot.candleInterval);
+        void this.loadContext();
         void this.loadModel();
         this.connect();
         window.setInterval(() => this.refreshStats(true), 1_000);
-    }
-
-    // ---- bootstrap -------------------------------------------------------
-
-    private async bootstrap(): Promise<void> {
-        const [candles, ctxs] = await Promise.allSettled([
-            this.loadCandles(this.snapshot.candleInterval),
-            info<[{ universe: { name: string }[] }, Record<string, string | string[] | null>[]]>({
-                type: 'metaAndAssetCtxs',
-            }),
-        ]);
-        if (ctxs.status === 'fulfilled') {
-            const [meta, contexts] = ctxs.value;
-            const index = meta.universe.findIndex((asset) => asset.name === COIN);
-            if (index >= 0) this.onCtx(contexts[index]);
-        }
-        if (candles.status === 'rejected' && ctxs.status === 'rejected') {
-            this.patchFeed({ error: 'Hyperliquid REST API unreachable' });
-        }
     }
 
     /** Switch the chart interval: new history over REST, new candle subscription. */
     setCandleInterval(interval: CandleInterval): void {
         const previous = this.snapshot.candleInterval;
         if (interval === previous) return;
-        this.candles = [];
         this.patch('candleInterval', interval);
-        this.patch('candles', this.candles);
+        this.patch('candles', []);
         this.patch('lastCandle', null);
         if (this.ws?.readyState === WebSocket.OPEN) {
             const sub = (i: string) => ({ type: 'candle', coin: COIN, interval: i });
@@ -225,6 +207,8 @@ export class MarketFeed {
         }
         void this.loadCandles(interval);
     }
+
+    // ---- REST ------------------------------------------------------------
 
     private async loadCandles(interval: CandleInterval): Promise<void> {
         const now = Date.now();
@@ -238,27 +222,37 @@ export class MarketFeed {
             },
         });
         // A newer switch may have happened while this request was in flight.
-        if (interval !== this.snapshot.candleInterval || !Array.isArray(bars)) return;
-        this.candles = mergeCandles(bars.map(parseCandle), this.candles);
-        this.patch('candles', this.candles);
+        if (interval !== this.snapshot.candleInterval) return;
+        this.patch('candles', mergeCandles(bars.map(parseCandle), this.snapshot.candles));
+    }
+
+    private async loadContext(): Promise<void> {
+        const [meta, contexts] = await info<[{ universe: { name: string }[] }, RawCtx[]]>({
+            type: 'metaAndAssetCtxs',
+        });
+        const index = meta.universe.findIndex((asset) => asset.name === COIN);
+        if (index >= 0) this.onCtx(contexts[index]);
     }
 
     private async loadModel(): Promise<void> {
         try {
             const response = await fetch(MODEL_URL, { cache: 'no-cache' });
-            const type = response.headers.get('content-type') ?? '';
-            if (!response.ok || !type.includes('json')) {
+            // Static hosts and the dev server answer a missing file with index.html.
+            if (!response.ok || !(response.headers.get('content-type') ?? '').includes('json')) {
                 this.patch('model', { state: 'missing' });
                 return;
             }
             const model = ObliviousModel.fromCompact(await response.json());
-            this.model = model;
-            this.patch('model', { state: 'ready', meta: model.meta, treeCount: model.treeCount });
-        } catch (error) {
+            const { calibrator, decision_threshold: threshold, model_name: name } = model.meta;
+            this.scorer = { model, calibrator, threshold: threshold ?? DEFAULT_THRESHOLD };
             this.patch('model', {
-                state: 'error',
-                message: error instanceof Error ? error.message : 'could not load model',
+                state: 'ready',
+                name: name ?? null,
+                treeCount: model.treeCount,
+                threshold: this.scorer.threshold,
             });
+        } catch (error) {
+            this.patch('model', { state: 'error', message: (error as Error).message });
         }
     }
 
@@ -281,12 +275,7 @@ export class MarketFeed {
             this.pingTimer = window.setInterval(() => {
                 if (ws.readyState === WebSocket.OPEN) ws.send('{"method":"ping"}');
             }, PING_MS);
-            this.patchFeed({
-                status: 'live',
-                connectedAt: Date.now(),
-                reconnectAt: null,
-                error: null,
-            });
+            this.patch('status', 'live');
         };
         ws.onmessage = (event: MessageEvent<string>) => this.onMessage(event.data);
         ws.onclose = () => {
@@ -294,10 +283,9 @@ export class MarketFeed {
             this.pingTimer = null;
             const delay = Math.min(15_000, 1_000 * 2 ** this.retry);
             this.retry += 1;
-            this.patchFeed({ status: 'reconnecting', reconnectAt: Date.now() + delay });
+            this.patch('status', 'reconnecting');
             window.setTimeout(() => this.connect(), delay);
         };
-        ws.onerror = () => this.patchFeed({ error: 'WebSocket error; reconnecting' });
     }
 
     /**
@@ -326,29 +314,24 @@ export class MarketFeed {
         if (this.seenTrades.has(id)) return true;
         this.seenTrades.add(id);
         this.seenOrder.push(id);
-        if (this.seenOrder.length > 5_000) {
+        if (this.seenOrder.length > SEEN_LIMIT) {
             for (const old of this.seenOrder.splice(0, 1_000)) this.seenTrades.delete(old);
         }
         return false;
     }
 
     private onMessage(raw: string): void {
-        let message: { channel?: string; data?: unknown };
-        try {
-            message = JSON.parse(raw) as { channel?: string; data?: unknown };
-        } catch {
-            return;
-        }
+        const message = JSON.parse(raw) as { channel: string; data: unknown };
         const now = Date.now();
         switch (message.channel) {
             case 'l2Book':
-                this.onBook(message.data as { time: number; levels: [RawLevel[], RawLevel[]] });
+                this.onBook(message.data as RawBook);
                 break;
             case 'trades':
                 this.onTrades(message.data as RawTrade[]);
                 break;
             case 'activeAssetCtx':
-                this.onCtx((message.data as { ctx: Record<string, string> }).ctx);
+                this.onCtx((message.data as { ctx: RawCtx }).ctx);
                 break;
             case 'candle':
                 this.onCandle(message.data as RawCandle | RawCandle[]);
@@ -356,46 +339,39 @@ export class MarketFeed {
             default:
                 return;
         }
-        this.lastMessageAt = now;
-        this.dirty.add('feed');
-        this.scheduleFlush();
+        this.patch('lastMessageAt', now);
     }
 
-    private onBook(data: { time: number; levels: [RawLevel[], RawLevel[]] }): void {
-        const [rawBids, rawAsks] = data.levels;
-        if (!rawBids?.length || !rawAsks?.length) return;
-        const bids = rawBids.slice(0, BOOK_DEPTH).map(parseLevel);
-        const asks = rawAsks.slice(0, BOOK_DEPTH).map(parseLevel);
-        const top = bookTop(data.time, bids[0].px, bids[0].sz, asks[0].px, asks[0].sz);
+    private onBook({ time, levels: [rawBids, rawAsks] }: RawBook): void {
+        if (!rawBids.length || !rawAsks.length) return;
+        const bids = parseLevels(rawBids);
+        const asks = parseLevels(rawAsks);
+        const top = bookTop(time, bids[0].px, bids[0].sz, asks[0].px, asks[0].sz);
         if (!top) return;
         if (this.snapshot.book === null) {
-            this.patchFeed({
-                priceDecimals: priceDecimals([...rawBids, ...rawAsks].slice(0, 20).map((l) => l.px)),
-            });
+            this.patch('priceDecimals', priceDecimals(rawBids.concat(rawAsks).slice(0, 20).map((l) => l.px)));
         }
-        const offset = Date.now() - data.time;
+        const offset = Date.now() - time;
         this.clockOffset = this.clockOffset === null ? offset : this.clockOffset * 0.9 + offset * 0.1;
-        const book: BookState = { time: data.time, bids, asks, top, ofi: this.ofi.push(top) };
+        const book: BookState = { time, bids, asks, top, ofi: this.ofi.push(top) };
         if (this.coverageStart === null) {
             // Fills due before our first mid cannot be labelled with the mid at t+10 s.
-            this.coverageStart = book.time;
-            this.forget(this.tracker.dropPending(book.time));
+            this.coverageStart = time;
+            this.forget(this.tracker.dropPending(time));
         }
         this.bookHistory.push(book);
         if (this.bookHistory.length > BOOK_HISTORY) this.bookHistory.shift();
         this.patch('book', book);
 
-        const done = this.tracker.onMid(book.time, top.mid);
-        if (done.length) {
-            const byId = new Map(done.map((fill) => [fill.id, fill]));
-            this.patch('tape', this.snapshot.tape.map((fill) => byId.get(fill.id) ?? fill));
-            this.patch('resolved', [...done.reverse(), ...this.snapshot.resolved].slice(0, RESOLVED_LIMIT));
-            this.refreshStats(false);
-        }
+        const done = this.tracker.onMid(time, top.mid);
+        if (!done.length) return;
+        const byId = new Map(done.map((fill) => [fill.id, fill]));
+        this.patch('tape', this.snapshot.tape.map((fill) => byId.get(fill.id) ?? fill));
+        this.patch('resolved', prependCapped(done.reverse(), this.snapshot.resolved, RESOLVED_LIMIT));
+        this.refreshStats(false);
     }
 
     private onTrades(trades: RawTrade[]): void {
-        if (!Array.isArray(trades) || !trades.length) return;
         const added: TapeFill[] = [];
         for (const trade of trades) {
             const px = Number(trade.px);
@@ -406,23 +382,14 @@ export class MarketFeed {
             if (this.coverageStart !== null && trade.time + HORIZON_MS < this.coverageStart) continue;
             // `side` is the aggressor; the maker who got filled sits on the other side.
             const makerSide = trade.side === 'B' ? -1 : 1;
-            const scored = this.score(trade.time, px, sz, makerSide);
-            added.push(this.tracker.add({
-                id,
-                time: trade.time,
-                px,
-                sz,
-                makerSide,
-                score: scored?.score ?? null,
-                action: scored?.action ?? null,
-            }));
+            added.push(this.tracker.add({ id, time: trade.time, px, sz, makerSide, ...this.score(trade.time, px, sz, makerSide) }));
         }
         if (!added.length) return;
-        this.patch('tape', [...added.reverse(), ...this.snapshot.tape].slice(0, TAPE_LIMIT));
+        this.patch('tape', prependCapped(added.reverse(), this.snapshot.tape, TAPE_LIMIT));
         this.refreshStats(false);
     }
 
-    private onCtx(raw: Record<string, unknown>): void {
+    private onCtx(raw: RawCtx): void {
         // Use receipt time, including for REST bootstrap. Never backdate an
         // untimestamped context to the last book or the request's start time.
         const ctx = parseCtx(raw, Date.now());
@@ -432,54 +399,37 @@ export class MarketFeed {
     }
 
     /** Score with the latest book and context available at or before the fill. */
-    private score(
-        time: number,
-        px: number,
-        sz: number,
-        makerSide: 1 | -1,
-    ): { score: number; action: 'quote' | 'withhold' } | null {
-        const model = this.model;
-        if (!model) return null;
-        let ctx: AssetCtxState | undefined;
-        for (let i = this.ctxHistory.length - 1; i >= 0; i -= 1) {
-            if (this.ctxHistory[i].observedAt <= time) {
-                ctx = this.ctxHistory[i];
-                break;
-            }
-        }
-        if (!ctx) return null;
-        let book: BookState | undefined;
-        for (let i = this.bookHistory.length - 1; i >= 0; i -= 1) {
-            if (this.bookHistory[i].time <= time) {
-                book = this.bookHistory[i];
-                break;
-            }
-        }
+    private score(time: number, px: number, sz: number, makerSide: 1 | -1): Pick<TapeFill, 'score' | 'action'> {
+        const scorer = this.scorer;
+        if (!scorer) return UNSCORED;
+        const ctx = latestAtOrBefore(this.ctxHistory, time, ctxTime);
+        if (!ctx) return UNSCORED;
+        const book = latestAtOrBefore(this.bookHistory, time, bookTime);
         const asset = assetFeatures(ctx);
-        if (!book || !asset) return null;
+        if (!book || !asset) return UNSCORED;
         const values = featureValues({ px, sz, makerSide, feeBps: 0 }, book.top, book.ofi, asset);
-        const meta = model.meta;
-        const score = calibrate(meta.calibrator, model.probability(vectorFor(model.featureColumns, values)));
-        const threshold = meta.decision_threshold ?? 0.5;
+        const { model, calibrator, threshold } = scorer;
+        const score = calibrate(calibrator, model.probability(vectorFor(model.featureColumns, values)));
         return { score, action: score >= threshold ? 'withhold' : 'quote' };
     }
 
     private onCandle(data: RawCandle | RawCandle[]): void {
-        let appended = false;
         const interval = this.snapshot.candleInterval;
-        const raws = (Array.isArray(data) ? data : [data]).filter((raw) => !raw.i || raw.i === interval);
-        for (const bar of raws.map(parseCandle)) {
-            const last = this.candles[this.candles.length - 1];
-            if (last && last.time === bar.time) {
-                this.candles[this.candles.length - 1] = bar;
+        for (const raw of Array.isArray(data) ? data : [data]) {
+            if (raw.i !== interval) continue;
+            const bar = parseCandle(raw);
+            const candles = this.snapshot.candles;
+            const last = candles[candles.length - 1];
+            if (last?.time === bar.time) {
+                // In-place: the chart takes this bar through `lastCandle`, not a full reload.
+                candles[candles.length - 1] = bar;
             } else if (!last || bar.time > last.time) {
-                this.candles = [...this.candles, bar].slice(-720);
-                appended = true;
+                const next = candles.slice(Math.max(0, candles.length + 1 - CANDLE_LIMIT));
+                next.push(bar);
+                this.patch('candles', next);
             }
             this.patch('lastCandle', bar);
         }
-        // A new bar changes the series length; in-place updates go out via lastCandle.
-        if (appended) this.patch('candles', this.candles);
     }
 
     // ---- publishing ------------------------------------------------------
@@ -491,37 +441,18 @@ export class MarketFeed {
         this.patch('stats', this.tracker.stats(this.snapshot.book?.time ?? now));
     }
 
-    private patch<K extends Slice>(key: K, value: MarketSnapshot[K]): void {
+    private patch<K extends keyof MarketSnapshot>(key: K, value: MarketSnapshot[K]): void {
         this.snapshot[key] = value;
-        this.dirty.add(key);
-        this.scheduleFlush();
-    }
-
-    private patchFeed(update: Partial<FeedInfo>): void {
-        this.patch('feed', { ...this.snapshot.feed, ...update });
-    }
-
-    private scheduleFlush(): void {
         if (this.flushHandle !== null) return;
-        const flush = () => {
-            this.flushHandle = null;
-            if (!this.dirty.size) return;
-            const next = { ...this.snapshot };
-            if (this.dirty.has('feed')) {
-                next.feed = {
-                    ...next.feed,
-                    lastMessageAt: this.lastMessageAt,
-                    clockOffsetMs: this.clockOffset ?? 0,
-                };
-            }
-            this.dirty.clear();
-            this.snapshot = next;
-            for (const listener of this.listeners) listener();
-        };
         this.flushHandle = document.hidden
-            ? window.setTimeout(flush, 500)
-            : window.requestAnimationFrame(flush);
+            ? window.setTimeout(this.flush, 500)
+            : window.requestAnimationFrame(this.flush);
     }
+
+    private readonly flush = (): void => {
+        this.flushHandle = null;
+        for (const listener of this.listeners) listener();
+    };
 }
 
 async function info<T>(body: unknown): Promise<T> {
@@ -534,6 +465,24 @@ async function info<T>(body: unknown): Promise<T> {
     return (await response.json()) as T;
 }
 
+const ctxTime = (ctx: AssetCtxState) => ctx.observedAt;
+const bookTime = (book: BookState) => book.time;
+
+/** Newest entry at or before `time` in a history appended in time order. */
+function latestAtOrBefore<T>(history: readonly T[], time: number, at: (entry: T) => number): T | undefined {
+    for (let i = history.length - 1; i >= 0; i -= 1) {
+        if (at(history[i]) <= time) return history[i];
+    }
+    return undefined;
+}
+
+/** `[...head, ...tail].slice(0, limit)` reusing `head`, which the caller hands over. */
+function prependCapped<T>(head: T[], tail: readonly T[], limit: number): T[] {
+    for (let i = 0; head.length < limit && i < tail.length; i += 1) head.push(tail[i]);
+    if (head.length > limit) head.length = limit;
+    return head;
+}
+
 /** Bootstrap bars, then any bars the socket delivered while REST was in flight. */
 function mergeCandles(snapshot: CandleBar[], streamed: CandleBar[]): CandleBar[] {
     const byTime = new Map(snapshot.map((bar) => [bar.time, bar]));
@@ -541,8 +490,15 @@ function mergeCandles(snapshot: CandleBar[], streamed: CandleBar[]): CandleBar[]
     return [...byTime.values()].sort((a, b) => a.time - b.time);
 }
 
-function parseLevel(level: RawLevel): Level {
-    return { px: Number(level.px), sz: Number(level.sz), n: level.n };
+function parseLevels(raw: RawLevel[]): Level[] {
+    const levels: Level[] = [];
+    let total = 0;
+    for (let i = 0; i < raw.length && i < BOOK_DEPTH; i += 1) {
+        const sz = Number(raw[i].sz);
+        total += sz;
+        levels.push({ px: Number(raw[i].px), sz, total });
+    }
+    return levels;
 }
 
 function parseCandle(raw: RawCandle): CandleBar {
@@ -556,14 +512,13 @@ function parseCandle(raw: RawCandle): CandleBar {
     };
 }
 
-function parseCtx(raw: Record<string, unknown>, observedAt: number): AssetCtxState {
+/** Hyperliquid sends some context fields as null (e.g. premium); they become NaN, a missing feature. */
+function parseCtx(raw: RawCtx, observedAt: number): AssetCtxState {
     const num = (key: string) => Number(raw[key] ?? Number.NaN);
-    const mid = raw.midPx === null || raw.midPx === undefined ? null : Number(raw.midPx);
     return {
         observedAt,
         markPx: num('markPx'),
         oraclePx: num('oraclePx'),
-        midPx: mid,
         funding: num('funding'),
         openInterest: num('openInterest'),
         premium: num('premium'),

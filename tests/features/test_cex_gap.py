@@ -27,20 +27,20 @@ def test_price_series_sorts_validates_and_looks_up() -> None:
     got = s.at_or_before(np.array([5.0, 10.0, 19.0, 25.0]))
     assert math.isnan(got[0])
     assert np.exp(got[1:]).tolist() == pytest.approx([100.0, 100.0, 101.0])
-    with pytest.raises(ValueError, match="same length"):
+    with pytest.raises(AssertionError, match="one per time"):
         PriceSeries.from_arrays([1.0], [])
-    with pytest.raises(ValueError, match="positive"):
+    with pytest.raises(AssertionError, match="positive"):
         PriceSeries.from_arrays([1.0], [0.0])
     both = PriceSeries.concat([PriceSeries.from_arrays([30.0], [99.0]), s])
     assert both.ts_ms.tolist() == [10.0, 20.0, 30.0]
-    assert PriceSeries.concat([]).ts_ms.size == 0
+    with pytest.raises(AssertionError, match="no Binance days"):
+        PriceSeries.concat([])
 
 
 @pytest.mark.parametrize("header", [True, False])
 def test_read_binance_aggtrades_zip(tmp_path: Path, header: bool) -> None:
     rows = "1,133.37,39.7,10,18,1764547200028,true\n2,133.38,0.31,19,19,1764547200049,false\n"
-    text = ("agg_trade_id,price,quantity,first_trade_id,last_trade_id,transact_time,"
-            "is_buyer_maker\n" if header else "") + rows
+    text = ("agg_trade_id,price,quantity,first_trade_id,last_trade_id,transact_time,is_buyer_maker\n" if header else "") + rows
     path = tmp_path / "SOLUSDT-aggTrades-2025-12-01.zip"
     with zipfile.ZipFile(path, "w") as zf:
         zf.writestr("SOLUSDT-aggTrades-2025-12-01.csv", text)
@@ -75,7 +75,7 @@ def test_cex_gap_features_respect_latency_and_strict_hl_asof() -> None:
     assert f["cex_ret_1000ms_maker_bps"][0] == pytest.approx(-jump)
     early = cex_gap_features([-5000.0], [1.0], hl_ts, hl_mid, cex)
     assert math.isnan(early["cex_gap_bps"][0])
-    with pytest.raises(ValueError, match="latency_ms"):
+    with pytest.raises(AssertionError, match="latency_ms"):
         cex_gap_features([2000.0], [1.0], hl_ts, hl_mid, cex, latency_ms=0.0)
 
 

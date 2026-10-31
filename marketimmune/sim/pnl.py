@@ -46,10 +46,6 @@ class CostModel:
 
 def fill_components(frame: pd.DataFrame, horizon: str, costs: CostModel) -> pd.DataFrame:
     """Per-fill PnL components in bps from Gold training rows."""
-    need = ["px", "maker_side", "mid_before", f"markout_bps_{horizon}"]
-    missing = [c for c in need if c not in frame.columns]
-    if missing:
-        raise ValueError(f"Gold rows missing columns: {missing}")
     side = frame["maker_side"].to_numpy(dtype=np.float64)
     mid = frame["mid_before"].to_numpy(dtype=np.float64)
     px = frame["px"].to_numpy(dtype=np.float64)
@@ -105,12 +101,9 @@ def summarise(daily: pd.DataFrame) -> dict[str, Any]:
 
 def compare_policies(base: pd.DataFrame, challenger: pd.DataFrame) -> dict[str, Any]:
     """Daily difference in USD PnL (challenger minus base) on matching days."""
-    merged = base[["day", "pnl_usd"]].merge(
-        challenger[["day", "pnl_usd"]], on="day", suffixes=("_base", "_challenger")
-    )
+    merged = base[["day", "pnl_usd"]].merge(challenger[["day", "pnl_usd"]], on="day", suffixes=("_base", "_challenger"))
     d = (merged["pnl_usd_challenger"] - merged["pnl_usd_base"]).to_numpy(dtype=np.float64)
-    out: dict[str, Any] = {"days": len(d), "mean_daily_usd": float(d.mean()) if d.size else None,
-                           "days_better": int((d > 0).sum())}
+    out: dict[str, Any] = {"days": len(d), "mean_daily_usd": float(d.mean()) if d.size else None, "days_better": int((d > 0).sum())}
     if d.size >= 3:
         out["diebold_mariano"] = diebold_mariano(-d).to_dict()  # loss = -PnL difference
         lo, hi = stationary_bootstrap_ci(d)
@@ -118,51 +111,33 @@ def compare_policies(base: pd.DataFrame, challenger: pd.DataFrame) -> dict[str, 
     return out
 
 
-def quantile_pull_policy(q_low: npt.ArrayLike, limit_bps: float) -> npt.NDArray[np.bool_]:
-    """The plan's rule: quote unless the predicted low-quantile markout is below ``-limit``."""
-    q = np.asarray(q_low, dtype=np.float64)
-    out: npt.NDArray[np.bool_] = ~(q < -limit_bps)  # NaN (no prediction) keeps quoting
-    return out
-
-
-def probability_skip_policy(prob: npt.ArrayLike, threshold: float) -> npt.NDArray[np.bool_]:
-    """Quote unless the classifier's toxic probability is at or above ``threshold``."""
-    p = np.asarray(prob, dtype=np.float64)
-    out: npt.NDArray[np.bool_] = ~(p >= threshold)
-    return out
-
-
-def rule_pull_policy(values: npt.ArrayLike, op: str, threshold: float) -> npt.NDArray[np.bool_]:
-    """Model-free rule on one pre-trade column: pull when ``value <op> threshold``
-    (``le``: at or below, ``ge``: at or above). Missing values keep quoting.
-
-    For example ``cex_gap_maker_bps le -2``: Binance has already moved 2 bps
-    against the side being quoted since the Hyperliquid mid last changed (read with
-    the 300 ms feed latency), so cancel. Hyperliquid runs cancels before takers
-    inside a block, so a cancel sent on that information wins the race unless the
-    taker's order is in an earlier block; the fill filter assumes it wins."""
-    v = np.asarray(values, dtype=np.float64)
-    if op == "le":
-        pull = v <= threshold
-    elif op == "ge":
-        pull = v >= threshold
-    else:
-        raise ValueError(f"op must be 'le' or 'ge', not {op!r}")
-    out: npt.NDArray[np.bool_] = ~pull
-    return out
-
-
 def policy_mask(frame: pd.DataFrame, spec: Mapping[str, Any]) -> npt.NDArray[np.bool_]:
-    """``{"kind": "all"}``, ``{"kind": "quantile", "column": "q10", "limit_bps": 2}``,
-    ``{"kind": "prob", "column": "prob", "threshold": 0.6}`` or
-    ``{"kind": "rule", "column": "cex_gap_maker_bps", "op": "le", "threshold": -2}``."""
-    kind = spec.get("kind", "all")
+    """Which fills the policy quotes; a missing value keeps quoting.
+
+    * ``{"kind": "all"}``: S1, quote everything;
+    * ``{"kind": "quantile", "column": "q10", "limit_bps": 2}``: the plan's rule, quote unless the
+      predicted low-quantile markout is below ``-limit``;
+    * ``{"kind": "prob", "column": "prob", "threshold": 0.6}``: quote unless the classifier's toxic
+      probability is at or above ``threshold``;
+    * ``{"kind": "rule", "column": "cex_gap_maker_bps", "op": "le", "threshold": -2}``: model-free,
+      pull when one pre-trade column is at or below (``le``) / at or above (``ge``) ``threshold``.
+
+    For example ``cex_gap_maker_bps le -2``: Binance has already moved 2 bps against the side being
+    quoted since the Hyperliquid mid last changed (read with the 300 ms feed latency), so cancel.
+    Hyperliquid runs cancels before takers inside a block, so a cancel sent on that information
+    wins the race unless the taker's order is in an earlier block; the fill filter assumes it wins.
+    """
+    kind = spec["kind"]
+    assert kind in ("all", "quantile", "prob", "rule"), f"unknown policy {kind=}"
     if kind == "all":
         return np.ones(len(frame), dtype=bool)
+    v = frame[spec["column"]].to_numpy(dtype=np.float64)
     if kind == "quantile":
-        return quantile_pull_policy(frame[spec["column"]], float(spec["limit_bps"]))
-    if kind == "prob":
-        return probability_skip_policy(frame[spec["column"]], float(spec["threshold"]))
-    if kind == "rule":
-        return rule_pull_policy(frame[spec["column"]], str(spec["op"]), float(spec["threshold"]))
-    raise ValueError(f"unknown policy kind {kind!r}")
+        pull = v < -float(spec["limit_bps"])
+    elif kind == "prob":
+        pull = v >= float(spec["threshold"])
+    else:
+        assert spec["op"] in ("le", "ge"), f"op must be 'le' or 'ge', not {spec['op']!r}"
+        pull = v <= float(spec["threshold"]) if spec["op"] == "le" else v >= float(spec["threshold"])
+    out: npt.NDArray[np.bool_] = ~pull
+    return out

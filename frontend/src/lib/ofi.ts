@@ -21,10 +21,13 @@ export interface OfiValues {
     ofi10s: number;
 }
 
-const WINDOWS = [1_000, 5_000, 10_000] as const;
-const MAX_WINDOW = WINDOWS[WINDOWS.length - 1];
+const MAX_WINDOW_MS = 10_000;
+/** A jump longer than this between snapshots resets the book (training_rows.STALE_BOOK_MS). */
+const STALE_BOOK_MS = 30_000;
+/** Compact the backing arrays once this many evicted slots pile up. */
+const COMPACT_AT = 4096;
 
-export function normalizedOfiEvent(prev: TopOfBookSizes, cur: TopOfBookSizes): number {
+function normalizedOfiEvent(prev: TopOfBookSizes, cur: TopOfBookSizes): number {
     const bidPressure =
         (cur.bidPx >= prev.bidPx ? cur.bidSz : 0) - (cur.bidPx <= prev.bidPx ? prev.bidSz : 0);
     const askPressure =
@@ -43,17 +46,17 @@ export class OfiWindows {
 
     /** Push the next snapshot (non-decreasing ts) and return its OFI values. */
     push(book: TopOfBookSizes): OfiValues {
-        const event = this.prev === null ? 0 : normalizedOfiEvent(this.prev, book);
+        const event = this.prev === null || book.ts - this.prev.ts > STALE_BOOK_MS ? 0 : normalizedOfiEvent(this.prev, book);
         this.prev = book;
         this.times.push(book.ts);
         this.cumBefore.push(this.cum);
         this.cum += event;
-        this.evictBefore(book.ts - MAX_WINDOW);
+        this.evictBefore(book.ts - MAX_WINDOW_MS);
         return {
             event,
-            ofi1s: this.window(book.ts, WINDOWS[0]),
-            ofi5s: this.window(book.ts, WINDOWS[1]),
-            ofi10s: this.window(book.ts, WINDOWS[2]),
+            ofi1s: this.window(book.ts - 1_000),
+            ofi5s: this.window(book.ts - 5_000),
+            ofi10s: this.window(book.ts - MAX_WINDOW_MS),
         };
     }
 
@@ -61,14 +64,13 @@ export class OfiWindows {
         return this.times.length - this.head;
     }
 
-    private window(ts: number, span: number): number {
-        // First retained event with time >= ts - span (bisect_left semantics).
+    /** Sum of events at or after `from`: bisect_left over the retained times. */
+    private window(from: number): number {
         let lo = this.head;
         let hi = this.times.length;
-        const target = ts - span;
         while (lo < hi) {
             const mid = (lo + hi) >>> 1;
-            if (this.times[mid] < target) lo = mid + 1;
+            if (this.times[mid] < from) lo = mid + 1;
             else hi = mid;
         }
         return this.cum - this.cumBefore[lo];
@@ -76,7 +78,7 @@ export class OfiWindows {
 
     private evictBefore(cutoff: number): void {
         while (this.head < this.times.length && this.times[this.head] < cutoff) this.head += 1;
-        if (this.head > 4096 && this.head * 2 > this.times.length) {
+        if (this.head > COMPACT_AT && this.head * 2 > this.times.length) {
             this.times = this.times.slice(this.head);
             this.cumBefore = this.cumBefore.slice(this.head);
             this.head = 0;

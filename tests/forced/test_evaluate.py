@@ -27,15 +27,19 @@ def test_bins_keep_zero_apart() -> None:
 def test_binned_map_uses_training_bins_only() -> None:
     train_s = np.array([0.0, 0.0, 1.0, 1.0, 5.0, 5.0])
     train_y = np.array([0.0, 0.0, 10.0, 20.0, 100.0, 300.0])
-    got = binned_map(train_s, train_y, np.array([0.0, 1.0, 7.0]),
-                     lambda v: float(v.mean()), n_bins=2)
+    got = binned_map(train_s, train_y, np.array([0.0, 1.0, 7.0]), lambda v: float(v.mean()), n_bins=2)
     assert got.tolist() == [0.0, 15.0, 200.0]
 
 
 def test_lead_time_counts_the_alarm_run() -> None:
-    long = pd.DataFrame({"date": ["d"] * 5, "side": ["bid"] * 5,
-                         "ts_ms": [0.0, 10_000.0, 20_000.0, 30_000.0, 40_000.0],
-                         "onset_ms": [np.nan, np.nan, 25_000.0, np.nan, 45_000.0]})
+    long = pd.DataFrame(
+        {
+            "date": ["d"] * 5,
+            "side": ["bid"] * 5,
+            "ts_ms": [0.0, 10_000.0, 20_000.0, 30_000.0, 40_000.0],
+            "onset_ms": [np.nan, np.nan, 25_000.0, np.nan, 45_000.0],
+        }
+    )
     sig = np.array([0.0, 1.0, 1.0, 1.0, 0.0])
     lt = lead_times(long, sig, np.full(5, 0.5), grid_s=10.0)
     assert lt["hit"].tolist() == [True, False]
@@ -52,16 +56,28 @@ def _frame(days: int = 4, n: int = 200, seed: int = 1) -> pd.DataFrame:
         real = np.where(rng.random(n) < 0.05 + 0.5 * (heat > 1.0), f_bid * 20.0, 0.0)
         ts = np.arange(n) * 10_000.0
         onset = np.where(real > 0, ts + 5_000.0, np.nan)
-        part = pd.DataFrame({
-            "date": f"2025120{d + 1}", "ts_ms": ts, "sigma_1s": rng.random(n) * 1e-4,
-            "oi_long_usd": 1e6 - np.cumsum(real), "oi_short_usd": 1e6,
-            "heatmap_bid_1pct": heat * 5e4, "heatmap_ask_1pct": 0.0,
-            "F_bid_60s": f_bid, "F_ask_60s": 0.0, "P_bid_60s": np.minimum(f_bid / 2e4, 1.0),
-            "P_ask_60s": 0.0, "real_bid_60s": real, "real_ask_60s": 0.0,
-            "persist_bid_60s": np.roll(real, 1), "persist_ask_60s": 0.0,
-            "onset_bid_ms": onset, "onset_ask_ms": np.nan,
-            "cascade_60s": f_bid * 0.001,
-        })
+        part = pd.DataFrame(
+            {
+                "date": f"2025120{d + 1}",
+                "ts_ms": ts,
+                "sigma_1s": rng.random(n) * 1e-4,
+                "oi_long_usd": 1e6 - np.cumsum(real),
+                "oi_short_usd": 1e6,
+                "heatmap_bid_1pct": heat * 5e4,
+                "heatmap_ask_1pct": 0.0,
+                "F_bid_60s": f_bid,
+                "F_ask_60s": 0.0,
+                "P_bid_60s": np.minimum(f_bid / 2e4, 1.0),
+                "P_ask_60s": 0.0,
+                "real_bid_60s": real,
+                "real_ask_60s": 0.0,
+                "persist_bid_60s": np.roll(real, 1),
+                "persist_ask_60s": 0.0,
+                "onset_bid_ms": onset,
+                "onset_ask_ms": np.nan,
+                "cascade_60s": f_bid * 0.001,
+            }
+        )
         parts.append(part)
     return pd.concat(parts, ignore_index=True)
 
@@ -87,10 +103,8 @@ def test_flag_splits_bins_and_zero_signal_never_alarms() -> None:
     s = np.array([1.0, 1.0, 1.0, 1.0])
     y = np.array([0.0, 0.0, 10.0, 30.0])
     flag = np.array([False, False, True, True])
-    got = binned_map(s, y, np.array([1.0, 1.0]), lambda v: float(v.mean()),
-                     train_flag=flag, test_flag=np.array([False, True]))
+    got = binned_map(s, y, np.array([1.0, 1.0]), lambda v: float(v.mean()), train_flag=flag, test_flag=np.array([False, True]))
     assert got.tolist() == [0.0, 20.0]
-    long = pd.DataFrame({"date": ["d"] * 2, "side": ["bid"] * 2, "ts_ms": [0.0, 10_000.0],
-                         "onset_ms": [np.nan, 15_000.0]})
+    long = pd.DataFrame({"date": ["d"] * 2, "side": ["bid"] * 2, "ts_ms": [0.0, 10_000.0], "onset_ms": [np.nan, 15_000.0]})
     lt = lead_times(long, np.zeros(2), np.zeros(2), grid_s=10.0)
     assert lt["hit"].tolist() == [False]

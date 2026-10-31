@@ -8,6 +8,10 @@ Copyright (c) 2026 David Haz. Licensed under MIT + Commons Clause: they may be u
 inside an application such as this one, but the components themselves may not be
 sold, sublicensed, or redistributed on their own.
 
+Each is trimmed to the props MarketImmune passes; the header of each file says what
+was removed. `CountUp` and `StatusMark` no longer depend on `motion`: the count runs
+on `requestAnimationFrame`, and the status ring morphs and spins in CSS.
+
 Where each is used in MarketImmune:
 
 | Component | Where | Why |

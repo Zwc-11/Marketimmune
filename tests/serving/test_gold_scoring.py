@@ -7,11 +7,7 @@ from pathlib import Path
 import pytest
 
 from marketimmune.lake.tables import write_parquet_records
-from marketimmune.serving.gold_scoring import (
-    GoldFillScore,
-    score_gold_training_file,
-    score_gold_training_rows,
-)
+from marketimmune.serving.gold_scoring import GoldFillScore, score_gold_training_file
 from marketimmune.serving.scorer import MarkoutPrediction
 
 
@@ -69,14 +65,16 @@ def _row(
     }
 
 
-def test_score_gold_training_rows_keeps_latest_and_scores_features() -> None:
-    scorer = _FakeScorer()
+def _write(path: Path, rows: list[dict[str, object]]) -> Path:
+    write_parquet_records(path, rows)
+    return path
 
-    scores = score_gold_training_rows(
-        [_row(3_000), _row(1_000), _row(2_000)],
-        scorer,  # type: ignore[arg-type]
-        limit=2,
-    )
+
+def test_score_gold_training_file_keeps_latest_and_scores_features(tmp_path: Path) -> None:
+    scorer = _FakeScorer()
+    path = _write(tmp_path / "gold.parquet", [_row(3_000), _row(1_000), _row(2_000)])
+
+    scores = score_gold_training_file(path, scorer, limit=2)  # type: ignore[arg-type]
 
     assert [score.ts_ms for score in scores] == [2_000.0, 3_000.0]
     assert all(isinstance(score, GoldFillScore) for score in scores)
@@ -88,47 +86,22 @@ def test_score_gold_training_rows_keeps_latest_and_scores_features() -> None:
     assert scorer.seen[-1]["l2_microprice_offset_bps"] == pytest.approx(50.0)
 
 
-def test_score_gold_training_rows_can_keep_head_sample() -> None:
-    scorer = _FakeScorer(score=0.35, action="quote")
+def test_score_gold_training_file_head_sample_and_nulls(tmp_path: Path) -> None:
+    path = _write(tmp_path / "gold.parquet", [_row(3_000, toxic=True, tid=101, oid=123), _row(1_000, toxic=None, tid=None)])
 
-    scores = score_gold_training_rows(
-        [_row(3_000, toxic="yes", tid="101"), _row(1_000, toxic=None, tid=None)],
-        scorer,  # type: ignore[arg-type]
-        limit=1,
-        latest=False,
-    )
+    (head,) = score_gold_training_file(path, _FakeScorer(score=0.35, action="quote"), limit=1, latest=False)  # type: ignore[arg-type]
+    (tail,) = score_gold_training_file(path, _FakeScorer(), limit=1)  # type: ignore[arg-type]
 
-    assert scores[0].ts_ms == pytest.approx(1_000.0)
-    assert scores[0].tid is None
-    assert scores[0].toxic is None
-    assert scores[0].to_dict()["top_features"][0] == "asset_open_interest"
+    assert head.ts_ms == pytest.approx(1_000.0)
+    assert head.tid is None and head.toxic is None and head.alert_id == "hl_SOL_1000"
+    assert tail.alert_id == "hl_SOL_3000-101-oid123"
 
 
-def test_score_gold_training_rows_limit_zero_scores_every_row() -> None:
+def test_score_gold_training_file_limit_zero_scores_every_row(tmp_path: Path) -> None:
     scorer = _FakeScorer()
+    path = _write(tmp_path / "gold.parquet", [_row(2_000), _row(1_000)])
 
-    scores = score_gold_training_rows(
-        [_row(2_000), _row(1_000)],
-        scorer,  # type: ignore[arg-type]
-        limit=0,
-    )
+    scores = score_gold_training_file(path, scorer, limit=0)  # type: ignore[arg-type]
 
     assert [score.ts_ms for score in scores] == [1_000.0, 2_000.0]
     assert len(scorer.seen) == 2
-
-
-def test_score_gold_training_file_reads_parquet(tmp_path: Path) -> None:
-    path = tmp_path / "SOL-training.parquet"
-    write_parquet_records(path, [_row(1_000, toxic="1", tid="77", oid="123")])
-
-    scores = score_gold_training_file(
-        path,
-        _FakeScorer(),  # type: ignore[arg-type]
-        limit=10,
-    )
-
-    assert len(scores) == 1
-    assert scores[0].tid == 77
-    assert scores[0].oid == 123
-    assert scores[0].alert_id == "hl_SOL_1000-77-oid123"
-    assert scores[0].toxic is True

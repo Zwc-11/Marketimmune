@@ -117,19 +117,21 @@ import polars as pl
 
 K = (3, 10, 30)
 
-fills = pl.scan_parquet("data/silver/fills/coin=BTC/*.parquet")   # deduped, one row per match
+fills = pl.scan_parquet("data/silver/fills/coin=BTC/*.parquet")  # deduped, one row per match
 
 # taker side = side that crossed; the maker was hit on the opposite side
-takers = (fills.filter(pl.col("crossed"))
-          .with_columns(hit_side=pl.when(pl.col("taker_is_buy")).then(pl.lit("A")).otherwise(pl.lit("B")),
-                        prio_bps=pl.col("priorityGas").fill_null(0) / 1e4,
-                        notional=pl.col("px") * pl.col("sz")))
+takers = fills.filter(pl.col("crossed")).with_columns(
+    hit_side=pl.when(pl.col("taker_is_buy")).then(pl.lit("A")).otherwise(pl.lit("B")),
+    prio_bps=pl.col("priorityGas").fill_null(0) / 1e4,
+    notional=pl.col("px") * pl.col("sz"),
+)
 
-per_block = (takers.group_by(["block_number", "hit_side"])
-             .agg(fee_notional=(pl.col("prio_bps") * pl.col("notional")).sum(),
-                  notional=pl.col("notional").sum(),
-                  n_fee=(pl.col("prio_bps") > 0).sum(),
-                  max_fee=pl.col("prio_bps").max()))
+per_block = takers.group_by(["block_number", "hit_side"]).agg(
+    fee_notional=(pl.col("prio_bps") * pl.col("notional")).sum(),
+    notional=pl.col("notional").sum(),
+    n_fee=(pl.col("prio_bps") > 0).sum(),
+    max_fee=pl.col("prio_bps").max(),
+)
 
 # dense block x side grid so windows count blocks, not rows
 blocks = fills.select("block_number").unique()
@@ -139,9 +141,11 @@ feat = grid.join(per_block, on=["block_number", "hit_side"], how="left").fill_nu
 for k in K:
     feat = feat.with_columns(
         (pl.col("fee_notional").rolling_sum(k) / pl.col("notional").rolling_sum(k).clip(lower_bound=1e-9))
-            .over("hit_side").alias(f"fp_{k}"),
+        .over("hit_side")
+        .alias(f"fp_{k}"),
         pl.col("n_fee").rolling_sum(k).over("hit_side").alias(f"fc_{k}"),
-        pl.col("max_fee").rolling_max(k).over("hit_side").alias(f"fm_{k}"))
+        pl.col("max_fee").rolling_max(k).over("hit_side").alias(f"fm_{k}"),
+    )
 
 # lag one block: at block b the maker sees fees through b-1
 lagged = [c for c in feat.collect_schema().names() if c.startswith(("fp_", "fc_", "fm_"))]
@@ -230,10 +234,11 @@ import numpy as np
 import polars as pl
 from scipy.stats import norm
 
+
 def forced_flow(pos: pl.DataFrame, mark: float, gap: float, sigma_1s: float, h_s: float) -> dict:
     """Expected forced notional hitting bids (long liquidations) and asks (short liquidations).
     pos: one row per wallet x coin with size (signed), liq_px, notional_usd."""
-    m_tilde = mark * (1.0 + gap)                      # Binance-implied mark
+    m_tilde = mark * (1.0 + gap)  # Binance-implied mark
     sig = sigma_1s * np.sqrt(h_s)
     longs = pos.filter(pl.col("size") > 0)
     shorts = pos.filter(pl.col("size") < 0)
@@ -247,26 +252,28 @@ def forced_flow(pos: pl.DataFrame, mark: float, gap: float, sigma_1s: float, h_s
     def frac(notional):
         return np.where(notional > 100_000, 0.2, 1.0)  # 20% slices above 100k USDC
 
-    f_bid = float((prob(longs["liq_px"].to_numpy(), True) * longs["notional_usd"].to_numpy()
-                   * frac(longs["notional_usd"].to_numpy())).sum())
-    f_ask = float((prob(shorts["liq_px"].to_numpy(), False) * shorts["notional_usd"].to_numpy()
-                   * frac(shorts["notional_usd"].to_numpy())).sum())
+    f_bid = float(
+        (prob(longs["liq_px"].to_numpy(), True) * longs["notional_usd"].to_numpy() * frac(longs["notional_usd"].to_numpy())).sum()
+    )
+    f_ask = float(
+        (prob(shorts["liq_px"].to_numpy(), False) * shorts["notional_usd"].to_numpy() * frac(shorts["notional_usd"].to_numpy())).sum()
+    )
     return {"F_bid": f_bid, "F_ask": f_ask}
 ```
 
 ```python
 # position roll-forward from fills (one coin, one day), after loading the daily snapshot into `state`
-fills = (pl.read_parquet("data/silver/fills/coin=BTC/date=2026-03-10.parquet")
-           .sort(["block_number", "tid"]))
+fills = pl.read_parquet("data/silver/fills/coin=BTC/date=2026-03-10.parquet").sort(["block_number", "tid"])
 for row in fills.iter_rows(named=True):
     for user_key, is_buy in (("maker_user", not row["taker_is_buy"]), ("taker_user", row["taker_is_buy"])):
         w = row[user_key]
         delta = row["sz"] if is_buy else -row["sz"]
         # fill records the wallet's position before this fill; reconcile, then update
         if w in state and abs(state[w]["size"] - row[f"{user_key}_start_position"]) > 1e-9:
-            log_mismatch(w, row)                       # a margin/transfer event was missed
-        state[w] = update_position(state.get(w), start=row[f"{user_key}_start_position"], delta=delta,
-                                   px=row["px"], margin_tiers=TIERS["BTC"])
+            log_mismatch(w, row)  # a margin/transfer event was missed
+        state[w] = update_position(
+            state.get(w), start=row[f"{user_key}_start_position"], delta=delta, px=row["px"], margin_tiers=TIERS["BTC"]
+        )
 ```
 
 `update_position` recomputes entry price, size and liquidation price with the margin tier for the new size. Validate it against `clearinghouseState` for a sample of live wallets before trusting it on history.

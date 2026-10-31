@@ -3,7 +3,10 @@
     python -m marketimmune.cli.download_albers --dest data/bronze/albers --set needed
 
 The module also runs without the package installed (standard library only):
-``python marketimmune/sources/albers_download.py --set needed``."""
+``python marketimmune/sources/albers_download.py --set needed``.
+"""
+
+from __future__ import annotations
 
 from marketimmune.sources.albers_download import main
 

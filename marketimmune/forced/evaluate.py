@@ -44,20 +44,14 @@ import numpy.typing as npt
 import pandas as pd
 
 from marketimmune.forced.forecaster import BINARY_USD, brier_decomposition
-from marketimmune.models.compare import (
-    compare_rungs,
-    diebold_mariano,
-    stationary_bootstrap_ci,
-)
-from marketimmune.models.quantile_ladder import pinball_loss
+from marketimmune.models.compare import compare_rungs, diebold_mariano, pinball_loss, stationary_bootstrap_ci
 
 FloatArray = npt.NDArray[np.float64]
 OI_LOOKBACK_S = 60.0
 SIDES = ("bid", "ask")
 OI_SIDE = {"bid": "oi_long_usd", "ask": "oi_short_usd"}
 BASELINES = ("persistence", "oi_change", "volatility", "heatmap")
-SUMMARY_KEYS = ("rows", "days", "loss_base", "loss_challenger", "mean_daily_improvement",
-                "days_improved", "bootstrap_ci_95")
+SUMMARY_KEYS = ("rows", "days", "loss_base", "loss_challenger", "mean_daily_improvement", "days_improved", "bootstrap_ci_95")
 
 
 def bin_edges(signal: FloatArray, n_bins: int = 10) -> FloatArray:
@@ -70,14 +64,13 @@ def bin_edges(signal: FloatArray, n_bins: int = 10) -> FloatArray:
 
 
 def assign_bins(signal: FloatArray, edges: FloatArray) -> npt.NDArray[np.int64]:
-    out: npt.NDArray[np.int64] = np.where(
-        signal > 0.0, 1 + np.searchsorted(edges, signal, side="right"), 0
-    ).astype(np.int64)
+    out: npt.NDArray[np.int64] = np.where(signal > 0.0, 1 + np.searchsorted(edges, signal, side="right"), 0).astype(np.int64)
     return out
 
 
-def keyed_map(train_key: npt.NDArray[np.int64], train_y: FloatArray,
-              test_key: npt.NDArray[np.int64], stat: Callable[[FloatArray], float]) -> FloatArray:
+def keyed_map(
+    train_key: npt.NDArray[np.int64], train_y: FloatArray, test_key: npt.NDArray[np.int64], stat: Callable[[FloatArray], float]
+) -> FloatArray:
     """``stat`` of the training target per key; unseen keys get the overall ``stat``."""
     size = int(max(train_key.max(initial=0), test_key.max(initial=0))) + 1
     table = np.full(size, stat(train_y) if train_y.size else 0.0)
@@ -87,10 +80,15 @@ def keyed_map(train_key: npt.NDArray[np.int64], train_y: FloatArray,
     return out
 
 
-def binned_map(train_signal: FloatArray, train_y: FloatArray, test_signal: FloatArray,
-               stat: Callable[[FloatArray], float], n_bins: int = 10,
-               train_flag: npt.NDArray[np.bool_] | None = None,
-               test_flag: npt.NDArray[np.bool_] | None = None) -> FloatArray:
+def binned_map(
+    train_signal: FloatArray,
+    train_y: FloatArray,
+    test_signal: FloatArray,
+    stat: Callable[[FloatArray], float],
+    n_bins: int = 10,
+    train_flag: npt.NDArray[np.bool_] | None = None,
+    test_flag: npt.NDArray[np.bool_] | None = None,
+) -> FloatArray:
     """``stat`` of the training target within the test signal's training bin, split
     further by ``flag`` when given (used to add the persistence indicator)."""
     edges = bin_edges(train_signal, n_bins)
@@ -106,17 +104,18 @@ def long_frame(frame: pd.DataFrame, horizons: list[float], grid_s: float) -> pd.
     lag = max(1, round(OI_LOOKBACK_S / grid_s))
     parts = []
     for side in SIDES:
-        part = pd.DataFrame({
-            "date": frame["date"].to_numpy(), "ts_ms": frame["ts_ms"].to_numpy(),
-            "side": side,
-            "sig_volatility": frame["sigma_1s"].fillna(0.0).to_numpy(),
-            "sig_heatmap": frame[f"heatmap_{side}_1pct"].to_numpy(),
-        })
-        oi = frame[OI_SIDE[side]] if OI_SIDE[side] in frame else pd.Series(0.0, frame.index)
-        before = oi.groupby(frame["date"]).shift(lag)
-        part["sig_oi_change"] = np.maximum((before - oi).fillna(0.0).to_numpy(), 0.0)
-        part["onset_ms"] = (frame[f"onset_{side}_ms"].to_numpy() if f"onset_{side}_ms" in frame
-                            else np.nan)
+        part = pd.DataFrame(
+            {
+                "date": frame["date"].to_numpy(),
+                "ts_ms": frame["ts_ms"].to_numpy(),
+                "side": side,
+                "sig_volatility": frame["sigma_1s"].fillna(0.0).to_numpy(),
+                "sig_heatmap": frame[f"heatmap_{side}_1pct"].to_numpy(),
+            }
+        )
+        oi = frame[OI_SIDE[side]]
+        part["sig_oi_change"] = np.maximum((oi.groupby(frame["date"]).shift(lag) - oi).fillna(0.0).to_numpy(), 0.0)
+        part["onset_ms"] = frame[f"onset_{side}_ms"].to_numpy()
         for h in horizons:
             hh = f"{int(h)}s"
             part[f"y_{hh}"] = frame[f"real_{side}_{hh}"].to_numpy()
@@ -134,8 +133,7 @@ def _signal(name: str, hh: str) -> str:
     return f"sig_{name}_{hh}" if name in ("model", "persistence") else f"sig_{name}"
 
 
-def walk_forward(long: pd.DataFrame, value: Callable[[pd.DataFrame, pd.DataFrame], FloatArray]
-                 ) -> tuple[npt.NDArray[np.bool_], FloatArray]:
+def walk_forward(long: pd.DataFrame, value: Callable[[pd.DataFrame, pd.DataFrame], FloatArray]) -> tuple[npt.NDArray[np.bool_], FloatArray]:
     """Apply ``value(train, test)`` to each day with at least one earlier day."""
     days = np.sort(long["date"].unique())
     out = np.full(len(long), np.nan)
@@ -161,142 +159,141 @@ def _summary(cmp: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def lead_times(long: pd.DataFrame, signal: FloatArray, threshold: FloatArray,
-               grid_s: float, cap_s: float = 300.0) -> pd.DataFrame:
-    """Per onset: alarm at the last grid time before it, and how long it had been on."""
-    rows = []
-    alarm = (signal >= threshold) & (signal > 0.0)
-    for (_day, _side), g in long.assign(_alarm=alarm).groupby(["date", "side"], sort=False):
-        a = g["_alarm"].to_numpy()
-        onset = g["onset_ms"].to_numpy()
-        ts = g["ts_ms"].to_numpy()
-        run = np.zeros(a.size)
-        for i in range(a.size):  # length of the alarm run ending at i, in grid steps
-            run[i] = (run[i - 1] + 1.0 if i and a[i - 1] else 1.0) if a[i] else 0.0
-        for i in np.flatnonzero(~np.isnan(onset)):
-            hit = bool(a[i])
-            lead = min((onset[i] - ts[i]) / 1000.0 + (run[i] - 1.0) * grid_s, cap_s) if hit else 0.0
-            rows.append({"date": _day, "hit": hit, "lead_s": lead})
-    return pd.DataFrame(rows, columns=["date", "hit", "lead_s"])
+def lead_times(long: pd.DataFrame, signal: FloatArray, threshold: FloatArray, grid_s: float, cap_s: float = 300.0) -> pd.DataFrame:
+    """Per onset (grouped by date and side, in first-seen order): whether the alarm was on at the
+    last grid time before it, and for how long it had been on."""
+    group = long.groupby(["date", "side"], sort=False).ngroup().to_numpy()
+    order = np.argsort(group, kind="stable")
+    a = ((signal >= threshold) & (signal > 0.0))[order]
+    idx = np.arange(a.size)
+    first = np.r_[True, group[order][1:] != group[order][:-1]]
+    # length of the alarm run ending at each row, in grid steps; a run never crosses a group
+    last_off = np.maximum.accumulate(np.where(~a, idx, np.where(first, idx - 1, -1)))
+    run = np.where(a, idx - last_off, 0).astype(np.float64)
+    onset, ts = long["onset_ms"].to_numpy()[order], long["ts_ms"].to_numpy()[order]
+    at = np.flatnonzero(~np.isnan(onset))
+    hit = a[at]
+    lead = np.where(hit, np.minimum((onset[at] - ts[at]) / 1000.0 + (run[at] - 1.0) * grid_s, cap_s), 0.0)
+    return pd.DataFrame({"date": long["date"].to_numpy()[order][at], "hit": hit, "lead_s": lead})
 
 
-def evaluate_forecasts(frame: pd.DataFrame, horizons: list[float], *, grid_s: float = 10.0,
-                       binary_usd: float = BINARY_USD, fast_quantile: float = 0.95,
-                       seed: int = 0) -> dict[str, Any]:
+def _pairs(reference: str) -> list[tuple[str, str]]:
+    """(challenger, base) pairs: the model against the reference and every baseline, and the
+    model split by persistence against persistence."""
+    return [*(("model", base) for base in (reference, *BASELINES)), ("model_persist", "persistence")]
+
+
+def _calibrate(long: pd.DataFrame, signal: str, target: str, stat: Callable[[FloatArray], float], flag: str | None = None) -> FloatArray:
+    """Walk-forward :func:`binned_map` of ``signal`` to ``target``, bins split by ``flag > 0`` when given."""
+
+    def fit(tr: pd.DataFrame, te: pd.DataFrame) -> FloatArray:
+        train_flag = None if flag is None else tr[flag].to_numpy() > 0
+        test_flag = None if flag is None else te[flag].to_numpy() > 0
+        return binned_map(
+            tr[signal].to_numpy(np.float64),
+            tr[target].to_numpy(np.float64),
+            te[signal].to_numpy(np.float64),
+            stat,
+            train_flag=train_flag,
+            test_flag=test_flag,
+        )
+
+    return walk_forward(long, fit)[1]
+
+
+def evaluate_forecasts(
+    frame: pd.DataFrame,
+    horizons: list[float],
+    *,
+    grid_s: float = 10.0,
+    binary_usd: float = BINARY_USD,
+    fast_quantile: float = 0.95,
+    seed: int = 0,
+) -> dict[str, Any]:
     long = long_frame(frame, horizons, grid_s)
     fast_cut = float(np.quantile(long["sig_volatility"], fast_quantile))
-    res: dict[str, Any] = {"grid_points": len(frame), "days": int(frame["date"].nunique()),
-                           "binary_usd": binary_usd, "fast_sigma_1s_cut": fast_cut}
+    res: dict[str, Any] = {
+        "grid_points": len(frame),
+        "days": int(frame["date"].nunique()),
+        "binary_usd": binary_usd,
+        "fast_sigma_1s_cut": fast_cut,
+    }
+    scored = long["date"].to_numpy() != long["date"].min()  # the first day only calibrates
+    sub = long[scored]
+    days = sub["date"].to_numpy()
+    fast = sub["sig_volatility"].to_numpy() >= fast_cut
+    regimes = {"fast": fast, "quiet": ~fast}
     for h in horizons:
         hh = f"{int(h)}s"
-        y_all = long[f"y_{hh}"].to_numpy(dtype=np.float64)
-        entry: dict[str, Any] = {"share_windows_with_forced_flow": float(np.mean(y_all > 0)),
-                                 f"share_windows_above_{int(binary_usd)}":
-                                     float(np.mean(y_all >= binary_usd))}
-        ycol = f"y_{hh}"
-        preds_q: dict[float, dict[str, FloatArray]] = {}
-        scored: npt.NDArray[np.bool_] = np.zeros(len(long), dtype=bool)
-        for tau in (0.5, 0.9):
-            preds: dict[str, FloatArray] = {}
-            for name in ("model", *BASELINES):
-                col = _signal(name, hh)
-
-                def fit(tr: pd.DataFrame, te: pd.DataFrame, col: str = col,
-                        tau: float = tau, ycol: str = ycol) -> FloatArray:
-                    return binned_map(tr[col].to_numpy(np.float64), tr[ycol].to_numpy(np.float64),
-                                      te[col].to_numpy(np.float64),
-                                      lambda v: float(np.quantile(v, tau)))
-                scored, preds[name] = walk_forward(long, fit)
-            def fit_mp(tr: pd.DataFrame, te: pd.DataFrame, tau: float = tau,
-                       ycol: str = ycol, hh: str = hh) -> FloatArray:
-                return binned_map(tr[f"sig_model_{hh}"].to_numpy(np.float64),
-                                  tr[ycol].to_numpy(np.float64),
-                                  te[f"sig_model_{hh}"].to_numpy(np.float64),
-                                  lambda v: float(np.quantile(v, tau)),
-                                  train_flag=tr[f"sig_persistence_{hh}"].to_numpy() > 0,
-                                  test_flag=te[f"sig_persistence_{hh}"].to_numpy() > 0)
-            _s, preds["model_persist"] = walk_forward(long, fit_mp)
-            preds["model_raw"] = long[f"sig_model_{hh}"].to_numpy(dtype=np.float64)
-            preds["zero"] = np.zeros(len(long))
-            preds_q[tau] = preds
-        sub = long[scored]
+        ycol, evcol, model, persist = f"y_{hh}", f"ev_{hh}", f"sig_model_{hh}", f"sig_persistence_{hh}"
+        y_all = long[ycol].to_numpy(dtype=np.float64)
+        long[evcol] = (y_all >= binary_usd).astype(np.float64)
+        entry: dict[str, Any] = {
+            "share_windows_with_forced_flow": float(np.mean(y_all > 0)),
+            f"share_windows_above_{int(binary_usd)}": float(np.mean(y_all >= binary_usd)),
+            "scored_rows": int(scored.sum()),
+            "scored_days": len(np.unique(days)),
+        }
         y = y_all[scored]
-        days = sub["date"].to_numpy()
-        fast = sub["sig_volatility"].to_numpy() >= fast_cut
-        regimes = {"fast": fast, "quiet": ~fast}
-        entry["scored_rows"] = int(scored.sum())
-        entry["scored_days"] = int(len(np.unique(days)))
-        for tau, preds in preds_q.items():
+        for tau in (0.5, 0.9):
             q = f"q{round(tau * 100)}"
+
+            def quantile(v: FloatArray, tau: float = tau) -> float:
+                return float(np.quantile(v, tau))
+
+            preds = {name: _calibrate(long, _signal(name, hh), ycol, quantile) for name in ("model", *BASELINES)}
+            preds["model_persist"] = _calibrate(long, model, ycol, quantile, flag=persist)
+            preds["model_raw"] = long[model].to_numpy(dtype=np.float64)
+            preds["zero"] = np.zeros(len(long))
             entry[f"pinball_{q}"] = {
-                name: {"all": float(pinball_loss(y, p[scored], tau).mean()),
-                       "fast": float(pinball_loss(y[fast], p[scored][fast], tau).mean()),
-                       "quiet": float(pinball_loss(y[~fast], p[scored][~fast], tau).mean())}
-                for name, p in preds.items()}
+                name: {
+                    "all": float(pinball_loss(y, p[scored], tau).mean()),
+                    "fast": float(pinball_loss(y[fast], p[scored][fast], tau).mean()),
+                    "quiet": float(pinball_loss(y[~fast], p[scored][~fast], tau).mean()),
+                }
+                for name, p in preds.items()
+            }
             entry[f"dm_pinball_{q}"] = {
-                f"model_vs_{base}": _summary(compare_rungs(
-                    days, y, preds[base][scored], preds["model"][scored], loss="pinball",
-                    tau=tau, regimes=regimes, seed=seed))
-                for base in ("zero", *BASELINES)}
-            entry[f"dm_pinball_{q}"]["model_persist_vs_persistence"] = _summary(compare_rungs(
-                days, y, preds["persistence"][scored], preds["model_persist"][scored],
-                loss="pinball", tau=tau, regimes=regimes, seed=seed))
-        # binary target
-        event_all = (y_all >= binary_usd).astype(np.float64)
-        probs: dict[str, FloatArray] = {}
-        for name in ("model", *BASELINES):
-            col = _signal(name, hh)
+                f"{chal}_vs_{base}": _summary(
+                    compare_rungs(days, y, preds[base][scored], preds[chal][scored], loss="pinball", tau=tau, regimes=regimes, seed=seed)
+                )
+                for chal, base in _pairs("zero")
+            }
 
-            def fit_rate(tr: pd.DataFrame, te: pd.DataFrame, col: str = col,
-                         ycol: str = ycol) -> FloatArray:
-                ev = (tr[ycol].to_numpy(np.float64) >= binary_usd).astype(np.float64)
-                return binned_map(tr[col].to_numpy(np.float64), ev, te[col].to_numpy(np.float64),
-                                  lambda v: float(v.mean()))
-            _s, probs[name] = walk_forward(long, fit_rate)
+        def rate(v: FloatArray) -> float:
+            return float(v.mean())
 
-        def clim(tr: pd.DataFrame, te: pd.DataFrame, ycol: str = ycol) -> FloatArray:
-            rate = float((tr[ycol].to_numpy(np.float64) >= binary_usd).mean())
-            return np.full(len(te), rate)
-        _s, probs["climatology"] = walk_forward(long, clim)
+        def climatology(tr: pd.DataFrame, te: pd.DataFrame, evcol: str = evcol) -> FloatArray:
+            return np.full(len(te), float(tr[evcol].to_numpy(np.float64).mean()))
 
-        def fit_rate_mp(tr: pd.DataFrame, te: pd.DataFrame, ycol: str = ycol,
-                        hh: str = hh) -> FloatArray:
-            ev = (tr[ycol].to_numpy(np.float64) >= binary_usd).astype(np.float64)
-            return binned_map(tr[f"sig_model_{hh}"].to_numpy(np.float64), ev,
-                              te[f"sig_model_{hh}"].to_numpy(np.float64),
-                              lambda v: float(v.mean()),
-                              train_flag=tr[f"sig_persistence_{hh}"].to_numpy() > 0,
-                              test_flag=te[f"sig_persistence_{hh}"].to_numpy() > 0)
-        _s, probs["model_persist"] = walk_forward(long, fit_rate_mp)
+        probs = {name: _calibrate(long, _signal(name, hh), evcol, rate) for name in ("model", *BASELINES)}
+        probs["climatology"] = walk_forward(long, climatology)[1]
+        probs["model_persist"] = _calibrate(long, model, evcol, rate, flag=persist)
         probs["model_raw"] = long[f"p_model_{hh}"].to_numpy(dtype=np.float64)
-        event = event_all[scored]
-        entry["brier"] = {name: brier_decomposition(np.clip(p[scored], 0.0, 1.0), event)
-                          for name, p in probs.items()}
+        event = long[evcol].to_numpy()[scored]
+        entry["brier"] = {name: brier_decomposition(np.clip(p[scored], 0.0, 1.0), event) for name, p in probs.items()}
         entry["dm_brier"] = {
-            f"model_vs_{base}": _summary(compare_rungs(
-                days, event, probs[base][scored], probs["model"][scored], loss="brier",
-                regimes=regimes, seed=seed))
-            for base in ("climatology", *BASELINES)}
-        entry["dm_brier"]["model_persist_vs_persistence"] = _summary(compare_rungs(
-            days, event, probs["persistence"][scored], probs["model_persist"][scored],
-            loss="brier", regimes=regimes, seed=seed))
+            f"{chal}_vs_{base}": _summary(
+                compare_rungs(days, event, probs[base][scored], probs[chal][scored], loss="brier", regimes=regimes, seed=seed)
+            )
+            for chal, base in _pairs("climatology")
+        }
         res[hh] = entry
     res["lead_time"] = _lead_time_report(long, horizons, grid_s, seed)
-    if any(f"cascade_{int(h)}s" in frame for h in horizons):
-        res["cascade"] = {}
-        for h in horizons:
-            hh = f"{int(h)}s"
-            total = frame[f"F_bid_{hh}"] + frame[f"F_ask_{hh}"]
-            rel = (frame[f"cascade_{hh}"] / total.where(total > 0)).dropna()
-            res["cascade"][hh] = {
-                "mean_relative_change": float(rel.mean()) if rel.size else 0.0,
-                "p99_relative_change": float(rel.quantile(0.99)) if rel.size else 0.0,
-                "share_above_1pct": float((rel.abs() > 0.01).mean()) if rel.size else 0.0}
+    res["cascade"] = {}
+    for h in horizons:
+        hh = f"{int(h)}s"
+        total = frame[f"F_bid_{hh}"] + frame[f"F_ask_{hh}"]
+        rel = (frame[f"cascade_{hh}"] / total.where(total > 0)).dropna()
+        res["cascade"][hh] = {
+            "mean_relative_change": float(rel.mean()) if rel.size else 0.0,
+            "p99_relative_change": float(rel.quantile(0.99)) if rel.size else 0.0,
+            "share_above_1pct": float((rel.abs() > 0.01).mean()) if rel.size else 0.0,
+        }
     return res
 
 
-def _lead_time_report(long: pd.DataFrame, horizons: list[float], grid_s: float,
-                      seed: int) -> dict[str, Any]:
+def _lead_time_report(long: pd.DataFrame, horizons: list[float], grid_s: float, seed: int) -> dict[str, Any]:
     """Alarm at the 95th training percentile of each signal (60 s horizon for the model)."""
     hh = f"{int(max(horizons))}s"
     out: dict[str, Any] = {"horizon": hh, "onsets": int(long["onset_ms"].notna().sum())}
@@ -306,22 +303,29 @@ def _lead_time_report(long: pd.DataFrame, horizons: list[float], grid_s: float,
 
         def thr(tr: pd.DataFrame, te: pd.DataFrame, col: str = col) -> FloatArray:
             return np.full(len(te), float(np.quantile(tr[col].to_numpy(np.float64), 0.95)))
+
         scored, threshold = walk_forward(long, thr)
         sub = long[scored]
         lt = lead_times(sub, sub[col].to_numpy(np.float64), threshold[scored], grid_s)
         sig = sub[col].to_numpy(np.float64)
         alarm_rate = float(np.mean((sig >= threshold[scored]) & (sig > 0.0)))
-        out[name] = {"onsets": len(lt), "hit_rate": float(lt["hit"].mean()) if len(lt) else 0.0,
-                     "median_lead_s_when_hit": float(lt.loc[lt["hit"], "lead_s"].median())
-                     if lt["hit"].any() else 0.0,
-                     "mean_lead_s": float(lt["lead_s"].mean()) if len(lt) else 0.0,
-                     "alarm_rate": alarm_rate}
+        out[name] = {
+            "onsets": len(lt),
+            "hit_rate": float(lt["hit"].mean()) if len(lt) else 0.0,
+            "median_lead_s_when_hit": float(lt.loc[lt["hit"], "lead_s"].median()) if lt["hit"].any() else 0.0,
+            "mean_lead_s": float(lt["lead_s"].mean()) if len(lt) else 0.0,
+            "alarm_rate": alarm_rate,
+        }
         per_day[name] = lt.groupby("date").agg(lead_s=("lead_s", "mean"), hit=("hit", "mean"))
     for metric in ("hit", "lead_s"):
         d = (per_day["model"][metric] - per_day["heatmap"][metric]).dropna().to_numpy()
         if d.size >= 3:
             dm = diebold_mariano(d)
             out[f"model_minus_heatmap_{metric}"] = {
-                "days": int(d.size), "mean": float(d.mean()), "dm_t": dm.t_stat,
-                "dm_p": dm.p_value, "bootstrap_ci_95": list(stationary_bootstrap_ci(d, seed=seed))}
+                "days": int(d.size),
+                "mean": float(d.mean()),
+                "dm_t": dm.t_stat,
+                "dm_p": dm.p_value,
+                "bootstrap_ci_95": list(stationary_bootstrap_ci(d, seed=seed)),
+            }
     return out

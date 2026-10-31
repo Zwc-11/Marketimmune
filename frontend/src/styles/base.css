@@ -74,25 +74,12 @@ pre {
     color: var(--ask);
 }
 
-.warn {
-    color: var(--warn);
-}
-
 .muted {
     color: var(--fg-2);
 }
 
 .faint {
     color: var(--fg-3);
-}
-
-.visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
 }
 
 ::-webkit-scrollbar {

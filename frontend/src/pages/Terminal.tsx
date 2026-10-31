@@ -65,7 +65,7 @@ export default function TerminalPage() {
                         ]}
                     />
                 </header>
-                <div className="panel-body scroll" role="tabpanel">
+                <div className="panel-body" role="tabpanel">
                     {tab === 'log' && <RegretLog />}
                     {tab === 'api' && <ApiScoredFills />}
                     {tab === 'folds' && <FoldsTable />}

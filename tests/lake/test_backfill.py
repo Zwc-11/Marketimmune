@@ -1,180 +1,123 @@
-"""Tests for Hyperliquid daily backfill orchestration."""
-
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
+import lz4.frame
 import pytest
 
 from marketimmune.labels.markout import MarkoutConfig
-from marketimmune.lake.backfill import (
-    HyperliquidBackfillResult,
-    HyperliquidDailyBackfill,
-)
+from marketimmune.lake.backfill import parse_hours, run_backfill
 from marketimmune.lake.tables import HyperliquidLakeLayout, read_parquet_records
-from marketimmune.sources.hyperliquid_l2_archive import HyperliquidArchive
-from marketimmune.sources.hyperliquid_node_fills import HyperliquidNodeFills
+
+ASSET_CSV = (
+    "time,coin,funding,open_interest,prev_day_px,day_ntl_vlm,premium,oracle_px,mark_px,mid_px,impact_bid_px,impact_ask_px\n"
+    "1970-01-01T00:00:00Z,BTC,0.01,10.0,99.0,1.0,0.001,100.0,101.0,100.5,100.0,101.0\n"
+)
 
 
 def _book_line(ts_ms: int, bid: float, ask: float) -> str:
-    return json.dumps({
-        "coin": "BTC",
-        "time": ts_ms,
-        "levels": [
-            [{"px": str(bid), "sz": "1.0", "n": 1}],
-            [{"px": str(ask), "sz": "1.0", "n": 1}],
-        ],
-    })
+    levels = [[{"px": str(bid), "sz": "1.0", "n": 1}], [{"px": str(ask), "sz": "1.0", "n": 1}]]
+    return json.dumps(
+        {
+            "time": "2026-01-01T00:00:00.0",
+            "ver_num": 1,
+            "raw": {"channel": "l2Book", "data": {"coin": "BTC", "time": ts_ms, "levels": levels}},
+        }
+    )
 
 
-def _fill(coin: str = "BTC") -> dict[str, object]:
-    return {
+def _fills_block(coin: str) -> str:
+    leg = {
         "coin": coin,
         "px": "100.0",
         "sz": "2.0",
-        "side": "B",
-        "crossed": False,
         "time": 1_000,
         "fee": "0.02",
         "feeToken": "USDC",
-        "oid": 1,
         "tid": 2,
+        "hash": "0xh",
+        "startPosition": "0.0",
+        "dir": "Open Long",
     }
-
-
-def test_daily_backfill_writes_nonempty_artifacts(tmp_path: Path) -> None:
-    archive_payloads = {
-        "market_data/20260101/0/l2Book/BTC.lz4": (
-            _book_line(999, 99.0, 101.0) + "\n" + _book_line(2_000, 98.0, 100.0)
-        ).encode("utf-8"),
-        "asset_ctxs/20260101.csv.lz4": (
-            b"coin,funding,openInterest,oraclePx,markPx,midPx,premium\n"
-            b"BTC,0.01,10.0,100.0,101.0,100.5,0.001\n"
-        ),
-    }
-    node_payloads = {
-        "node_fills_by_block/part-000.json.lz4": json.dumps({
-            "nodeFills": [_fill("BTC"), _fill("ETH")]
-        }).encode("utf-8")
-    }
-
-    def archive_fetch(key: str) -> bytes:
-        return archive_payloads[key]
-
-    def node_fetch(key: str) -> bytes:
-        return node_payloads[key]
-
-    backfill = HyperliquidDailyBackfill(
-        layout=HyperliquidLakeLayout(tmp_path),
-        archive=HyperliquidArchive(fetch=archive_fetch, decompress=lambda raw: raw),
-        node_fills=HyperliquidNodeFills(fetch=node_fetch, decompress=lambda raw: raw),
-        markout_config=MarkoutConfig(horizons_s=(1.0,), fee_bps=1.0),
+    return json.dumps(
+        {
+            "block_number": 1,
+            "events": [["0xm", leg | {"side": "B", "crossed": False, "oid": 1}], ["0xt", leg | {"side": "A", "crossed": True, "oid": 2}]],
+        }
     )
-    result = backfill.run(
-        coin="BTC",
-        date="20260101",
-        hours=[0],
-        fill_suffixes=["part-000.json.lz4"],
-    )
-    assert isinstance(result, HyperliquidBackfillResult)
-    assert result.book_snapshots == 2
-    assert result.asset_contexts == 1
-    assert result.fills == 1
-    assert result.gold_rows == 1
-    assert result.training_rows == 1
-    assert len(result.writes) == 6
 
+
+def payloads() -> dict[str, bytes]:
+    texts = {
+        "market_data/20260101/0/l2Book/BTC.lz4": _book_line(999, 99.0, 101.0) + "\n" + _book_line(2_000, 98.0, 100.0) + "\n",
+        "asset_ctxs/20260101.csv.lz4": ASSET_CSV,
+        "node_fills_by_block/hourly/20260101/0.lz4": _fills_block("BTC") + "\n" + _fills_block("ETH") + "\n",
+    }
+    return {key: lz4.frame.compress(text.encode()) for key, text in texts.items()}
+
+
+def test_parse_hours() -> None:
+    assert parse_hours(["0-2", "2,5", " 7 "]) == (0, 1, 2, 5, 7)
+    with pytest.raises(AssertionError):
+        parse_hours(["24"])
+    with pytest.raises(AssertionError):
+        parse_hours([""])
+
+
+def test_backfill_writes_every_layer(tmp_path: Path) -> None:
     layout = HyperliquidLakeLayout(tmp_path)
-    book_rows = read_parquet_records(layout.silver_l2_book_path("BTC", "20260101"))
-    ctx_rows = read_parquet_records(layout.silver_asset_ctxs_path("20260101"))
-    bronze_rows = read_parquet_records(layout.bronze_fills_path("BTC", "20260101"))
-    silver_rows = read_parquet_records(layout.silver_fills_path("BTC", "20260101"))
-    gold_rows = read_parquet_records(layout.gold_markout_path("BTC", "20260101"))
-    training_rows = read_parquet_records(layout.gold_training_path("BTC", "20260101"))
-    assert book_rows[0]["mid"] == pytest.approx(100.0)
-    assert ctx_rows[0]["basis_bps"] == pytest.approx(100.0)
-    assert bronze_rows[0]["coin"] == "BTC"
-    assert silver_rows[0]["notional"] == pytest.approx(200.0)
-    assert gold_rows[0]["markout_bps_1s"] == pytest.approx(-100.0)
-    assert training_rows[0]["l2_mid"] == pytest.approx(100.0)
-    assert training_rows[0]["asset_basis_bps"] == pytest.approx(100.0)
-
-
-def test_daily_backfill_reports_progress(tmp_path: Path) -> None:
-    archive_payloads = {
-        "market_data/20260101/0/l2Book/BTC.lz4": (
-            _book_line(999, 99.0, 101.0) + "\n" + _book_line(2_000, 98.0, 100.0)
-        ).encode("utf-8"),
-        "asset_ctxs/20260101.csv.lz4": (
-            b"coin,funding,openInterest,oraclePx,markPx,midPx,premium\n"
-            b"BTC,0.01,10.0,100.0,101.0,100.5,0.001\n"
-        ),
-    }
-    node_payloads = {
-        "node_fills_by_block/hourly/20260101/0.lz4": json.dumps({
-            "nodeFills": [_fill("BTC")]
-        }).encode("utf-8")
-    }
-    backfill = HyperliquidDailyBackfill(
-        layout=HyperliquidLakeLayout(tmp_path),
-        archive=HyperliquidArchive(
-            fetch=lambda key: archive_payloads[key],
-            decompress=lambda raw: raw,
-        ),
-        node_fills=HyperliquidNodeFills(
-            fetch=lambda key: node_payloads[key],
-            decompress=lambda raw: raw,
-        ),
-        markout_config=MarkoutConfig(horizons_s=(1.0,), fee_bps=1.0),
-    )
-    messages: list[str] = []
-
-    result = backfill.run(
+    data = payloads()
+    result = run_backfill(
+        layout,
+        archive=data.__getitem__,
+        node=data.__getitem__,
         coin="BTC",
         date="20260101",
         hours=[0],
-        fill_suffixes=["hourly/20260101/0.lz4"],
-        progress=messages.append,
+        fill_hours=[0],
+        markout_config=MarkoutConfig(horizons_s=(1.0,), fee_bps=1.0),
     )
-
-    assert result.training_rows == 1
-    assert messages == [
-        "loaded 2 L2 snapshots",
-        "loaded 1 asset-context rows",
-        "loaded 1 raw fills",
-        "filtered 1 BTC fills",
-        "paired into 1 matches",
-        "built 1 Gold markout rows",
-        "built 1 Gold training rows",
-        "no-look-ahead check: passed=True checked=1 mismatched=0",
-        "wrote 6 parquet artifacts",
+    assert (result.book_snapshots, result.asset_contexts, result.fills, result.gold_rows, result.training_rows) == (2, 1, 2, 1, 1)
+    assert [w.path for w in result.writes] == [
+        layout.silver_l2_book_path("BTC", "20260101"),
+        layout.silver_asset_ctxs_path("20260101"),
+        layout.bronze_fills_path("BTC", "20260101"),
+        layout.silver_fills_path("BTC", "20260101"),
+        layout.gold_markout_path("BTC", "20260101"),
+        layout.gold_training_path("BTC", "20260101"),
     ]
-    layout = HyperliquidLakeLayout(tmp_path)
+    assert read_parquet_records(layout.silver_l2_book_path("BTC", "20260101"))[0]["mid"] == pytest.approx(100.0)
+    assert read_parquet_records(layout.silver_asset_ctxs_path("20260101"))[0]["basis_bps"] == pytest.approx(100.0)
+    assert len(read_parquet_records(layout.bronze_fills_path("BTC", "20260101"))) == 2
+    (match,) = read_parquet_records(layout.silver_fills_path("BTC", "20260101"))
+    assert (match["maker_user"], match["taker_user"], match["notional"]) == ("0xm", "0xt", pytest.approx(200.0))
+    assert read_parquet_records(layout.gold_markout_path("BTC", "20260101"))[0]["markout_bps_1s"] == pytest.approx(-100.0)
+    (training,) = read_parquet_records(layout.gold_training_path("BTC", "20260101"))
+    assert training["l2_mid"] == pytest.approx(100.0) and training["asset_basis_bps"] == pytest.approx(100.0)
     sidecar = layout.gold_training_path("BTC", "20260101").with_suffix(".leakage.json")
     assert json.loads(sidecar.read_text())["passed"] is True
 
 
-def test_daily_backfill_skips_empty_inputs(tmp_path: Path) -> None:
-    def fail_fetch(key: str) -> bytes:
+def test_backfill_skips_empty_inputs(tmp_path: Path) -> None:
+    def no_fetch(key: str) -> bytes:
         raise AssertionError(f"unexpected fetch: {key}")
 
-    backfill = HyperliquidDailyBackfill(
-        layout=HyperliquidLakeLayout(tmp_path),
-        archive=HyperliquidArchive(fetch=fail_fetch, decompress=lambda raw: raw),
-        node_fills=HyperliquidNodeFills(fetch=fail_fetch, decompress=lambda raw: raw),
-        markout_config=MarkoutConfig(horizons_s=(1.0,), fee_bps=1.0),
-    )
-    result = backfill.run(
+    result = run_backfill(
+        HyperliquidLakeLayout(tmp_path),
+        archive=no_fetch,
+        node=no_fetch,
         coin="BTC",
         date="20260101",
         hours=[],
-        fill_suffixes=[],
+        fill_hours=[],
         include_asset_ctxs=False,
     )
-    assert result.book_snapshots == 0
-    assert result.asset_contexts == 0
-    assert result.fills == 0
-    assert result.gold_rows == 0
-    assert result.training_rows == 0
-    assert result.writes == ()
+    assert (result.book_snapshots, result.asset_contexts, result.fills, result.gold_rows, result.training_rows, result.writes) == (
+        0,
+        0,
+        0,
+        0,
+        0,
+        (),
+    )

@@ -33,7 +33,7 @@ function Headline({ value, decimals, prefix = '', suffix = '', label }: {
         <div className="headline-stat">
             <span className="headline-value num">
                 {prefix}
-                <CountUp to={Math.abs(value)} decimals={decimals} duration={0.9} trigger="load" />
+                <CountUp to={Math.abs(value)} decimals={decimals} duration={0.9} />
                 {suffix}
             </span>
             <span className="headline-label">{label}</span>
@@ -146,9 +146,7 @@ function PromotedArtifact() {
 
 export default function ModelReportPage() {
     const r = COMMITTED;
-    const first = yyyymmdd(r.partition_rows[0].date);
-    const last = yyyymmdd(r.partition_rows[r.partition_rows.length - 1].date);
-    const holdoutDay = yyyymmdd(r.holdout.dates[0]);
+    const { trainFirstDay: first, trainLastDay: last, holdoutDay } = r;
     return (
         <div className="report">
             <header className="report-head">

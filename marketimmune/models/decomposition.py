@@ -35,12 +35,12 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from marketimmune.models.mcs import stationary_bootstrap_indices
+from marketimmune.models.compare import stationary_bootstrap_indices
 
 FloatArray = npt.NDArray[np.float64]
 GROUPS = ("latency_arb", "forced", "wallet", "state")
-PLAN_GROUPS = {"latency_arb": ("latency_arb",), "forced": ("forced",),
-               "residual": ("wallet", "state")}
+FORCED_60S = ("forced_same_notional_60000ms", "forced_opp_notional_60000ms")
+PLAN_GROUPS = {"latency_arb": ("latency_arb",), "forced": ("forced",), "residual": ("wallet", "state")}
 _PREFIXES = {
     "latency_arb": ("cex_", "race_lost_", "fee_", "speed_"),
     "forced": ("forced_", "fc_"),
@@ -63,21 +63,17 @@ def feature_groups(columns: Sequence[str]) -> dict[str, list[int]]:
     return out
 
 
-def group_contributions(contrib: npt.ArrayLike, groups: Mapping[str, Sequence[int]]
-                        ) -> dict[str, FloatArray]:
+def group_contributions(contrib: npt.ArrayLike, groups: Mapping[str, Sequence[int]]) -> dict[str, FloatArray]:
     """Sum a ``(rows, features + 1)`` contribution matrix by group; the last column
     is the bias (expected value)."""
     c = np.asarray(contrib, dtype=np.float64)
-    out = {g: c[:, list(idx)].sum(axis=1) if idx else np.zeros(c.shape[0])
-           for g, idx in groups.items()}
+    out = {g: c[:, list(idx)].sum(axis=1) if idx else np.zeros(c.shape[0]) for g, idx in groups.items()}
     out["bias"] = c[:, -1]
     return out
 
 
-def _bootstrap_ratio(num: FloatArray, den: FloatArray, n_boot: int, seed: int
-                     ) -> tuple[float, float]:
-    idx = stationary_bootstrap_indices(num.size, n_boot, mean_block=3.0,
-                                       rng=np.random.default_rng(seed))
+def _bootstrap_ratio(num: FloatArray, den: FloatArray, n_boot: int, seed: int) -> tuple[float, float]:
+    idx = stationary_bootstrap_indices(num.size, n_boot, mean_block=3.0, rng=np.random.default_rng(seed))
     ratios = num[idx].sum(axis=1) / den[idx].sum(axis=1)
     lo, hi = np.nanquantile(ratios, [0.025, 0.975])
     return float(lo), float(hi)
@@ -93,28 +89,23 @@ def contribution_shares(
 ) -> dict[str, Any]:
     """Shares of predicted adverse selection by group, over fills predicted worse
     than the baseline (and inside ``mask``), with day-bootstrap intervals."""
-    parts = {g: np.asarray(contrib[g], dtype=np.float64) for g in GROUPS if g in contrib}
+    parts = {g: np.asarray(contrib[g], dtype=np.float64) for g in GROUPS}
     total = np.sum(list(parts.values()), axis=0)
     day_arr = np.asarray(days)
     sel = total < 0.0
     if mask is not None:
         sel &= np.asarray(mask, dtype=bool)
-    out: dict[str, Any] = {"fills": int(sel.sum()),
-                           "mean_predicted_adverse_bps": float(total[sel].mean()) if sel.any()
-                           else 0.0}
+    out: dict[str, Any] = {"fills": int(sel.sum()), "mean_predicted_adverse_bps": float(total[sel].mean()) if sel.any() else 0.0}
     if not sel.any():
         return out
     keys, inv = np.unique(day_arr[sel], return_inverse=True)
     den = np.bincount(inv, weights=total[sel], minlength=keys.size).astype(np.float64)
-    combos: dict[str, tuple[str, ...]] = {g: (g,) for g in parts}
-    combos.update({f"plan_{k}": v for k, v in PLAN_GROUPS.items()
-                   if all(g in parts for g in v)})
+    combos = {**{g: (g,) for g in GROUPS}, **{f"plan_{k}": v for k, v in PLAN_GROUPS.items()}}
     shares: dict[str, Any] = {}
     for name, members in combos.items():
         val = np.sum([parts[g][sel] for g in members], axis=0)
         num = np.bincount(inv, weights=val, minlength=keys.size).astype(np.float64)
-        entry: dict[str, Any] = {"share": float(num.sum() / den.sum()),
-                                 "mean_bps": float(val.mean())}
+        entry: dict[str, Any] = {"share": float(num.sum() / den.sum()), "mean_bps": float(val.mean())}
         if keys.size >= 3:
             entry["bootstrap_ci_95"] = list(_bootstrap_ratio(num, den, n_boot, seed))
         shares[name] = entry
@@ -128,41 +119,36 @@ def contribution_shares(
     return out
 
 
-def realised_regimes(frame: pd.DataFrame, horizon: str, *, cex_bps: float = 2.0
-                     ) -> pd.Series:
-    """Label each fill: ``stale`` (Binance moved at least ``cex_bps`` against the
-    quoted side since the HL mid last changed), ``forced`` (forced flow on either side
-    in the previous 60 s), ``stale+forced`` or ``quiet``."""
-    gap = frame.get("cex_gap_maker_bps")
-    stale = (gap.to_numpy(np.float64) <= -cex_bps) if gap is not None else np.zeros(len(frame), bool)
-    f_cols = [c for c in ("forced_same_notional_60000ms", "forced_opp_notional_60000ms")
-              if c in frame.columns]
-    forced = (frame[f_cols].fillna(0.0).sum(axis=1).to_numpy() > 0.0 if f_cols
-              else np.zeros(len(frame), bool))
-    label = np.where(stale & forced, "stale+forced",
-                     np.where(stale, "stale", np.where(forced, "forced", "quiet")))
-    return pd.Series(label, index=frame.index, name="regime")
+def realised_regimes(frame: pd.DataFrame, *, cex_bps: float = 2.0) -> npt.NDArray[np.str_]:
+    """Label each fill: ``stale`` (Binance moved at least ``cex_bps`` against the quoted side
+    since the HL mid last changed), ``forced`` (forced flow on either side in the previous 60 s),
+    ``stale+forced`` or ``quiet``."""
+    stale = frame["cex_gap_maker_bps"].to_numpy(np.float64) <= -cex_bps
+    forced = frame[list(FORCED_60S)].fillna(0.0).sum(axis=1).to_numpy() > 0.0
+    out: npt.NDArray[np.str_] = np.where(stale & forced, "stale+forced", np.where(stale, "stale", np.where(forced, "forced", "quiet")))
+    return out
 
 
-def realised_decomposition(frame: pd.DataFrame, horizon: str, *, cex_bps: float = 2.0
-                           ) -> dict[str, Any]:
+def realised_decomposition(frame: pd.DataFrame, horizon: str, *, cex_bps: float = 2.0) -> dict[str, Any]:
     """Where S1's maker PnL comes from, by regime, notional-weighted (USD)."""
     valid = frame[f"markout_bps_{horizon}"].notna() & frame["mid_before"].notna()
     fr = frame[valid]
     notional = (fr["px"] * fr["sz"]).to_numpy(np.float64)
     side = fr["maker_side"].to_numpy(np.float64)
-    spread_bps = side * (fr["mid_before"] - fr["px"]).to_numpy(np.float64) / fr[
-        "mid_before"].to_numpy(np.float64) * 1e4
+    spread_bps = side * (fr["mid_before"] - fr["px"]).to_numpy(np.float64) / fr["mid_before"].to_numpy(np.float64) * 1e4
     adverse_bps = fr[f"markout_bps_{horizon}"].to_numpy(np.float64)
     spread_usd = spread_bps * notional / 1e4
     adverse_usd = adverse_bps * notional / 1e4
-    regime = realised_regimes(fr, horizon, cex_bps=cex_bps).to_numpy()
-    tot = {"fills": len(fr), "notional": notional.sum(), "spread": spread_usd.sum(),
-           "adverse": adverse_usd.sum()}
-    out: dict[str, Any] = {"horizon": horizon, "fills": tot["fills"],
-                           "notional_usd": float(tot["notional"]),
-                           "spread_usd": float(tot["spread"]),
-                           "adverse_usd": float(tot["adverse"]), "regimes": {}}
+    regime = realised_regimes(fr, cex_bps=cex_bps)
+    tot = {"fills": len(fr), "notional": notional.sum(), "spread": spread_usd.sum(), "adverse": adverse_usd.sum()}
+    out: dict[str, Any] = {
+        "horizon": horizon,
+        "fills": tot["fills"],
+        "notional_usd": float(tot["notional"]),
+        "spread_usd": float(tot["spread"]),
+        "adverse_usd": float(tot["adverse"]),
+        "regimes": {},
+    }
     for name in ("quiet", "stale", "forced", "stale+forced"):
         m = regime == name
         out["regimes"][name] = {
