@@ -130,4 +130,22 @@ The same secondaries as for SOL:
 
 ## Deviations
 
-None yet.
+### 2026-10-31: the data-quality gate stopped the run on 2025-12-15 (no data error)
+
+`run_albers_month` stopped the run before any model was trained. In 2025-12-15 hour 3
+(03:00 to 04:00 UTC), 89.7% of resting fills were at the touch (2,238 of 2,494), below the
+gate's 0.90. The diagnosis used the Silver L2 rows and fills of that hour.
+
+- **One sweep.** At 03:03:21 a single taker order (oid 269411640410) bought 5,207 ETH in 666
+  fills across 77 price levels, clearing the asks up to 76 ticks above the touch. That minute
+  holds 706 of the hour's 1,828 fills away from the touch.
+- **Other sweeps.** 65% of the fills away from the touch come from taker orders that also hit
+  the touch, which is what a sweep looks like.
+- **No sign of a data error.** The book never crossed that day. Every resting fill in that
+  hour was within the top five levels when it happened (2,494 of 2,494). No archive replay
+  fell in that hour.
+
+This is a market event, not a data error, so nothing changes: no fix, and no date dropped,
+as registered. Training starts on the month as rebuilt. Seen while diagnosing: that hour's
+fill prices, sizes, taker order ids and book tops. No label, markout, feature value or model
+was looked at.
