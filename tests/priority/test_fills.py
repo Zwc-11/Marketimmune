@@ -121,3 +121,28 @@ def test_read_lz4_prefilter_and_first_priority_cli(tmp_path: Path, capsys: pytes
     assert capsys.readouterr().out.strip() == "2026-03-02"
     find_first_priority_day.main(["first-priority", "--coin", "ETH", str(tmp_path)])
     assert capsys.readouterr().out.startswith("no priorityGas > 0 on ETH")
+
+
+def test_liquidation_details_and_coin_frames() -> None:
+    from marketimmune.cli.pull_node_fills import coin_frames
+
+    forced = {
+        "local_time": "2025-12-15T12:00:02.100000000",
+        "block_time": "2025-12-15T12:00:02.000000000",
+        "block_number": 102,
+        "events": [
+            [
+                "0xL",
+                fill("BTC", "98.0", "1", "A", 13, 9, True, liquidation={"liquidatedUser": "0xL", "markPx": "98.1", "method": "backstop"}),
+            ],
+            ["0xV", fill("BTC", "98.0", "1", "B", 23, 9, False)],
+            ["0xE", fill("ETH", "3000.0", "1", "B", 31, 10, True)],
+        ],
+    }
+    frames = coin_frames(["\n".join([*lines(), json.dumps(forced)])], ["BTC", "SOL"])
+    btc = frames["BTC"]
+    assert btc.height == 6 and frames["SOL"].height == 0
+    liq = btc.filter(pl.col("liquidation"))
+    assert liq.select("liquidated_user", "liquidation_mark_px", "liquidation_method").row(0) == ("0xL", 98.1, "backstop")
+    assert btc.filter(~pl.col("liquidation"))["liquidation_method"].null_count() == 5
+    assert coin_frames([], ["BTC"])["BTC"].height == 0

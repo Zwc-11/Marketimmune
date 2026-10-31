@@ -2,7 +2,9 @@
 
 Each line is one block: ``{"local_time", "block_time", "block_number", "events": [[user,
 fill], ...]}``. Every match appears twice, once per side; ``crossed`` is true on the taker's
-leg. ``priorityGas`` (when present) is the taker's priority fee on that fill.
+leg. ``priorityGas`` (when present) is the taker's priority fee on that fill. A forced fill
+carries ``liquidation = {"liquidatedUser", "markPx", "method"}``; ``method`` is ``"market"``
+(sent to the book) or ``"backstop"`` (taken over by the liquidator vault).
 """
 
 from __future__ import annotations
@@ -38,6 +40,9 @@ FILL_SCHEMA: dict[str, Any] = {
     "cloid": pl.String,
     "twap_id": pl.Int64,
     "liquidation": pl.Boolean,
+    "liquidated_user": pl.String,
+    "liquidation_mark_px": pl.Float64,
+    "liquidation_method": pl.String,
     "builder_fee": pl.Float64,
     "priority_gas": pl.Float64,
 }
@@ -52,6 +57,7 @@ def rows(lines: Iterable[str]) -> Iterator[dict[str, Any]]:
     for line in lines:
         blk = json.loads(line)
         for user, f in blk["events"]:
+            liq = f.get("liquidation") or {}
             yield {
                 "block_number": blk["block_number"],
                 "block_time": blk["block_time"],
@@ -74,6 +80,9 @@ def rows(lines: Iterable[str]) -> Iterator[dict[str, Any]]:
                 "cloid": f.get("cloid"),
                 "twap_id": f.get("twapId"),
                 "liquidation": f.get("liquidation") is not None,
+                "liquidated_user": liq.get("liquidatedUser"),
+                "liquidation_mark_px": _f(liq.get("markPx")),
+                "liquidation_method": liq.get("method"),
                 "builder_fee": _f(f.get("builderFee")),
                 "priority_gas": _f(f.get("priorityGas")),
             }
