@@ -81,6 +81,7 @@ STATUS_LABELS = (
     "oracleRejected",
 )
 TIF_LABELS = ("Alo", "Gtc", "Ioc", "null", "FrontendMarket", "LiquidationMarket")
+ALO = TIF_LABELS.index("Alo")
 OPEN = STATUS_LABELS.index("open")
 FILLED = STATUS_LABELS.index("filled")
 TRIGGERED = STATUS_LABELS.index("triggered")
@@ -134,6 +135,25 @@ L2_SCHEMA = pa.schema(
     [(name, pa.string() if name == "coin" else pa.int64() if name in _INT_COLUMNS else pa.float64()) for name in L2_COLUMNS],
     metadata={"source": SOURCE},
 )
+# Near-touch L4 events (market by order) for the block-accurate simulator (``marketimmune.sim``):
+# every add and cancel within the top ``L2_DEPTH`` levels of its side, and every fill of a resting
+# order. ``sz`` is the size added, cancelled or filled; ``added_ns`` is when the order started
+# resting at ``px_ticks`` (its time priority); ``alo`` marks post-only orders.
+MBO_ADD, MBO_CANCEL, MBO_FILL = 1, 2, 3
+MBO_SCHEMA = pa.schema(
+    [
+        ("ts_ns", pa.int64()),
+        ("kind", pa.int8()),
+        ("oid", pa.int64()),
+        ("is_ask", pa.bool_()),
+        ("px_ticks", pa.int64()),
+        ("sz", pa.float64()),
+        ("added_ns", pa.int64()),
+        ("alo", pa.bool_()),
+    ],
+    metadata={"source": SOURCE, "px_decimals": str(PX_DECIMALS)},
+)
+_MBO_DTYPE = np.dtype([(f.name, f.type.to_pandas_dtype()) for f in MBO_SCHEMA])
 EVENT_SCHEMA = pa.schema(
     [
         ("coin", pa.string()),
@@ -156,6 +176,7 @@ EVENT_SCHEMA = pa.schema(
 
 # ``(oids, resting sizes)``; :func:`merge_rested` makes the oids sorted and unique.
 Rested = tuple[npt.NDArray[np.uint64], npt.NDArray[np.float64]]
+MboRow = tuple[int, int, int, bool, int, float, int, bool]  # in ``MBO_SCHEMA`` order
 Level = tuple[int, float, int]  # (ticks, size, order count)
 Top = tuple[tuple[Level, ...], tuple[Level, ...]]
 L2Row = list[Any]  # values in ``L2_COLUMNS`` order
@@ -309,13 +330,14 @@ class AlbersBook:
     def __init__(self, coin: str, users: Mapping[int, str]) -> None:
         self.coin = coin.upper()
         self.users = users  # userId -> wallet address, for order events
-        self.orders: dict[int, tuple[bool, int, float]] = {}  # oid -> (is_ask, ticks, sz)
+        self.orders: dict[int, tuple[bool, int, float, int, bool]] = {}  # oid -> (is_ask, ticks, sz, added ns, alo)
         self.bids = _Side()
         self.asks = _Side()
         self._last_top: Top | None = None
         # False only while the top ``L2_DEPTH`` levels are known to equal the last
         # top that was computed, so a block that left them alone skips ``top()``.
         self._dirty = True
+        self.mbo: list[MboRow] | None = None  # near-touch L4 events, collected when a list is set
 
     def reset(self) -> None:
         """Forget every resting order.
@@ -393,7 +415,7 @@ class AlbersBook:
 
         rows: list[L2Row] = []
         raised: list[tuple[int, int | None, bool]] = []  # (position in idx, opposite best, marketable)
-        orders = self.orders
+        orders, mbo = self.orders, self.mbo
         bp, bl, ap, al = self.bids.prices, self.bids.levels, self.asks.prices, self.asks.levels
         depth = L2_DEPTH
         insort, bisect_left = bisect.insort, bisect.bisect_left
@@ -402,7 +424,7 @@ class AlbersBook:
         bid0 = ask0 = None
         # The book updates below are inlined (about 2M an hour), each with the check
         # of whether it touched the top ``depth`` levels of its side.
-        for j, (block, kind, o, is_new_ask, px, sz, rsz, event) in enumerate(
+        for j, (block, kind, o, is_new_ask, px, sz, rsz, event, alo) in enumerate(
             zip(
                 block_of[idx].tolist(),
                 kinds.tolist(),
@@ -412,6 +434,7 @@ class AlbersBook:
                 sub_sz.tolist(),
                 rest_sz.tolist(),
                 wants_event[idx].tolist(),
+                (tif[idx] == ALO).tolist(),
                 strict=True,
             )
         ):
@@ -430,8 +453,12 @@ class AlbersBook:
                 entry = orders.pop(o, None)
                 if entry is None:
                     continue
-                is_ask, opx, osz = entry
+                is_ask, opx, osz, added, was_alo = entry
                 prices, levels = (ap, al) if is_ask else (bp, bl)
+                if mbo is not None and (
+                    kind == _FILL_OUT or len(prices) <= depth or (opx <= prices[depth - 1] if is_ask else opx >= prices[-depth])
+                ):
+                    mbo.append((block_ts[block], MBO_FILL if kind == _FILL_OUT else MBO_CANCEL, o, is_ask, opx, osz, added, was_alo))
                 if kind == _FILL_OUT:  # a resting order filled to zero
                     stats.resting_fills += 1
                     stats.fills_at_touch += int(opx == (prices[0] if is_ask else prices[-1]))
@@ -451,14 +478,16 @@ class AlbersBook:
                 entry = orders.get(o)
                 if entry is None:
                     continue
-                is_ask, opx, old = entry
+                is_ask, opx, old, added, was_alo = entry
                 prices, levels = (ap, al) if is_ask else (bp, bl)
+                if mbo is not None:
+                    mbo.append((block_ts[block], MBO_FILL, o, is_ask, opx, old - sz, added, was_alo))
                 # Checked at the event, not the block start: post-only orders
                 # placed earlier in the same block can be hit at a better price.
                 stats.resting_fills += 1
                 stats.fills_at_touch += int(opx == (prices[0] if is_ask else prices[-1]))
                 stats.fills_in_top_depth += int(opx in (prices[:depth] if is_ask else prices[-depth:]))
-                orders[o] = (is_ask, opx, sz)
+                orders[o] = (is_ask, opx, sz, added, was_alo)
                 levels[opx][0] += sz - old
                 if not dirty and (len(prices) <= depth or (opx <= prices[depth - 1] if is_ask else opx >= prices[-depth])):
                     dirty = True
@@ -472,7 +501,8 @@ class AlbersBook:
                         stats.triggers_marketable += 1
                         continue
                     stats.triggers_rested += 1
-                orders[o] = (is_new_ask, px, rsz)
+                alo = alo and kind == _ADD  # a triggered order rests as a plain limit
+                orders[o] = (is_new_ask, px, rsz, block_ts[block], alo)
                 prices, levels = (ap, al) if is_new_ask else (bp, bl)
                 existing = levels.get(px)
                 if existing is None:
@@ -481,7 +511,12 @@ class AlbersBook:
                 else:
                     existing[0] += rsz
                     existing[1] += 1.0
-                if not dirty and (len(prices) <= depth or (px <= prices[depth - 1] if is_new_ask else px >= prices[-depth])):
+                if mbo is not None:
+                    near = len(prices) <= depth or (px <= prices[depth - 1] if is_new_ask else px >= prices[-depth])
+                    dirty = dirty or near
+                    if near:
+                        mbo.append((block_ts[block], MBO_ADD, o, is_new_ask, px, rsz, block_ts[block], alo))
+                elif not dirty and (len(prices) <= depth or (px <= prices[depth - 1] if is_new_ask else px >= prices[-depth])):
                     dirty = True
         self._dirty = dirty
         self._close_blocks(max(cur, 0), len(block_ts), block_ts, rows, stats)
@@ -573,6 +608,12 @@ def _l2_row(coin: str, top: Top, ts_ns: int) -> L2Row:
         row += (None, None, None) * (L2_DEPTH - len(levels))
     row.append(ts_ns)
     return row
+
+
+def mbo_table(rows: list[MboRow]) -> pa.Table:
+    """Through a NumPy record array: three times faster than one ``pa.array`` per column of tuples."""
+    arr = np.array(rows, dtype=_MBO_DTYPE)
+    return pa.Table.from_arrays([pa.array(arr[f.name]) for f in MBO_SCHEMA], schema=MBO_SCHEMA)
 
 
 def l2_table(rows: list[L2Row]) -> pa.Table:

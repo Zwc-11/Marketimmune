@@ -48,6 +48,10 @@ class HyperliquidLakeLayout:
     def silver_fills_path(self, coin: str, date: str) -> Path:
         return self._partition("silver", "fills", coin, date)
 
+    def silver_mbo_path(self, coin: str, date: str) -> Path:
+        """Near-touch L4 events of the Albers rebuild (``albers_l4.MBO_SCHEMA``), for the simulator."""
+        return self._partition("silver", "mbo", coin, date)
+
     def silver_order_events_path(self, coin: str, date: str) -> Path:
         """Forced-liquidation fills and unfilled IOCs (Albers order statuses)."""
         return self._partition("silver", "order_events", coin, date)

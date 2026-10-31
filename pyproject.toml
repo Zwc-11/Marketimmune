@@ -36,7 +36,7 @@ causal = ["rdrobust==2.1.1", "rddensity==3.0", "rdlocrand==3.0", "pyfixest==0.60
 survival = ["lifelines==0.30.3"]
 signal = ["lightgbm>=4.6"]
 stats = ["arch>=7.2", "statsmodels>=0.14", "scipy>=1.14"]
-sim = ["hftbacktest==2.4.4"]  # needs numpy<2.3
+sim = ["hftbacktest==2.4.4"]  # needs numpy<2.3, so it gets its own venv (.venv-sim, docs/research/block-simulator.md)
 hl = ["hyperliquid-python-sdk==0.24.0"]
 viz = ["matplotlib>=3.9"]
 dev = [
@@ -76,7 +76,7 @@ warn_return_any = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = ["pyarrow", "pyarrow.*", "boto3", "boto3.*", "lz4", "lz4.*", "matplotlib", "matplotlib.*", "catboost", "catboost.*", "pandas", "pandas.*", "joblib", "joblib.*"]
+module = ["pyarrow", "pyarrow.*", "boto3", "boto3.*", "lz4", "lz4.*", "matplotlib", "matplotlib.*", "catboost", "catboost.*", "pandas", "pandas.*", "joblib", "joblib.*", "hftbacktest", "hftbacktest.*", "numba", "numba.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

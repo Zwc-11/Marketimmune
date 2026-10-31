@@ -10,6 +10,8 @@ committed result. A number quoted anywhere in the repo links to a file here.
 | `sol_dec_corrected/` | The same ladder on the month rebuilt after the 2026-10-31 data fixes (pre-registration, Deviations) | `powershell -ExecutionPolicy Bypass -File .\scripts\run_ladder.ps1 -Coin SOL -Name sol_dec -Out eval\sol_dec_corrected` |
 | `ladder_verdicts.json` | H1-H5 verdicts for both SOL runs under the pre-registered rules (`docs/research/sol-dec-2025-ladder-results.md`) | `python -m marketimmune.cli.score_ladder --runs eval/sol_dec_registered,eval/sol_dec_corrected` |
 | `eth_dec/` | The confirmatory ETH December 2025 ladder (`docs/preregistration/eth-dec-2025-ladder.md`): the same reports plus `ladder_verdicts.json` | `powershell -ExecutionPolicy Bypass -File .\scripts\run_ladder.ps1 -Coin ETH -Name eth_dec` |
+| `sim_sol.json` | Block-accurate maker PnL on SOL December: S1 and the stale-quote rule injected into the rebuilt book, both queue models, PnL split by component (`docs/research/block-simulator.md`) | `python -m marketimmune.cli.build_albers_silver --coin SOL --dates 20251201..20251231 --mbo`, then `python -m marketimmune.cli.simulate_quotes --coin SOL --out eval/sim_sol.json` |
+| `sim_hft_sol.json` | S1 in hftbacktest (risk-averse, power-probability queues) against the engine, with and without the L2 crossing rule | `.venv-sim` (extra `sim`): `python -m marketimmune.cli.hft_baseline --coin SOL --out eval/sim_hft_sol.json` |
 | `pipeline_speed/` | Stage timings on a synthetic panel shaped like the SOL run | `python eval/pipeline_speed/bench.py --out eval/pipeline_speed/results.json` |
 
 The Rust replay benchmark is `cargo bench -p hl-replay --bench replay`

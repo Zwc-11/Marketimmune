@@ -29,6 +29,7 @@ from marketimmune.cli.build_albers_silver import (
     split_at_gaps,
 )
 from marketimmune.features.forced_flow_features import GRID_INPUTS
+from marketimmune.sources.albers_l4 import MBO_ADD, MBO_FILL
 from tests.sources.test_albers_l4 import status_records
 
 DEC1 = 1_764_547_200 * 1_000_000_000  # 2025-12-01T00:00:00Z in ns
@@ -86,6 +87,7 @@ def test_build_writes_rows_and_validation(tmp_path: Path) -> None:
             "0",
             "--gap-seconds",
             "100000",  # this toy hour has minutes between blocks
+            "--mbo",
         ]
     )
     assert build(args)["dates"] == ["20251201"]
@@ -100,6 +102,10 @@ def test_build_writes_rows_and_validation(tmp_path: Path) -> None:
     assert [h["hour"] for h in report["hours"]] == [0, 1]
     assert report["hours"][0]["opens_rested"] == 3
     assert report["hours"][1]["fills_at_touch"] == 1
+    # the near-touch L4 events: every add (the toy book is shallow) and every resting fill
+    kinds = pq.read_table(tmp_path / "lake/silver/hyperliquid/mbo/SOL/SOL-20251201.parquet")["kind"].to_pylist()
+    assert kinds.count(MBO_ADD) == sum(h["opens_rested"] + h["triggers_rested"] for h in report["hours"])
+    assert kinds.count(MBO_FILL) == sum(h["resting_fills"] for h in report["hours"])
 
     # fills: one trade at 2 s (the 100.02 ask lifted by 0xt), repeated once like the archive's
     # replayed windows, and one for another coin

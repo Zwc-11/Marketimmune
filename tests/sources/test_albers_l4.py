@@ -10,6 +10,10 @@ import numpy as np
 import pytest
 
 from marketimmune.sources.albers_l4 import (
+    MBO_ADD,
+    MBO_CANCEL,
+    MBO_FILL,
+    MBO_SCHEMA,
     STATUS_DTYPE,
     STATUS_LABELS,
     TIF_LABELS,
@@ -23,6 +27,7 @@ from marketimmune.sources.albers_l4 import (
     iso_to_ns,
     l2_table,
     match_from_albers_trade,
+    mbo_table,
     merge_rested,
     read_status_records,
     read_users_csv,
@@ -219,6 +224,36 @@ def test_replay_hour_records_liquidations_and_lost_races() -> None:
     assert order_events[2]["opposite_best_px"] == pytest.approx(100.0)
     assert order_events[2]["tif"] == "LiquidationMarket" and order_events[2]["limit_px"] == 90.0
     assert stats.ioc_unfilled == 2 and stats.ioc_unfilled_marketable == 1
+
+
+def test_replay_hour_collects_near_touch_l4_events_when_asked() -> None:
+    # bids at 100, 99, ..., 95: the sixth level (95) is below the top five
+    opens = [{"ts": 1 * S, "status": "open", "oid": k, "px": 101.0 - k, "sz": 1.0} for k in range(1, 7)]
+    events = [
+        *opens,
+        {"ts": 2 * S, "status": "open", "oid": 7, "px": 100.00, "sz": 2.0, "tif": "Gtc"},
+        {"ts": 3 * S, "status": "filled", "oid": 1, "px": 100.00, "sz": 0.25},  # 0.75 filled, 0.25 left
+        {"ts": 3 * S, "status": "filled", "oid": 1, "px": 100.00, "sz": 0.0},  # the rest
+        {"ts": 3 * S, "status": "canceled", "oid": 6},  # deep: not recorded
+        {"ts": 4 * S, "status": "canceled", "oid": 7},
+    ]
+    sizes = {k: 1.0 for k in range(1, 7)} | {7: 2.0}
+    book = AlbersBook("SOL", {})
+    replay(book, events, sizes)
+    assert book.mbo is None  # off unless a list is set
+    book.reset()
+    book.mbo = []
+    replay(book, events, sizes)
+    got = [(t // S, kind, oid, ask, px / 1e7, sz, added // S, alo) for t, kind, oid, ask, px, sz, added, alo in book.mbo]
+    assert got == [
+        *((1, MBO_ADD, k, False, 101.0 - k, 1.0, 1, True) for k in range(1, 6)),
+        (2, MBO_ADD, 7, False, 100.0, 2.0, 2, False),
+        (3, MBO_FILL, 1, False, 100.0, 0.75, 1, True),
+        (3, MBO_FILL, 1, False, 100.0, 0.25, 1, True),
+        (4, MBO_CANCEL, 7, False, 100.0, 2.0, 2, False),
+    ]
+    table = mbo_table(book.mbo)
+    assert table.schema == MBO_SCHEMA and table.num_rows == 9 and table["px_ticks"][0].as_py() == 100 * 10**7
 
 
 def test_reset_forgets_every_order() -> None:

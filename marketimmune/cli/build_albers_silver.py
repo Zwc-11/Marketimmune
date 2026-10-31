@@ -14,7 +14,9 @@ empty, so rows from the first ``--warmup-minutes`` of a run, and of the book reb
 after each data gap, are dropped. Statuses the archive repeats after jumping back in time
 are dropped first (:func:`drop_replayed`). Each hourly diff member holds every coin (about 1.6 GB
 of JSON) and parsing it takes about twice as long as replaying the hour, so ``--diff-workers``
-processes parse the next hours' diffs while this one replays.
+processes parse the next hours' diffs while this one replays. ``--mbo`` also writes the near-touch
+L4 events that ``marketimmune.sim`` replays our quotes against
+(``silver/hyperliquid/mbo/<COIN>/<COIN>-<date>.parquet``, after the same warm-up).
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ from marketimmune.logger import init_logger
 from marketimmune.sources.albers_l4 import (
     EVENT_SCHEMA,
     L2_SCHEMA,
+    MBO_SCHEMA,
     SOURCE,
     AlbersBook,
     ReplayStats,
@@ -48,6 +51,7 @@ from marketimmune.sources.albers_l4 import (
     drop_replayed,
     gunzip,
     l2_table,
+    mbo_table,
     merge_rested,
     read_status_records,
     read_users_csv,
@@ -72,6 +76,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--gap-seconds", type=float, default=30.0, help="a jump between blocks longer than this resets the book and restarts warm-up"
     )
     parser.add_argument("--diff-workers", type=int, default=4, help="processes parsing book diffs ahead of the replay")
+    parser.add_argument("--mbo", action="store_true", help="also write the near-touch L4 events for the quote simulator")
     return parser.parse_args(argv)
 
 
@@ -179,6 +184,7 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
     names = [name for d, h in plan for name in (diff_member(d, h), diff_member(*next_hour(d, h)))]
     diffs = DiffReader(args.albers_dir / "book_diffs_202512.tar", coin, names, args.diff_workers)
     book = AlbersBook(coin, load_users(args.albers_dir))
+    book.mbo = [] if args.mbo else None
     warmup_ns, gap_ns = int(args.warmup_minutes * 60e9), int(args.gap_seconds * 1e9)
     last_ts: int | None = None
     warm_from = 0  # rows before this time are dropped (start of run, or after a gap)
@@ -187,6 +193,7 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
     report: dict[str, list[dict[str, Any]]] = {d: [] for d in dates}
     writers: dict[str, pq.ParquetWriter] = {}
     event_writers: dict[str, pq.ParquetWriter] = {}
+    mbo_writers: dict[str, pq.ParquetWriter] = {}
     t0 = time.perf_counter()
     try:
         for name, raw in prefetch(iter_status_members(args.albers_dir / f"{coin.lower()}_orders_202512.tar.xz", set(wanted))):
@@ -202,6 +209,7 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
             stats = ReplayStats(replayed_dropped=raw_records.size - records.size)
             rows: list[list[Any]] = []
             event_parts: list[pa.Table] = []
+            mbo_rows: list[Any] = []
             for segment, gap_start in split_at_gaps(records, last_ts, gap_ns):
                 if gap_start is not None:
                     book.reset()
@@ -211,6 +219,9 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
                 part, events = book.replay_hour(segment, rested, stats)
                 rows += [r for r in part if r[-1] >= warm_from]  # ts_ns is the last column
                 event_parts.append(events)
+                if book.mbo is not None:
+                    mbo_rows += [e for e in book.mbo if e[0] >= warm_from]  # ts_ns is the first column
+                    book.mbo.clear()
             if records.size:
                 last_ts = int(records["ts"][-1])
             if date not in event_writers:  # every replayed date gets an events file
@@ -226,6 +237,12 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
                     path.parent.mkdir(parents=True, exist_ok=True)
                     writers[date] = pq.ParquetWriter(path, L2_SCHEMA, compression="zstd")
                 writers[date].write_table(l2_table(rows))
+            if mbo_rows:
+                if date not in mbo_writers:
+                    path = layout.silver_mbo_path(coin, date)
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    mbo_writers[date] = pq.ParquetWriter(path, MBO_SCHEMA, compression="zstd")
+                mbo_writers[date].write_table(mbo_table(mbo_rows))
             entry = {"hour": hour, **stats.to_dict(), "rows_written": len(rows)}
             report[date].append(entry)
             logger.info(
@@ -234,7 +251,7 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
             )
     finally:
         diffs.pool.shutdown(cancel_futures=True)
-        for writer in (*writers.values(), *event_writers.values()):
+        for writer in (*writers.values(), *event_writers.values(), *mbo_writers.values()):
             writer.close()
     for date, hours in report.items():
         if not hours:
