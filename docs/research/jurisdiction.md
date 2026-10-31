@@ -30,7 +30,14 @@ document's "last updated" date changes.
    excludes certain activities involving the US or Ontario. The optional own node
    in Phase 3 peers with the public p2p network instead (see `infra/node/`).
 
-## Open question (decide before the recorder goes live)
+## Hyperliquid API and S3 access from Ontario (answered 2026-10-31)
+
+**Answer:** allowed (reported by Caesar on 2026-10-31): reading public market data from
+the API and the S3 archives from Ontario is allowed. This unblocks the
+live refresh (`clearinghouseState` polling) and the recorder. The Binance WebSocket row
+below is a separate question, so the fallback venues stay as listed.
+
+The question as it was asked:
 
 Is reading public market data from `api.hyperliquid.xyz` (WebSocket `l2Book`,
 `bbo`, `trades`; `info` `meta`) from Ontario consistent with the interface terms'

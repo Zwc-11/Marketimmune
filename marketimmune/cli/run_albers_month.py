@@ -7,8 +7,8 @@ forced flow).
 
 Stages can run alone (``--stages gold``); each reads the previous one's output from the
 lake. The L2 stage is the slow one because order statuses are a sequential ``.tar.xz``.
-It ends with one health line per date (:func:`health`); train only on a month whose
-books never cross. Train and compare rungs afterwards with ``marketimmune.cli.train``.
+It ends with one health line per date (:func:`health`) and exits non-zero when a date fails
+the data-quality gate (:func:`gate_failures`): train only on a month that passes. Train and compare rungs afterwards with ``marketimmune.cli.train``.
 """
 
 from __future__ import annotations
@@ -27,6 +27,11 @@ from marketimmune.utils import parse_date_spec, split_csv
 logger = init_logger(__name__)
 
 STAGES = ("l2", "fills", "positions", "forecast", "gold", "enrich")
+# Data-quality gate, pre-registered for ETH (docs/preregistration/eth-dec-2025-ladder.md). A crossed
+# book is the signature of the archive bugs fixed on 2026-10-31. Fills off the touch also happen
+# when takers sweep a thin book: the corrected SOL month's worst hour has 0.941 (931 of 989 fills).
+MAX_CROSSED_SHARE = 0.001
+MIN_FILL_AT_TOUCH_SHARE = 0.90
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -67,6 +72,11 @@ def health(lake_root: Path, coin: str, dates: tuple[str, ...]) -> list[dict[str,
     return out
 
 
+def gate_failures(rows: list[dict[str, Any]]) -> list[str]:
+    """Dates of :func:`health` rows with an hour whose book crossed or whose fills missed the touch."""
+    return [r["date"] for r in rows if r["max_crossed_share"] > MAX_CROSSED_SHARE or r["min_fill_at_touch_share"] < MIN_FILL_AT_TOUCH_SHARE]
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     stages = split_csv(args.stages)
@@ -90,8 +100,12 @@ def main(argv: list[str] | None = None) -> int:
     if "enrich" in stages:
         enrich_albers.build(enrich_albers.parse_args(common))
     logger.info(f"done: {', '.join(stages)} in {time.perf_counter() - t0:.0f}s")
-    for row in health(args.lake_root, args.coin.upper(), parse_date_spec(args.dates)):
+    rows = health(args.lake_root, args.coin.upper(), parse_date_spec(args.dates))
+    for row in rows:
         print(json.dumps(row))
+    failed = gate_failures(rows)
+    if failed:
+        raise SystemExit(f"data-quality gate failed on {failed}: diagnose and fix before training")
     return 0
 
 

@@ -166,6 +166,11 @@ def test_build_writes_rows_and_validation(tmp_path: Path) -> None:
     (row,) = run_albers_month.health(tmp_path / "lake", "SOL", ("20251201", "20251202"))
     assert row["date"] == "20251201" and row["max_crossed_share"] == 0.0 and row["replayed_dropped"] == 0
     assert row["gaps"] == 0 and row["leakage_passed"] is True
+    assert run_albers_month.gate_failures([row]) == []
+    assert run_albers_month.gate_failures([{**row, "max_crossed_share": 0.01}, {**row, "date": "x", "min_fill_at_touch_share": 0.8}]) == [
+        "20251201",
+        "x",
+    ]
     with pytest.raises(SystemExit, match="unknown stage"):
         run_albers_month.main(["--stages", "bogus"])
 
