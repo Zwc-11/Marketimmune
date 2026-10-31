@@ -1,0 +1,72 @@
+{
+  "loss": "brier",
+  "files": [
+    "eval\\sol_dec_corrected\\sol_dec_l0_book.oof.parquet",
+    "eval\\sol_dec_corrected\\sol_dec_l1_book.oof.parquet",
+    "eval\\sol_dec_corrected\\sol_dec_l2_book.oof.parquet",
+    "eval\\sol_dec_corrected\\sol_dec_l3a_book.oof.parquet",
+    "eval\\sol_dec_corrected\\sol_dec_l3b_book.oof.parquet",
+    "eval\\sol_dec_corrected\\sol_dec_l3_book.oof.parquet",
+    "eval\\sol_dec_corrected\\sol_dec_l3a_placebo_book.oof.parquet"
+  ],
+  "rows_common": 1944199,
+  "days": 22,
+  "alpha": 0.1,
+  "included": [
+    "sol_dec_l3a_book",
+    "sol_dec_l3b_book",
+    "sol_dec_l3_book"
+  ],
+  "elimination_order": [
+    "sol_dec_l0_book",
+    "sol_dec_l1_book",
+    "sol_dec_l3a_placebo_book",
+    "sol_dec_l2_book",
+    "sol_dec_l3a_book",
+    "sol_dec_l3b_book"
+  ],
+  "models": [
+    {
+      "name": "sol_dec_l3_book",
+      "mean_loss": 0.12892392578543713,
+      "mcs_p_value": 1.0,
+      "in_mcs": true
+    },
+    {
+      "name": "sol_dec_l3b_book",
+      "mean_loss": 0.12903387420251272,
+      "mcs_p_value": 0.7714,
+      "in_mcs": true
+    },
+    {
+      "name": "sol_dec_l3a_book",
+      "mean_loss": 0.12917657149879833,
+      "mcs_p_value": 0.7714,
+      "in_mcs": true
+    },
+    {
+      "name": "sol_dec_l3a_placebo_book",
+      "mean_loss": 0.12943994217930696,
+      "mcs_p_value": 0.0792,
+      "in_mcs": false
+    },
+    {
+      "name": "sol_dec_l2_book",
+      "mean_loss": 0.12951353333569485,
+      "mcs_p_value": 0.0792,
+      "in_mcs": false
+    },
+    {
+      "name": "sol_dec_l1_book",
+      "mean_loss": 0.14292744037173596,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    },
+    {
+      "name": "sol_dec_l0_book",
+      "mean_loss": 0.15421643283829006,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    }
+  ]
+}

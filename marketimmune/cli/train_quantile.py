@@ -8,6 +8,11 @@ Same Gold partitions, feature sets, rolling daily folds and leakage gate as
 side, anchored at the pre-fill mid) instead of the toxic flag. Writes the report
 and ``<report>.oof.parquet`` with ``q10``/``q50``/``q90`` (and climatology) per
 tested fill, which ``marketimmune.cli.compare_rungs --loss pinball`` compares.
+
+``--contrib`` adds the tau=0.5 model's TreeSHAP contributions per feature group, which
+``marketimmune.cli.decompose --oof`` reads. Only the ``l3_book`` rung needs them, and on the
+SOL month they cost more than fitting the three boosters (TreeSHAP walks every tree path
+for every test row), so they are off by default.
 """
 
 from __future__ import annotations
@@ -58,7 +63,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--report", type=Path, default=Path("eval/quantile_report.json"))
     parser.add_argument(
-        "--no-contrib", action="store_true", help="skip per-group contributions of the tau=0.5 model (read by cli.decompose)"
+        "--contrib", action="store_true", help="also write per-group TreeSHAP contributions of the tau=0.5 model (cli.decompose reads them)"
     )
     return parser.parse_args(argv)
 
@@ -90,6 +95,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     leakage_safe, leakage = partition_leakage_status(partitions)
     frame = load_training_panel(partitions, horizon=args.horizon)
     taus = tuple(float(t) for t in split_csv(args.taus))
+    assert not args.contrib or 0.5 in taus, f"--contrib explains the tau=0.5 model: {taus=}"
     params = LgbParams(
         n_estimators=args.n_estimators,
         learning_rate=args.learning_rate,
@@ -106,7 +112,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         train_days=args.train_days,
         purge_ms=args.purge_ms,
         seed=args.seed,
-        contrib_tau=None if args.no_contrib or 0.5 not in taus else 0.5,
+        contrib_tau=0.5 if args.contrib else None,
         contrib_groups=feature_groups(FEATURE_COLUMNS),
     )
     oof_path = write_quantile_oof(

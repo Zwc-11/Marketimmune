@@ -1,0 +1,75 @@
+{
+  "loss": "pinball",
+  "tau": 0.1,
+  "files": [
+    "eval\\sol_dec_corrected\\q_sol_dec_l0_book.oof.parquet",
+    "eval\\sol_dec_corrected\\q_sol_dec_l1_book.oof.parquet",
+    "eval\\sol_dec_corrected\\q_sol_dec_l2_book.oof.parquet",
+    "eval\\sol_dec_corrected\\q_sol_dec_l3a_book.oof.parquet",
+    "eval\\sol_dec_corrected\\q_sol_dec_l3b_book.oof.parquet",
+    "eval\\sol_dec_corrected\\q_sol_dec_l3_book.oof.parquet",
+    "eval\\sol_dec_corrected\\q_sol_dec_l3a_placebo_book.oof.parquet"
+  ],
+  "rows_common": 1944199,
+  "days": 22,
+  "alpha": 0.1,
+  "included": [
+    "q_sol_dec_l2_book",
+    "q_sol_dec_l3a_book",
+    "q_sol_dec_l3b_book",
+    "q_sol_dec_l3_book",
+    "q_sol_dec_l3a_placebo_book"
+  ],
+  "elimination_order": [
+    "q_sol_dec_l0_book",
+    "q_sol_dec_l1_book",
+    "q_sol_dec_l3a_book",
+    "q_sol_dec_l2_book",
+    "q_sol_dec_l3_book",
+    "q_sol_dec_l3a_placebo_book"
+  ],
+  "models": [
+    {
+      "name": "q_sol_dec_l3b_book",
+      "mean_loss": 0.3488662321357816,
+      "mcs_p_value": 1.0,
+      "in_mcs": true
+    },
+    {
+      "name": "q_sol_dec_l3a_placebo_book",
+      "mean_loss": 0.3490764668508205,
+      "mcs_p_value": 0.9076,
+      "in_mcs": true
+    },
+    {
+      "name": "q_sol_dec_l3_book",
+      "mean_loss": 0.34929016174313543,
+      "mcs_p_value": 0.9076,
+      "in_mcs": true
+    },
+    {
+      "name": "q_sol_dec_l2_book",
+      "mean_loss": 0.3499016786738611,
+      "mcs_p_value": 0.8158,
+      "in_mcs": true
+    },
+    {
+      "name": "q_sol_dec_l3a_book",
+      "mean_loss": 0.34994873003050075,
+      "mcs_p_value": 0.8158,
+      "in_mcs": true
+    },
+    {
+      "name": "q_sol_dec_l1_book",
+      "mean_loss": 0.41150977603983935,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    },
+    {
+      "name": "q_sol_dec_l0_book",
+      "mean_loss": 0.48812157978365833,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    }
+  ]
+}

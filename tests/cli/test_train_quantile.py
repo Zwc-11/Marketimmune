@@ -71,6 +71,7 @@ def test_train_quantile_end_to_end(tmp_path: Path, capsys: pytest.CaptureFixture
                 "20",
                 "--report",
                 str(report),
+                "--contrib",
             ]
         )
     finally:
@@ -80,5 +81,5 @@ def test_train_quantile_end_to_end(tmp_path: Path, capsys: pytest.CaptureFixture
     assert payload["leakage_safe"] is True and payload["rows_tested"] == 600
     assert payload["per_tau"]["q50"]["skill"] > 0.3
     oof = pd.read_parquet(tmp_path / "eval" / "q.oof.parquet")
-    assert {"q10", "q50", "q90", "clim_q50", "markout_bps", "oid"} <= set(oof.columns)
+    assert {"q10", "q50", "q90", "clim_q50", "markout_bps", "oid", "contrib_bias"} <= set(oof.columns)
     assert "Wrote" in capsys.readouterr().out

@@ -1,7 +1,9 @@
-"""Small helpers shared by every pipeline stage: dates and comma lists."""
+"""Small helpers shared by every pipeline stage: dates, comma lists and a one-ahead prefetch."""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 
 DAY_MS = 86_400_000
@@ -40,3 +42,14 @@ def parse_symbol_spec(value: str) -> tuple[str, ...]:
     symbols = tuple(dict.fromkeys(item.upper().replace("/", "-") for item in split_csv(value)))
     assert symbols, f"{value=}: no coins"
     return symbols
+
+
+def prefetch[T](items: Iterator[T]) -> Iterator[T]:
+    """Yield ``items`` while a thread produces the next one. Overlaps work that releases the
+    GIL (file reads, lzma and zlib decoding) with the caller's Python loop. ``items`` must not
+    yield None."""
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        ahead = pool.submit(next, items, None)
+        while (item := ahead.result()) is not None:
+            ahead = pool.submit(next, items, None)
+            yield item

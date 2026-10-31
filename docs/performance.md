@@ -4,6 +4,34 @@ A pass over the markout pipeline's hot paths, from archive labels to the browser
 The rule was "same inputs, same report": every change is measured, and the
 end-to-end training report is compared field by field against the original code.
 
+## Pass 4 (2026-10-31): the full-month rerun
+
+The corrected SOL run (rebuild of every stage, then 8 classifier and 8 quantile rungs on
+8 cores) spent about 13 min after the L2 stage, 1 to 1.5 min per classifier rung and
+6.5 to 8 min per quantile rung. Two changes, both measured on real data, with
+identical outputs:
+
+- **TreeSHAP only where it is read.** `train_quantile` computed the tau=0.5 model's
+  contributions for every rung, but only `decompose --oof` reads them, and only for
+  `l3_book`. TreeSHAP walks every root-to-leaf path of every tree for every test row
+  (trees here are about 11 deep), so on one real fold (`l0_book`, 853K training rows,
+  120K test rows, 300 trees, 2 vCPU) it took 64 s against 38 s for the three fits.
+  It is now `--contrib`, off by default. With it off the quantile and label columns
+  are equal to the old output; with it on the whole file is equal. Expected effect on
+  the month: the 7 rungs without `--contrib` take about half as long.
+- **Status decoding overlaps the replay.** The `.tar.xz` decode and gunzip of the next
+  hour run in a thread (`utils.prefetch`; lzma and isal release the GIL) while the
+  current hour replays, and `--diff-workers` defaults to 4. Per hour on one VM core:
+  xz + gunzip 0.49 s, diff parse 1.68 s, replay 1.05 s. The main thread used to do
+  decode + replay (1.6 s an hour) with two diff workers at 0.84 s; it now does the
+  replay alone (1.1 s), the decode thread 0.49 s and four diff workers 0.42 s, so a
+  machine with 6 free cores spends about 1.1 s an hour instead of 1.6 s (about 14 min
+  instead of 20 for the month). Silver L2, order events and the validation JSON for
+  2025-12-01 hours 0 to 5 are equal to the old build.
+
+What is left is the replay itself (pure Python, about 1 s an hour) and the
+sequential forced-flow forecast, which carries state from day to day.
+
 ## Pass 3 (2026-10-31): the whole codebase, DeepInfer conventions
 
 Every module was rewritten to DeepInfer's conventions (ruff rule set and 140-column

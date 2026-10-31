@@ -137,4 +137,4 @@ def test_cli_realised_and_model(tmp_path: Path) -> None:
     oof.drop(columns="contrib_forced").to_parquet(oof_path)
     with pytest.raises(SystemExit, match="no contributions"):
         decompose.main(["--oof", str(oof_path)])
-    assert train_quantile.parse_args(["--no-contrib"]).no_contrib
+    assert train_quantile.parse_args(["--contrib"]).contrib and not train_quantile.parse_args([]).contrib

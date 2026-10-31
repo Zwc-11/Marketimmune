@@ -6,7 +6,7 @@
 Without ``--oof`` it reads Gold and splits the quote-everything maker's realised
 spread and adverse selection by regime (stale quote by the CEX gap, forced flow in
 the previous 60 s, both, quiet); no model is involved. With ``--oof`` (written by
-``train_quantile`` with contributions, the default) it reports each feature group's
+``train_quantile --contrib``) it reports each feature group's
 share of predicted adverse selection, overall and in the comparison regimes
 (``cex_move``, ``forced_60s``, ``quiet``), with day-bootstrap intervals. See
 ``marketimmune.models.decomposition``.
@@ -45,7 +45,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def model_based(oof: pd.DataFrame, cex_move_bps: float) -> dict[str, Any]:
     missing = [g for g in GROUPS if f"contrib_{g}" not in oof.columns]
     if missing:
-        raise SystemExit(f"OOF has no contributions for {missing}; rerun train_quantile without --no-contrib")
+        raise SystemExit(f"OOF has no contributions for {missing}; rerun train_quantile with --contrib")
     contrib = {g: oof[f"contrib_{g}"].to_numpy(np.float64) for g in GROUPS}
     days = oof["partition_date"].astype(str).to_numpy()
     regimes: dict[str, Any] = {"all": None}

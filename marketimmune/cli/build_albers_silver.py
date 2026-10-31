@@ -8,11 +8,12 @@ per block whose top five levels changed) with a ``.validation.json`` beside it, 
 and unfilled IOCs, see :meth:`AlbersBook.replay_hour`).
 
 Order statuses are a sequential ``.tar.xz``, so a run always decompresses from Dec 1 up
-to its last date; book diffs are an uncompressed tar read by offset. The book starts
+to its last date; a thread decodes the next hour while this one replays (lzma and isal
+release the GIL). Book diffs are an uncompressed tar read by offset. The book starts
 empty, so rows from the first ``--warmup-minutes`` of a run, and of the book rebuilt
 after each data gap, are dropped. Statuses the archive repeats after jumping back in time
 are dropped first (:func:`drop_replayed`). Each hourly diff member holds every coin (about 1.6 GB
-of JSON) and parsing it costs more than replaying the hour, so ``--diff-workers``
+of JSON) and parsing it takes about twice as long as replaying the hour, so ``--diff-workers``
 processes parse the next hours' diffs while this one replays.
 """
 
@@ -52,7 +53,7 @@ from marketimmune.sources.albers_l4 import (
     read_users_csv,
     rested_orders_gz,
 )
-from marketimmune.utils import parse_date_spec, shift_date
+from marketimmune.utils import parse_date_spec, prefetch, shift_date
 
 logger = init_logger(__name__)
 
@@ -70,7 +71,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--gap-seconds", type=float, default=30.0, help="a jump between blocks longer than this resets the book and restarts warm-up"
     )
-    parser.add_argument("--diff-workers", type=int, default=2, help="processes parsing book diffs ahead of the replay")
+    parser.add_argument("--diff-workers", type=int, default=4, help="processes parsing book diffs ahead of the replay")
     return parser.parse_args(argv)
 
 
@@ -188,7 +189,7 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
     event_writers: dict[str, pq.ParquetWriter] = {}
     t0 = time.perf_counter()
     try:
-        for name, raw in iter_status_members(args.albers_dir / f"{coin.lower()}_orders_202512.tar.xz", set(wanted)):
+        for name, raw in prefetch(iter_status_members(args.albers_dir / f"{coin.lower()}_orders_202512.tar.xz", set(wanted))):
             date, hour = wanted[name]
             raw_records = read_status_records(raw)
             records = drop_replayed(raw_records, last_ts)
