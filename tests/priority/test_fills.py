@@ -139,7 +139,7 @@ def test_liquidation_details_and_coin_frames() -> None:
             ["0xE", fill("ETH", "3000.0", "1", "B", 31, 10, True)],
         ],
     }
-    frames = coin_frames(["\n".join([*lines(), json.dumps(forced)])], ["BTC", "SOL"])
+    frames = coin_frames([lines(), [json.dumps(forced)]], ["BTC", "SOL"])  # two hourly files
     btc = frames["BTC"]
     assert btc.height == 6 and frames["SOL"].height == 0
     liq = btc.filter(pl.col("liquidation"))

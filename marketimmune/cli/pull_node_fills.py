@@ -13,9 +13,10 @@ Prints a JSON line per day: legs per coin, bytes read, seconds.
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
 from pathlib import Path
@@ -38,12 +39,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def coin_frames(hours: Iterable[str], coins: Sequence[str]) -> dict[str, pl.DataFrame]:
-    """The legs of ``coins`` in a day's hourly files (decompressed text), one frame per coin."""
+def coin_frames(hours: Iterable[Iterable[str]], coins: Sequence[str]) -> dict[str, pl.DataFrame]:
+    """The legs of ``coins`` in a day's hourly files (each an iterable of block lines), one frame per coin."""
     needles = [f'"{c}"' for c in coins]
-    parts = [parse(line for line in text.splitlines() if any(n in line for n in needles)) for text in hours]
+    # NOTE: one hour at a time; a day decompressed is up to 10 GB of JSON
+    parts = [parse(line for line in lines if any(n in line for n in needles)) for lines in hours]
     day = pl.concat(parts) if parts else pl.DataFrame(schema=FILL_SCHEMA)
     return {c: day.filter(pl.col("coin") == c).sort("block_number", "tid", "crossed") for c in coins}
+
+
+def _lines(s3: Any, key: str) -> Iterator[str]:
+    """Block lines of one hourly file, decompressed as they are read."""
+    with lz4.frame.open(io.BytesIO(s3.get_object(Bucket=NODE_BUCKET, Key=key, **RP)["Body"].read()), "rt") as fh:
+        yield from fh
 
 
 def pull_day(out: Path, coins: tuple[str, ...], day: str) -> dict[str, Any]:
@@ -54,8 +62,7 @@ def pull_day(out: Path, coins: tuple[str, ...], day: str) -> dict[str, Any]:
     s3 = client(NODE_REGION)
     objs = fills_day(s3, day)
     assert len(objs) == 24, f"{day}: {len(objs)} hourly files"
-    texts = [lz4.frame.decompress(s3.get_object(Bucket=NODE_BUCKET, Key=o.key, **RP)["Body"].read()).decode() for o in objs]
-    frames = coin_frames(texts, coins)
+    frames = coin_frames((_lines(s3, o.key) for o in objs), coins)
     for coin, frame in frames.items():
         paths[coin].parent.mkdir(parents=True, exist_ok=True)
         tmp = paths[coin].with_suffix(".part")
