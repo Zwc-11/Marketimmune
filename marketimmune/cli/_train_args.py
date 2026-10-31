@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from marketimmune.features.training_rows import FEATURE_SETS
 from marketimmune.models.cross_validation import CV_SCHEMES
 
 
@@ -67,12 +68,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--feature-set",
-        choices=["l0", "l0_book", "l1", "l1_book", "v2"],
+        choices=sorted(FEATURE_SETS),
         default="l0",
         help=(
-            "l0: v3 rung L0 (fixed v2 features); l0_book: L0 without asset contexts or "
-            "fees (Albers Dec 2025); l1/l1_book: plus the CEX-gap control; "
-            "v2: the deployed model's list."
+            "Ladder rung. l0: fixed v2 features; l1: + CEX gap; l2: + taker-wallet scores; "
+            "l3a: + lost races; l3b: + realised and forecast forced flow (l3b_realised: "
+            "realised only); l3: both. '_book' variants drop asset "
+            "contexts and fees (Albers Dec 2025). v2: the deployed model's list."
         ),
     )
     parser.add_argument("--n-splits", type=int, default=5)

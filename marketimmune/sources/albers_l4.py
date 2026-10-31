@@ -289,6 +289,20 @@ class AlbersBook:
     def _side(self, is_ask: bool) -> _Side:
         return self.asks if is_ask else self.bids
 
+    def reset(self) -> None:
+        """Forget every resting order.
+
+        Used after a gap in the data (the archives miss 2025-12-12 17:40:43 to
+        18:16:01 UTC): orders that left the book during the gap left no status, so
+        keeping them would cross the book for the rest of the month. The book then
+        rebuilds from new orders, like the start of a run.
+        """
+        self.orders.clear()
+        self.bids = _Side()
+        self.asks = _Side()
+        self._last_top = None
+        self._dirty = True
+
     def add(self, oid: int, is_ask: bool, px: int, sz: float) -> None:
         self._dirty = True
         if oid in self.orders:

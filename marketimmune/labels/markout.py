@@ -44,6 +44,10 @@ class MarkoutConfig:
     horizons_s: tuple[float, ...] = (1.0, 10.0, 60.0)
     fee_bps: float = 1.0
     reference: LabelReference = "pre_fill_mid"
+    # When set, a label needs the anchor mid no older than this before the fill and
+    # the future mid no later than this after ``t + h``; otherwise it would span a
+    # gap in the data (Albers misses 2025-12-12 17:40 to 18:16 UTC).
+    max_mid_lag_s: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

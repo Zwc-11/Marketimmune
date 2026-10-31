@@ -1,5 +1,7 @@
 """Run the Albers December 2025 pipeline for one coin: Silver L2 + order events,
-Silver fills, then Gold labels and training rows (with the L1 CEX gap).
+Silver fills, positions, the forced-flow forecast, Gold labels and training rows
+(with the L1 CEX gap), then the L2/L3 columns (taker-wallet scores, lost races,
+realised and forecast forced flow).
 
     python -m marketimmune.cli.run_albers_month --coin SOL --dates 20251201..20251231
 
@@ -19,9 +21,16 @@ import argparse
 import time
 from pathlib import Path
 
-from marketimmune.cli import build_albers_fills, build_albers_gold, build_albers_silver
+from marketimmune.cli import (
+    build_albers_fills,
+    build_albers_gold,
+    build_albers_silver,
+    build_positions,
+    enrich_albers,
+    forced_forecast,
+)
 
-STAGES = ("l2", "fills", "gold")
+STAGES = ("l2", "fills", "positions", "forecast", "gold", "enrich")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -52,10 +61,18 @@ def main(argv: list[str] | None = None) -> int:
         build_albers_silver.build(build_albers_silver.parse_args([*common, *albers]))
     if "fills" in stages:
         build_albers_fills.build(build_albers_fills.parse_args([*common, *albers]))
+    if "positions" in stages:
+        build_positions.build(build_positions.parse_args(common))
+    if "forecast" in stages:  # sequential over dates: state and priors carry forward
+        forced_forecast.build(
+            forced_forecast.parse_args([*common, "--binance-dir", str(args.binance_dir)])
+        )
     if "gold" in stages:
         build_albers_gold.build(
             build_albers_gold.parse_args([*common, "--binance-dir", str(args.binance_dir)])
         )
+    if "enrich" in stages:
+        enrich_albers.build(enrich_albers.parse_args(common))
     print(f"done: {', '.join(stages)} in {time.perf_counter() - t0:.0f}s")
     return 0
 

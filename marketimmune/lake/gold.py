@@ -172,6 +172,9 @@ def build_markout_gold_rows_from_mids(
     # Last mid strictly before each fill (fix L2): the label's anchor.
     pre_idx = np.searchsorted(mid_ts_s, fill_ts_s, side="left") - 1
     has_pre = pre_idx >= 0
+    lag = config.max_mid_lag_s
+    if lag is not None:
+        has_pre &= fill_ts_s - mid_ts_s[np.maximum(pre_idx, 0)] <= lag
     mid_before = mid_px[np.maximum(pre_idx, 0)]
     if config.reference == "pre_fill_mid":
         anchor, anchor_ok = mid_before, has_pre
@@ -184,6 +187,9 @@ def build_markout_gold_rows_from_mids(
     for horizon_s in config.horizons_s:
         idx = np.searchsorted(mid_ts_s, fill_ts_s + horizon_s, side="left")
         future_mid = mid_px[np.minimum(idx, mid_ts_s.size - 1)]
+        in_range = idx < mid_ts_s.size
+        if lag is not None:
+            in_range &= mid_ts_s[np.minimum(idx, mid_ts_s.size - 1)] - (fill_ts_s + horizon_s) <= lag
         markout = side * (future_mid - anchor) / anchor * BPS
         markout_px = side * (future_mid - price) / price * BPS
         per_horizon.append((
@@ -191,7 +197,7 @@ def build_markout_gold_rows_from_mids(
             markout.tolist(),
             markout_px.tolist(),
             (markout < -config.fee_bps).tolist(),
-            ((idx < mid_ts_s.size) & anchor_ok).tolist(),
+            (in_range & anchor_ok).tolist(),
         ))
 
     rows: list[MarkoutGoldRow] = []

@@ -71,6 +71,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--lake-root", type=Path, default=Path("data"))
     parser.add_argument("--warmup-minutes", type=float, default=10.0)
     parser.add_argument(
+        "--gap-seconds",
+        type=float,
+        default=30.0,
+        help="a jump between blocks longer than this resets the book and restarts warm-up",
+    )
+    parser.add_argument(
         "--diff-workers", type=int, default=1, help="processes parsing book diffs ahead (0: none)"
     )
     return parser.parse_args(argv)
@@ -125,6 +131,28 @@ def parse_diff_member(tar_path: str, name: str, coin: str) -> RestedArrays:
     oids = np.fromiter(rested.keys(), dtype=np.uint64, count=len(rested))
     sizes = np.fromiter(rested.values(), dtype=np.float64, count=len(rested))
     return oids, sizes
+
+
+def split_at_gaps(
+    records: npt.NDArray[np.void], last_ts: int | None, gap_ns: int
+) -> list[tuple[npt.NDArray[np.void], int | None]]:
+    """Cut an hour of statuses where consecutive blocks are more than ``gap_ns`` apart
+    (including the jump from the previous hour). Each piece comes with the time the
+    gap before it started, or None when no gap precedes it."""
+    if records.size == 0:
+        return [(records, None)]
+    ts = records["ts"].astype(np.int64)
+    cuts = (np.flatnonzero(np.diff(ts) > gap_ns) + 1).tolist()
+    starts = [0, *cuts]
+    ends = [*cuts, int(ts.size)]
+    out: list[tuple[npt.NDArray[np.void], int | None]] = []
+    for k, (a, b) in enumerate(zip(starts, ends, strict=True)):
+        if k == 0:
+            before = last_ts if last_ts is not None and int(ts[0]) - last_ts > gap_ns else None
+        else:
+            before = int(ts[a - 1])
+        out.append((records[a:b], before))
+    return out
 
 
 class DiffReader:
@@ -236,6 +264,10 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
     event_writers: dict[str, pq.ParquetWriter] = {}
     run_start_ns: int | None = None
     warmup_ns = int(args.warmup_minutes * 60e9)
+    gap_ns = int(args.gap_seconds * 1e9)
+    last_ts: int | None = None
+    warm_from = 0  # rows before this time are dropped (start of run, or after a gap)
+    gaps: dict[str, list[dict[str, Any]]] = {d: [] for d in dates}
     writers: dict[str, pq.ParquetWriter] = {}
     report: dict[str, list[dict[str, Any]]] = {d: [] for d in dates}
     t0 = time.perf_counter()
@@ -247,7 +279,24 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
             rested.update(diffs.rested(*next_hour(date, hour)))
             diffs.forget(date, hour)
             events: list[dict[str, Any]] = []
-            rows, stats = book.replay_hour(records, rested, ReplayStats(), events)
+            stats = ReplayStats()
+            rows: list[dict[str, Any]] = []
+            if run_start_ns is None and records.size:
+                run_start_ns = int(records["ts"][0])
+                warm_from = max(warm_from, run_start_ns + warmup_ns)
+            for segment, gap_start in split_at_gaps(records, last_ts, gap_ns):
+                if gap_start is not None:
+                    book.reset()
+                    gap_end = int(segment["ts"][0])
+                    warm_from = gap_end + warmup_ns
+                    gaps[date].append({
+                        "from_ns": gap_start, "to_ns": gap_end,
+                        "seconds": round((gap_end - gap_start) / 1e9, 1),
+                    })
+                part, stats = book.replay_hour(segment, rested, stats, events)
+                rows.extend(r for r in part if r["ts_ns"] >= warm_from)
+            if records.size:
+                last_ts = int(records["ts"][-1])
             for event in events:
                 event["user"] = users.get(event["user_id"])
             if events:
@@ -258,10 +307,6 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
                 event_writers[date].write_table(
                     pa.Table.from_pylist(events, schema=EVENT_SCHEMA)
                 )
-            if run_start_ns is None and records.size:
-                run_start_ns = int(records["ts"][0])
-            if run_start_ns is not None:
-                rows = [r for r in rows if r["ts_ns"] >= run_start_ns + warmup_ns]
             entry = {"hour": hour, **stats.to_dict(), "rows_written": len(rows)}
             report[date].append(entry)
             if rows:
@@ -293,6 +338,8 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
             "date": date,
             "source": SOURCE,
             "warmup_minutes": args.warmup_minutes,
+            "gap_seconds": args.gap_seconds,
+            "gaps": gaps.get(date, []),
             "hours": hours_report,
         }
         path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

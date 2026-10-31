@@ -217,3 +217,11 @@ def test_rested_orders_gz_falls_back_when_key_order_differs() -> None:
     reordered = json.dumps({"coin": "SOL", "oid": 7, "side": "A", "px": "2",
                             "raw_book_diff": {"new": {"sz": "3"}}}, separators=(",", ":"))
     assert rested_orders_gz(gzip.compress((reordered + "\n").encode()), "SOL") == {7: 3.0}
+
+
+def test_reset_forgets_every_order() -> None:
+    book = AlbersBook("SOL")
+    book.add(1, False, 100, 1.0)
+    book.add(2, True, 101, 1.0)
+    book.reset()
+    assert book.orders == {} and book.best() == (None, None)

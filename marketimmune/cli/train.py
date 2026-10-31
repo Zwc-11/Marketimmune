@@ -11,12 +11,16 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from sklearn.isotonic import IsotonicRegression  # type: ignore[import-untyped]
 
 from marketimmune.cli._train_args import parse_args
 from marketimmune.cli._train_data import (
     FEATURE_COLUMNS,
+    OOF_EXTRA_COLUMNS,
     dataset_label,
     load_training_panel,
     parse_date_spec,
@@ -252,6 +256,35 @@ def event_ofi_probabilities(frame: pd.DataFrame) -> np.ndarray[Any, Any]:
         * frame["l2_ofi_10s"].astype(float).to_numpy()
     )
     return np.asarray(0.5 + 0.5 * np.tanh(signed_risk), dtype=np.float64)
+
+
+def write_oof_predictions(
+    path: Path,
+    frame: pd.DataFrame,
+    *,
+    horizon: str,
+    probabilities: npt.NDArray[np.float64],
+    raw_probabilities: npt.NDArray[np.float64],
+    baseline_probabilities: npt.NDArray[np.float64],
+    feature_set: str,
+) -> Path:
+    """Out-of-fold predictions, one row per evaluated fill, for day-level rung tests
+    (``python -m marketimmune.cli.compare_rungs``)."""
+    keep = ["ts_ms", "partition_coin", "partition_date", "px", "sz", "maker_side",
+            *(c for c in OOF_EXTRA_COLUMNS if c in frame.columns)]
+    out = frame[[c for c in keep if c in frame.columns]].copy()
+    out["label"] = frame[f"toxic_{horizon}"].to_numpy(dtype=bool)
+    out["markout_bps"] = frame[f"markout_bps_{horizon}"].to_numpy(dtype=np.float64)
+    out["prob"] = probabilities
+    out["raw_prob"] = raw_probabilities
+    out["baseline_prob"] = baseline_probabilities
+    out.attrs = {}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    table = pa.Table.from_pandas(out, preserve_index=False).replace_schema_metadata(
+        {"feature_set": feature_set, "horizon": horizon}
+    )
+    pq.write_table(table, path, compression="zstd")
+    return path
 
 
 def evaluate_baseline(
@@ -730,6 +763,16 @@ def main() -> int:
     }
     if holdout_payload is not None:
         payload["holdout_split"] = holdout_payload
+    oof_path = write_oof_predictions(
+        args.report.with_suffix(".oof.parquet"),
+        eval_frame,
+        horizon=args.horizon,
+        probabilities=eval_probabilities[valid],
+        raw_probabilities=raw_probabilities[valid],
+        baseline_probabilities=baseline_probabilities[valid],
+        feature_set=args.feature_set,
+    )
+    payload["oof_predictions"] = str(oof_path)
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     args.model_out.parent.mkdir(parents=True, exist_ok=True)

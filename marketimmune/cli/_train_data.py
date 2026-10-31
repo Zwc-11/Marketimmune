@@ -25,6 +25,12 @@ FEATURE_COLUMNS = list(FEATURE_SETS[DEFAULT_FEATURE_SET])
 OFI_COLUMNS = HYPERLIQUID_OFI_COLUMNS
 
 
+# Not features: the out-of-fold export uses them to align rows across rungs and to
+# split results by regime (a Binance move, a forced liquidation).
+OOF_EXTRA_COLUMNS = ("oid", "tid", "liquidation", "cex_ret_1000ms_bps",
+                     "forced_same_notional_60000ms", "forced_opp_notional_60000ms")
+
+
 def use_feature_set(name: str) -> list[str]:
     """Select a ladder rung's columns (``l0``, ``l0_book``, ``l1``, ``l1_book``) or ``v2``."""
     if name not in FEATURE_SETS:
@@ -214,8 +220,10 @@ def load_training_frame(path: Path, *, horizon: str, max_rows: int = 0) -> pd.Da
         "asset_open_interest",
         "asset_premium",
     ]
-    # Rung-specific columns stored as-is in Gold (e.g. the CEX gap) are read too.
+    # Rung-specific columns stored as-is in Gold (e.g. the CEX gap) are read too,
+    # plus the row key and regime columns the out-of-fold export carries.
     requested_columns += [c for c in FEATURE_COLUMNS if c not in requested_columns]
+    requested_columns += [c for c in OOF_EXTRA_COLUMNS if c not in requested_columns]
     available_columns = set(pq.read_schema(path).names)
     columns = [column for column in requested_columns if column in available_columns]
     frame = pq.read_table(path, columns=columns).to_pandas()

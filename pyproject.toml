@@ -23,7 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Model training and the web-model export.
-training = ["catboost>=1.2.10"]
+training = ["catboost>=1.2.10", "lightgbm>=4.5"]
 # Faster gzip for the Albers archives (python-isal); everything works without it.
 fast = ["isal>=1.7"]
 # Requester-pays Hyperliquid S3 (node fills, L2 archive, replica_cmds).

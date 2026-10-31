@@ -61,6 +61,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--binance-symbol", default=None, help="default <COIN>USDT")
     parser.add_argument("--cex-latency-ms", type=float, default=DEFAULT_LATENCY_MS)
+    parser.add_argument(
+        "--max-mid-lag-s",
+        type=float,
+        default=30.0,
+        help="drop a label whose pre-fill or horizon mid is staler than this (data gaps)",
+    )
     return parser.parse_args(argv)
 
 
@@ -136,7 +142,8 @@ def add_cex_features(
 def build(args: argparse.Namespace) -> list[dict[str, Any]]:
     coin = args.coin.upper()
     layout = HyperliquidLakeLayout(args.lake_root)
-    config = MarkoutConfig(horizons_s=(1.0, 10.0, 60.0))
+    # A label may not lean on a mid from across a gap in the data.
+    config = MarkoutConfig(horizons_s=(1.0, 10.0, 60.0), max_mid_lag_s=args.max_mid_lag_s)
     summaries: list[dict[str, Any]] = []
     t0 = time.perf_counter()
     for date in parse_date_spec(args.dates):

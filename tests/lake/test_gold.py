@@ -206,3 +206,19 @@ def test_gold_rows_from_mid_arrays_match_snapshot_path() -> None:
         build_markout_gold_rows_from_mids(
             [fill], [0.5, 2.0], [1.0, 1.0], MarkoutConfig(reference="bogus")  # type: ignore[arg-type]
         )
+
+
+def test_labels_never_span_a_gap_in_the_mids() -> None:
+    fill = parse_fill_row({
+        "coin": "BTC", "px": "100.0", "sz": "1.0", "side": "B", "crossed": False, "time": 100_000,
+    })
+    config = MarkoutConfig(horizons_s=(1.0, 60.0), max_mid_lag_s=30.0)
+    # anchor 99 s old: stale (a gap before the fill) -> no label at all
+    assert build_markout_gold_rows_from_mids([fill], [1.0, 101.0], [100.0, 101.0], config) == []
+    # fresh anchor; next mid after t+1 s comes 35 min later -> 1 s and 60 s both dropped
+    assert build_markout_gold_rows_from_mids([fill], [99.9, 2200.0], [100.0, 90.0], config) == []
+    # 1 s label fine, 60 s label would need a mid 1,000 s after t+60 -> only 1s kept
+    (row,) = build_markout_gold_rows_from_mids(
+        [fill], [99.9, 101.0, 1160.0], [100.0, 100.5, 90.0], config
+    )
+    assert set(row.markout_bps) == {"1s"}

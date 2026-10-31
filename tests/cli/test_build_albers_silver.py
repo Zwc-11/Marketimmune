@@ -5,15 +5,30 @@ from __future__ import annotations
 import gzip
 import io
 import json
+import math
 import tarfile
 import zipfile
 from pathlib import Path
 
+import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 
-from marketimmune.cli import build_albers_fills, build_albers_gold, run_albers_month
-from marketimmune.cli.build_albers_silver import build, next_hour, parse_args, parse_hours
+from marketimmune.cli import (
+    build_albers_fills,
+    build_albers_gold,
+    enrich_albers,
+    forced_forecast,
+    run_albers_month,
+)
+from marketimmune.cli.build_albers_silver import (
+    build,
+    next_hour,
+    parse_args,
+    parse_hours,
+    split_at_gaps,
+)
+from marketimmune.features.forced_flow_features import GRID_INPUTS
 from tests.sources.test_albers_l4 import status_records
 
 DEC1 = 1_764_547_200 * 1_000_000_000  # 2025-12-01T00:00:00Z in ns
@@ -51,6 +66,7 @@ def test_build_writes_rows_and_validation(tmp_path: Path) -> None:
     args = parse_args([
         "--dates", "20251201", "--hours", "0-1", "--albers-dir", str(tmp_path),
         "--lake-root", str(tmp_path / "lake"), "--warmup-minutes", "0",
+        "--gap-seconds", "100000",  # this toy hour has minutes between blocks
     ])
     assert build(args)["dates"] == ["20251201"]
 
@@ -86,7 +102,7 @@ def test_build_writes_rows_and_validation(tmp_path: Path) -> None:
     with zipfile.ZipFile(binance / "SOLUSDT-aggTrades-2025-12-01.zip", "w") as zf:
         zf.writestr("x.csv", f"1,100.0,1,1,1,{DEC1 // 10**6 - 5000},true\n"
                              f"2,100.1,1,2,2,{DEC1 // 10**6 + 1800},false\n")
-    gold_args = [*lake, "--binance-dir", str(tmp_path / "binance")]
+    gold_args = [*lake, "--binance-dir", str(tmp_path / "binance"), "--max-mid-lag-s", "1e9"]
     (gold,) = build_albers_gold.build(build_albers_gold.parse_args(gold_args))
     assert gold["gold_rows"] == 1 and gold["leakage_check"]["passed"] is True
     assert gold["cex"] == {"added": True, "leakage_passed": True, "nan_share": 0.0}
@@ -104,6 +120,38 @@ def test_build_writes_rows_and_validation(tmp_path: Path) -> None:
     # the fill is at 2 s; Binance's 100.1 print at 1.8 s is inside the 300 ms latency
     assert training["cex_ret_1000ms_bps"] == pytest.approx(0.0)
     assert training["cex_ret_5000ms_bps"] == pytest.approx(0.0)
+
+    # enrich: L2 wallet scores and L3 order-event columns, each with its own check
+    (enriched,) = enrich_albers.build(enrich_albers.parse_args(["--dates", "20251201", *lake]))
+    assert enriched["leakage_passed"] is True
+    row = pq.read_table(
+        tmp_path / "lake/gold/hyperliquid/training/SOL/SOL-training-20251201.parquet"
+    ).to_pylist()[0]
+    assert row["taker_log_n"] == 0.0 and row["taker_tox_10s"] == 0.0  # no history yet
+    assert row["race_lost_same_n_1000ms"] == 0.0 and "forced_opp_notional_60000ms" in row
+    sidecar = json.loads(
+        (tmp_path / "lake/gold/hyperliquid/training/SOL/SOL-training-20251201.leakage.json")
+        .read_text()
+    )
+    assert sidecar["wallet"]["passed"] and sidecar["order_events"]["passed"]
+    assert sidecar["join_passed"] is True and sidecar["passed"] is True
+    # no forecast grid yet: the L3b forecast columns exist and are missing
+    assert row["fc_same_15s"] is None or math.isnan(row["fc_same_15s"])
+    assert sidecar["forecast"]["passed"] and sidecar["forecast"]["rows_with_forecast"] == 0
+    # with a grid row before the fill (maker on the ask: forced buys are "same")
+    grid = {c: [0.0] for c in GRID_INPUTS}
+    grid.update(ts_ms=[1_764_547_201_000.0], F_bid_15s=[3.0], F_ask_15s=[7.0],
+                hazard_scaled=[True])
+    path = forced_forecast.forced_grid_path(tmp_path / "lake", "SOL", "20251201")
+    path.parent.mkdir(parents=True)
+    pd.DataFrame(grid).to_parquet(path)
+    (enriched,) = enrich_albers.build(enrich_albers.parse_args(["--dates", "20251201", *lake]))
+    assert enriched["rows_with_forecast"] == 1 and enriched["leakage_passed"] is True
+    row = pq.read_table(
+        tmp_path / "lake/gold/hyperliquid/training/SOL/SOL-training-20251201.parquet"
+    ).to_pylist()[0]
+    assert row["fc_same_15s"] == 7.0 and row["fc_opp_15s"] == 3.0
+    assert enrich_albers.build(enrich_albers.parse_args(["--dates", "20251202", *lake])) == []
 
     # the orchestrator reruns a stage; without Binance zips the CEX step reports why
     assert run_albers_month.main(["--stages", "gold", "--dates", "20251201", *lake,
@@ -124,3 +172,40 @@ def test_gold_skips_dates_without_inputs(tmp_path: Path) -> None:
     assert build_albers_gold.build(
         build_albers_gold.parse_args(["--lake-root", str(tmp_path)])
     ) == []
+
+
+def test_split_at_gaps() -> None:
+    rec = status_records([{"ts": t * S, "status": "open", "oid": k}
+                          for k, t in enumerate((1, 2, 100, 101))])
+    parts = split_at_gaps(rec, None, 30 * S)
+    assert [len(p) for p, _ in parts] == [2, 2] and [g for _, g in parts] == [None, 2 * S]
+    first, gap = split_at_gaps(rec[2:], 2 * S, 30 * S)[0]  # gap from the previous hour
+    assert len(first) == 2 and gap == 2 * S
+    assert split_at_gaps(rec[:0], None, 30 * S)[0][1] is None
+
+
+def test_gap_resets_the_book(tmp_path: Path) -> None:
+    # An ask rests at 100.02; its cancel falls inside a 30-minute hole in the data.
+    # After the hole a bid at 100.05 rests. Without the reset the stale ask would
+    # cross the book from then on.
+    hour0 = status_records([
+        {"ts": DEC1 + 1 * S, "status": "open", "oid": 1, "px": 100.00, "sz": 2.0},
+        {"ts": DEC1 + 1 * S, "status": "open", "oid": 2, "px": 100.02, "sz": 1.0, "ask": True},
+        {"ts": DEC1 + 1801 * S, "status": "open", "oid": 3, "px": 100.05, "sz": 1.0},
+        {"ts": DEC1 + 1801 * S, "status": "open", "oid": 4, "px": 100.07, "sz": 1.0, "ask": True},
+    ])
+    with tarfile.open(tmp_path / "sol_orders_202512.tar.xz", "w:xz") as tar:
+        _add(tar, "20251201/sol_00.data.gz", gzip.compress(hour0.tobytes()))
+    lines = "".join(f"{_diff(o, 1.0)}\n" for o in (1, 2, 3, 4))
+    with tarfile.open(tmp_path / "book_diffs_202512.tar", "w") as tar:
+        _add(tar, "20251201/ex0.gz", gzip.compress(lines.encode()))
+    build(parse_args(["--dates", "20251201", "--hours", "0", "--albers-dir", str(tmp_path),
+                      "--lake-root", str(tmp_path / "lake"), "--warmup-minutes", "0",
+                      "--diff-workers", "0"]))
+    base = tmp_path / "lake/silver/hyperliquid/l2_book/SOL/SOL-20251201"
+    rows = pq.read_table(base.with_suffix(".parquet")).to_pylist()
+    assert [(r["bid_px"], r["ask_px"]) for r in rows] == [(100.0, 100.02), (100.05, 100.07)]
+    report = json.loads(base.with_suffix(".validation.json").read_text())
+    assert report["gaps"] == [{"from_ns": DEC1 + 1 * S, "to_ns": DEC1 + 1801 * S,
+                               "seconds": 1800.0}]
+    assert report["hours"][0]["crossed_blocks"] == 0

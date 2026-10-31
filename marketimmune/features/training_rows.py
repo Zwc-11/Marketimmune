@@ -17,6 +17,9 @@ import numpy as np
 import numpy.typing as npt
 
 from marketimmune.features.cex_gap import CEX_FEATURE_COLUMNS
+from marketimmune.features.forced_flow_features import FORECAST_FEATURE_COLUMNS
+from marketimmune.features.order_events import FORCED_FEATURE_COLUMNS, RACE_FEATURE_COLUMNS
+from marketimmune.features.wallet_toxicity import WALLET_FEATURE_COLUMNS
 from marketimmune.labels.leakage import (
     LeakageError,
     LookaheadReport,
@@ -85,6 +88,26 @@ FEATURE_SETS: dict[str, tuple[str, ...]] = {
     "l1": (*MARKOUT_L0_FEATURE_COLUMNS, *CEX_FEATURE_COLUMNS),
     "l1_book": (*MARKOUT_L0_BOOK_FEATURE_COLUMNS, *CEX_FEATURE_COLUMNS),
 }
+# The rest of the ladder, each rung adding to the one before (v3 Integration):
+# L2 taker-wallet scores, L3a speed/race features, L3b forced flow, L3 both.
+# On the pre-fee Albers month, L3a is the lost-race count, and L3b is realised
+# forced flow (marketimmune.features.order_events) plus the position-book
+# forecast (marketimmune.features.forced_flow_features); ``l3b_realised`` keeps
+# only the realised part, to show what the forecast adds.
+_FORCED = (*FORCED_FEATURE_COLUMNS, *FORECAST_FEATURE_COLUMNS)
+for _base in ("l1", "l1_book"):
+    _suffix = _base[2:]
+    _l2 = (*FEATURE_SETS[_base], *WALLET_FEATURE_COLUMNS)
+    FEATURE_SETS[f"l2{_suffix}"] = _l2
+    FEATURE_SETS[f"l3a{_suffix}"] = (*_l2, *RACE_FEATURE_COLUMNS)
+    FEATURE_SETS[f"l3b{_suffix}"] = (*_l2, *_FORCED)
+    FEATURE_SETS[f"l3b_realised{_suffix}"] = (*_l2, *FORCED_FEATURE_COLUMNS)
+    FEATURE_SETS[f"l3{_suffix}"] = (*_l2, *RACE_FEATURE_COLUMNS, *_FORCED)
+# Placebo for L3a: the lost races aimed at the *other* side only.
+FEATURE_SETS["l3a_placebo_book"] = (
+    *FEATURE_SETS["l2_book"],
+    *(c for c in RACE_FEATURE_COLUMNS if "_opp_" in c),
+)
 OFI_WINDOWS_MS = {
     "ofi_1s": 1_000.0,
     "ofi_5s": 5_000.0,
