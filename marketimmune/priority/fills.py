@@ -110,6 +110,17 @@ def read_lz4(path: Path, contains: str = "") -> pl.DataFrame:
         return parse(line for line in fh if contains in line)
 
 
+def execution_order(oid: str = "oid", side: str = "side") -> list[pl.Expr]:
+    """Sort keys that put a block's taker fills in execution order: by taker order id (orders
+    are numbered as they execute), then along each order's sweep (buys up the book, sells down).
+    The node lists a block's fills in neither order, and trade ids are not sequential. Checked
+    on SOL 2025-12-01: re-chaining each wallet's fills on ``start_position`` gives non-decreasing
+    taker oids in 98.8% of wallet-blocks with several taker orders, and the sweep order in
+    99.97% of multi-fill buy orders and 99.99% of sells; the file order gives the sweep in ~70%."""
+    sweep = pl.when(pl.col(side) == "B").then(pl.col("px")).otherwise(-pl.col("px"))
+    return [pl.col("block_number"), pl.col(oid), sweep]
+
+
 def pair_legs(df: pl.DataFrame) -> pl.DataFrame:
     """Join each match's taker and maker legs on (coin, tid)."""
     taker = df.filter(pl.col("crossed")).select(

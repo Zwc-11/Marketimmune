@@ -19,7 +19,7 @@ def _trades() -> pl.DataFrame:
     """Blocks 10-14, 100 ms apart: sellers hit the bid with fees in blocks 11 and 12, a buyer
     pays nothing in block 13, a liquidation sells in block 14."""
     rows = [
-        # block, tid, px, notional, taker side, fee bps, liquidation
+        # block, taker oid, px, notional, taker side, fee bps, liquidation
         (10, 1, 100.0, 1_000.0, "B", 0.0, False),
         (10, 2, 99.9, 1_000.0, "A", 0.0, False),
         (11, 3, 99.8, 2_000.0, "A", 2.0, False),
@@ -31,7 +31,7 @@ def _trades() -> pl.DataFrame:
     return pl.DataFrame(
         {
             "block_number": [r[0] for r in rows],
-            "tid": [r[1] for r in rows],
+            "taker_oid": [r[1] for r in rows],
             "t_ms": [1_000.0 + 100.0 * (r[0] - 10) for r in rows],
             "px": [r[2] for r in rows],
             "notional": [r[3] for r in rows],
@@ -91,3 +91,24 @@ def test_no_lookahead_check_passes() -> None:
         (*TRADE_STATE_COLUMNS, *FEE_COLUMNS, *FEE_PLACEBO_COLUMNS, *FORCED_COLUMNS),
     )
     assert report["passed"] and report["n_mismatched"] == 0
+
+
+def test_block_quotes_use_execution_order_not_file_order() -> None:
+    # one block, listed out of order: buy order 7 sweeps 100.0 then 100.2 after buy order 5
+    # filled at 99.9; seller order 6 sweeps 99.8 then 99.6. The block's last ask is 100.2 and
+    # its last bid 99.6, whatever order the rows come in.
+    rows = [(7, 100.2, "B"), (6, 99.6, "A"), (5, 99.9, "B"), (7, 100.0, "B"), (6, 99.8, "A")]
+    trades = pl.DataFrame(
+        {
+            "block_number": [10] * len(rows),
+            "taker_oid": [r[0] for r in rows],
+            "t_ms": [1_000.0] * len(rows),
+            "px": [r[1] for r in rows],
+            "notional": [1_000.0] * len(rows),
+            "taker_side": [r[2] for r in rows],
+            "fee_bps": [0.0] * len(rows),
+            "liquidation": [False] * len(rows),
+        }
+    )
+    row = block_table(trades).row(0, named=True)
+    assert (row["ask_px"], row["bid_px"]) == (100.2, 99.6)

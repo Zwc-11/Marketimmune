@@ -106,3 +106,15 @@ def test_pull_candles_merges(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     frame = pl.read_parquet(tmp_path / "HYPE-1h.parquet")
     assert frame.height == 1 and frame["c"].item() == 1.5
     assert calls[0][2] - calls[0][1] == 2 * 86_400_000
+
+
+def test_trade_mids_take_the_last_executed_prices() -> None:
+    # one block listed out of execution order (and with trade ids in no useful order): buy order
+    # 50 fills at 100.1, then buy order 70 sweeps 100.2 and 100.4; sell order 60 sweeps 99.9 then
+    # 99.7. The block's last buy is 100.4 and its last sell 99.7.
+    fills = [(9, 70, True, 100.4), (1, 60, False, 99.7), (5, 50, True, 100.1), (3, 70, True, 100.2), (7, 60, False, 99.9)]
+    rows = []
+    for tid, oid, buys, px in fills:
+        taker, maker = _trade(1, 0, tid, buys, px)
+        rows += [{**taker, "oid": oid}, {**maker, "oid": 1000 + tid}]
+    assert trade_mids(to_frame(rows))["mid"].to_list() == [pytest.approx((100.4 + 99.7) / 2)]

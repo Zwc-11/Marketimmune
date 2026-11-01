@@ -65,21 +65,21 @@ Apr 25 to Oct 31, 2026 (190 days): 66.3M BTC, 30.2M ETH and 17.2M SOL trades.
 
 | Band (bps) | BTC fills | BTC fee | BTC markout | ETH fills | ETH fee | ETH markout | SOL fills | SOL fee | SOL markout |
 |---|---:|---:|---|---:|---:|---|---:|---:|---|
-| 0 | 96.65% | 0 | -0.34 [-0.39, -0.29] | 93.11% | 0 | -0.24 [-0.30, -0.18] | 94.37% | 0 | -0.21 [-0.30, -0.13] |
-| 0-2 | 3.15% | 0.30 | -2.08 [-2.24, -1.94] | 6.25% | 0.31 | -2.01 [-2.27, -1.79] | 5.03% | 0.28 | -2.13 [-2.31, -1.98] |
-| 2-4 | 0.08% | 2.90 | -5.56 [-6.28, -4.85] | 0.20% | 2.74 | -5.67 [-6.36, -5.05] | 0.34% | 2.84 | -6.47 [-7.00, -5.96] |
-| 4-8 | 0.09% | 5.83 | -7.97 [-9.03, -6.97] | 0.28% | 6.11 | -9.56 [-10.54, -8.62] | 0.15% | 5.71 | -8.53 [-10.04, -7.00] |
-| 8+ | 0.04% | 10.23 | -10.82 [-14.57, -7.28] | 0.16% | 9.66 | -10.28 [-12.06, -8.63] | 0.11% | 9.62 | -13.19 [-15.76, -10.62] |
+| 0 | 96.65% | 0 | -0.34 [-0.40, -0.29] | 93.11% | 0 | -0.25 [-0.31, -0.19] | 94.37% | 0 | -0.23 [-0.32, -0.15] |
+| 0-2 | 3.15% | 0.30 | -2.09 [-2.25, -1.94] | 6.25% | 0.31 | -2.02 [-2.28, -1.80] | 5.03% | 0.28 | -2.15 [-2.32, -2.00] |
+| 2-4 | 0.08% | 2.90 | -5.58 [-6.30, -4.88] | 0.20% | 2.74 | -5.68 [-6.37, -5.06] | 0.34% | 2.84 | -6.49 [-7.03, -5.97] |
+| 4-8 | 0.09% | 5.83 | -7.99 [-9.05, -6.99] | 0.28% | 6.11 | -9.57 [-10.56, -8.63] | 0.15% | 5.71 | -8.53 [-10.05, -7.00] |
+| 8+ | 0.04% | 10.23 | -10.86 [-14.60, -7.34] | 0.16% | 9.66 | -10.31 [-12.11, -8.65] | 0.11% | 9.62 | -13.24 [-15.81, -10.66] |
 
 **60 s:**
 
 | Band (bps) | BTC | ETH | SOL |
 |---|---|---|---|
-| 0 | -0.34 [-0.41, -0.28] | -0.31 [-0.39, -0.23] | -0.36 [-0.51, -0.24] |
-| 0-2 | -2.21 [-2.50, -1.97] | -2.16 [-2.48, -1.85] | -2.58 [-2.80, -2.36] |
-| 2-4 | -4.02 [-4.92, -3.12] | -5.27 [-6.26, -4.34] | -6.04 [-6.95, -5.17] |
-| 4-8 | -6.75 [-8.83, -4.97] | -8.61 [-10.13, -7.22] | -7.53 [-9.43, -5.63] |
-| 8+ | -8.92 [-12.77, -5.19] | -9.14 [-12.45, -5.97] | -10.78 [-14.05, -7.59] |
+| 0 | -0.34 [-0.41, -0.28] | -0.31 [-0.39, -0.23] | -0.37 [-0.51, -0.24] |
+| 0-2 | -2.21 [-2.50, -1.97] | -2.16 [-2.48, -1.86] | -2.58 [-2.80, -2.37] |
+| 2-4 | -4.02 [-4.93, -3.12] | -5.26 [-6.25, -4.33] | -6.04 [-6.95, -5.18] |
+| 4-8 | -6.76 [-8.84, -4.98] | -8.61 [-10.13, -7.21] | -7.53 [-9.44, -5.64] |
+| 8+ | -8.93 [-12.78, -5.18] | -9.14 [-12.45, -5.98] | -10.78 [-14.04, -7.61] |
 
 - **The separation is large, monotone in the fee and the same in all three coins.**
   - A maker hit by a taker that paid no fee loses 0.2 to 0.3 bps at 10 s.
@@ -102,16 +102,27 @@ From April 2026 there is no rebuilt order book for these coins. `priority.fees.t
 takes, after each block, the last price a taker bought at and the last price a taker sold at,
 carried forward, and uses their mean. While they cross, it uses the block's last trade price.
 
+"Last" means last executed. The node lists a block's fills in neither execution nor trade-id
+order (trade ids are not sequential), so fills are put in execution order by taker order id
+and then along each order's sweep (`priority.fills.execution_order`). On SOL, 2025-12-01,
+re-chaining each wallet's fills on `start_position` confirms it: taker order ids are
+non-decreasing along the chain in 98.8% of wallet-blocks with several taker orders, and fills
+within a taker order follow the sweep in 99.97% (buys) and 99.99% (sells) of multi-fill orders,
+against about 70% in file order. A first version sorted by trade id, so it took a random fill of
+the block. The fix lowered the mean absolute difference from Gold by 3 to 7% at every horizon
+and changed the fee-band markouts above by at most 0.05 bps at 10 s and 60 s; the tables are the
+rerun.
+
 On December 2025 both this mid and the rebuilt book exist. `validate_trade_mids` joins each node
 trade to its Gold row (taker order id, time, price, size): SOL, Dec 1-31, 2,883,611 trades; ETH,
 Dec 1-15, 3,824,772.
 
 | Measure | SOL corr | SOL mean, trade mid / Gold | ETH corr | ETH mean, trade mid / Gold |
 |---|---:|---|---:|---|
-| Markout from fill price, 1 s | 0.68 | +0.53 / -0.23 | 0.83 | +0.16 / -0.47 |
-| Markout from fill price, 10 s | 0.97 | -0.28 / -0.33 | 0.99 | -0.60 / -0.61 |
-| Markout from fill price, 60 s | 0.99 | -0.37 / -0.39 | 1.00 | -0.56 / -0.56 |
-| Move from the pre-fill mid, 1 s | 0.76 | -0.85 / -1.20 | 0.84 | -1.34 / -1.48 |
+| Markout from fill price, 1 s | 0.71 | +0.44 / -0.23 | 0.80 | +0.11 / -0.47 |
+| Markout from fill price, 10 s | 0.97 | -0.29 / -0.33 | 0.99 | -0.61 / -0.61 |
+| Markout from fill price, 60 s | 0.99 | -0.38 / -0.39 | 1.00 | -0.56 / -0.56 |
+| Move from the pre-fill mid, 1 s | 0.78 | -0.91 / -1.20 | 0.83 | -1.34 / -1.48 |
 
 - **10 s and 60 s:** the markout from the fill price matches the book's: correlation 0.97 to
   1.00, and the same mean.
@@ -119,7 +130,7 @@ Dec 1-15, 3,824,772.
   and the split into half-spread and move are biased.
 - **Differences survive at 1 s, compressed by about a third.** By bucket of the CEX gap, the
   trade-mid move at 1 s orders the same way as the book's:
-  - SOL: -2.21 vs -3.34 bps when the gap is ≤ -2, against +0.02 vs +0.71 when it is ≥ 2.
+  - SOL: -2.31 vs -3.34 bps when the gap is ≤ -2, against +0.06 vs +0.71 when it is ≥ 2.
   - So the 1 s fee-band differences in the report understate the true ones.
 
 ## Limits

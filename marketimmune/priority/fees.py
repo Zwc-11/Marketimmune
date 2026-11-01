@@ -8,7 +8,7 @@ candle around the fill where the endpoint still serves it, else the 4-hour one.
 
 From April 2026 there is no rebuilt order book for these coins, so markouts use a mid implied by
 trades: after each block, the last price a taker bought at (the ask side) and the last price a
-taker sold at (the bid side), carried forward. ``cli.validate_trade_mids`` measures how close
+taker sold at (the bid side), in execution order, carried forward. ``cli.validate_trade_mids`` measures how close
 markouts on that mid come to Gold's, which use the rebuilt book, on December 2025.
 """
 
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import polars as pl
 
-from marketimmune.priority.fills import markouts, pair_legs
+from marketimmune.priority.fills import execution_order, markouts, pair_legs
 
 FEE_EDGES_BPS = (2.0, 4.0, 8.0)
 BANDS = ("0", "0-2", "2-4", "4-8", "8+")
@@ -76,8 +76,9 @@ def with_fee_bps(pairs: pl.DataFrame, hype: pl.DataFrame) -> pl.DataFrame:
 
 def trade_mids(legs: pl.DataFrame) -> pl.DataFrame:
     """``(coin, t, mid)`` after each block with a trade: the mean of the last taker-buy price and
-    the last taker-sell price so far; while they cross (one side stale), the block's last price."""
-    takers = legs.filter(pl.col("crossed")).sort("block_number", "tid")
+    the last taker-sell price so far, in execution order (``fills.execution_order``); while they
+    cross (one side stale), the block's last price."""
+    takers = legs.filter(pl.col("crossed")).sort(execution_order())
     per_block = takers.group_by("coin", "block_number", maintain_order=True).agg(
         pl.col("block_time").first().cast(TS).alias("t"),
         pl.col("px").filter(pl.col("side") == "B").last().alias("ask"),

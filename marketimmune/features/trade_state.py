@@ -30,6 +30,8 @@ import numpy as np
 import numpy.typing as npt
 import polars as pl
 
+from marketimmune.priority.fills import execution_order
+
 FloatArray = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int64]
 
@@ -56,13 +58,14 @@ SIDES = ("bid", "ask")  # the resting side a taker hits: sellers hit bids, buyer
 
 def block_table(trades: pl.DataFrame) -> pl.DataFrame:
     """One row per block with a trade, in block order. ``trades``: one row per match with
-    ``block_number``, ``t_ms`` (block time, ms, float), ``px``, ``notional``, ``taker_side``
-    ("B" buys, "A" sells), ``fee_bps`` (0 without a fee) and ``liquidation``.
+    ``block_number``, ``taker_oid``, ``t_ms`` (block time, ms, float), ``px``, ``notional``,
+    ``taker_side`` ("B" buys, "A" sells), ``fee_bps`` (0 without a fee) and ``liquidation``.
+    "Last" prices are in execution order (``priority.fills.execution_order``).
 
     Per side hit (``bid``: by sellers; ``ask``: by buyers): notional, fee-weighted notional,
     fee-paying count and notional, largest fee, and forced notional."""
     hit = pl.when(pl.col("taker_side") == "A").then(pl.lit("bid")).otherwise(pl.lit("ask"))
-    t = trades.sort("block_number", "tid").with_columns(hit.alias("hit"))
+    t = trades.sort(execution_order("taker_oid", "taker_side")).with_columns(hit.alias("hit"))
     aggs = [
         pl.col("t_ms").first(),
         pl.len().alias("n"),
@@ -188,7 +191,7 @@ def verify_trade_features_no_lookahead(
     fb = np.asarray(fill_block, dtype=np.int64)
     ft = np.asarray(fill_t_ms, dtype=np.float64)
     side = np.asarray(maker_side, dtype=np.float64)
-    ordered = trades.sort("block_number", "tid")
+    ordered = trades.sort(execution_order("taker_oid", "taker_side"))
     blocks = block_table(ordered)
     full = trade_features(fb, ft, side, blocks)
     rng = np.random.default_rng(seed)

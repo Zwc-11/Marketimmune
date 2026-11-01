@@ -1,55 +1,55 @@
 {
+ "dates": null,
  "coins": {
   "SOL": {
-   "dates": "20251201..20251231",
    "trades": 2883611,
    "adv_1s": {
     "vs": "markout_bps_1s",
     "n": 2883541,
-    "corr": 0.7636093978879998,
-    "mean_trade_mid": -0.8445701413730249,
+    "corr": 0.781106628312635,
+    "mean_trade_mid": -0.9104086623637885,
     "mean_gold": -1.2044999890972738,
-    "mean_abs_diff": 1.2747696346092512
+    "mean_abs_diff": 1.2042791609777235
    },
    "mo_1s": {
     "vs": "markout_px_bps_1s",
     "n": 2883541,
-    "corr": 0.6806031421012287,
-    "mean_trade_mid": 0.5252596824878235,
+    "corr": 0.7055584565997087,
+    "mean_trade_mid": 0.44092118297657557,
     "mean_gold": -0.23022142218012054,
-    "mean_abs_diff": 1.2246047225613772
+    "mean_abs_diff": 1.1497825332626328
    },
    "adv_10s": {
     "vs": "markout_bps_10s",
     "n": 2883320,
-    "corr": 0.9441630726869673,
-    "mean_trade_mid": -1.6476262788416882,
+    "corr": 0.9474749467609616,
+    "mean_trade_mid": -1.6389528884598796,
     "mean_gold": -1.3048808544409556,
-    "mean_abs_diff": 1.5729516297642074
+    "mean_abs_diff": 1.5270380467024518
    },
    "mo_10s": {
     "vs": "markout_px_bps_10s",
     "n": 2883320,
-    "corr": 0.9705089349613495,
-    "mean_trade_mid": -0.27780224088114136,
+    "corr": 0.9720085720574615,
+    "mean_trade_mid": -0.28762737645110215,
     "mean_gold": -0.33059122901803323,
-    "mean_abs_diff": 0.9992715252100519
+    "mean_abs_diff": 0.9733267339130574
    },
    "adv_60s": {
     "vs": "markout_bps_60s",
     "n": 2882423,
-    "corr": 0.987603703356958,
-    "mean_trade_mid": -1.743879365254327,
+    "corr": 0.9883455683299383,
+    "mean_trade_mid": -1.7267856106834152,
     "mean_gold": -1.3643894447778637,
-    "mean_abs_diff": 1.6170864024911515
+    "mean_abs_diff": 1.5677404302715112
    },
    "mo_60s": {
     "vs": "markout_px_bps_60s",
     "n": 2882423,
-    "corr": 0.9939545111264968,
-    "mean_trade_mid": -0.3743044939939334,
+    "corr": 0.9942561024185459,
+    "mean_trade_mid": -0.37571200136578,
     "mean_gold": -0.39021288700205853,
-    "mean_abs_diff": 1.0050023683389049
+    "mean_abs_diff": 0.9780944010281541
    },
    "by_cex_gap": [
     {
@@ -58,7 +58,7 @@
       -2.0
      ],
      "trades": 355997,
-     "adv_1s_trade_mid": -2.2114413987502313,
+     "adv_1s_trade_mid": -2.3086379452092056,
      "adv_1s_gold": -3.3415409707764927
     },
     {
@@ -67,7 +67,7 @@
       -0.5
      ],
      "trades": 844091,
-     "adv_1s_trade_mid": -0.970189243633354,
+     "adv_1s_trade_mid": -1.0523657660783938,
      "adv_1s_gold": -1.4144827497120218
     },
     {
@@ -76,7 +76,7 @@
       0.5
      ],
      "trades": 942658,
-     "adv_1s_trade_mid": -0.6577287935574035,
+     "adv_1s_trade_mid": -0.7180066670958712,
      "adv_1s_gold": -0.9410099740651173
     },
     {
@@ -85,7 +85,7 @@
       2.0
      ],
      "trades": 614703,
-     "adv_1s_trade_mid": -0.3450443418136406,
+     "adv_1s_trade_mid": -0.3990062070537554,
      "adv_1s_gold": -0.47494195788163523
     },
     {
@@ -94,61 +94,61 @@
       null
      ],
      "trades": 126162,
-     "adv_1s_trade_mid": 0.02288409806687625,
+     "adv_1s_trade_mid": 0.05542367687124186,
      "adv_1s_gold": 0.7076661292742673
     }
-   ]
+   ],
+   "dates": "20251201..20251231"
   },
   "ETH": {
-   "dates": "20251201..20251215",
    "trades": 3824772,
    "adv_1s": {
     "vs": "markout_bps_1s",
     "n": 3824724,
-    "corr": 0.8407057525006048,
-    "mean_trade_mid": -1.3425843374810507,
+    "corr": 0.8307244030305696,
+    "mean_trade_mid": -1.3416179258963543,
     "mean_gold": -1.4813155156749556,
-    "mean_abs_diff": 1.0690542555381282
+    "mean_abs_diff": 1.029617680743378
    },
    "mo_1s": {
     "vs": "markout_px_bps_1s",
     "n": 3824724,
-    "corr": 0.825357383623796,
-    "mean_trade_mid": 0.16003850671489486,
+    "corr": 0.8024472406682287,
+    "mean_trade_mid": 0.10520557892935964,
     "mean_gold": -0.46826401392862066,
-    "mean_abs_diff": 0.9761580495940423
+    "mean_abs_diff": 0.9438194925820497
    },
    "adv_10s": {
     "vs": "markout_bps_10s",
     "n": 3824680,
-    "corr": 0.9736769804459159,
-    "mean_trade_mid": -2.1068315858677362,
+    "corr": 0.9762209006172534,
+    "mean_trade_mid": -2.0548384545048703,
     "mean_gold": -1.6184635447017202,
-    "mean_abs_diff": 1.1613933047257758
+    "mean_abs_diff": 1.0844183610587281
    },
    "mo_10s": {
     "vs": "markout_px_bps_10s",
     "n": 3824680,
-    "corr": 0.9887204509445772,
-    "mean_trade_mid": -0.6041942656758428,
+    "corr": 0.9895968015779903,
+    "mean_trade_mid": -0.6080011581109342,
     "mean_gold": -0.6053620231150527,
-    "mean_abs_diff": 0.6145482620341067
+    "mean_abs_diff": 0.5870420623031231
    },
    "adv_60s": {
     "vs": "markout_bps_60s",
     "n": 3824325,
-    "corr": 0.9939807339310281,
-    "mean_trade_mid": -2.0649277320038673,
+    "corr": 0.9945555172332198,
+    "mean_trade_mid": -2.0097162438011322,
     "mean_gold": -1.5774518710324767,
-    "mean_abs_diff": 1.1545622004205018
+    "mean_abs_diff": 1.0772189397071246
    },
    "mo_60s": {
     "vs": "markout_px_bps_60s",
     "n": 3824325,
-    "corr": 0.9975511956604207,
-    "mean_trade_mid": -0.5622688035982621,
+    "corr": 0.997713263694535,
+    "mean_trade_mid": -0.5628617543423464,
     "mean_gold": -0.5644236359815881,
-    "mean_abs_diff": 0.606549853069079
+    "mean_abs_diff": 0.5800811439165274
    },
    "by_cex_gap": [
     {
@@ -157,7 +157,7 @@
       -2.0
      ],
      "trades": 336583,
-     "adv_1s_trade_mid": -3.2577394194668896,
+     "adv_1s_trade_mid": -3.281772669823613,
      "adv_1s_gold": -4.082130621841286
     },
     {
@@ -166,7 +166,7 @@
       -0.5
      ],
      "trades": 795782,
-     "adv_1s_trade_mid": -1.5940192519867835,
+     "adv_1s_trade_mid": -1.6032196929648024,
      "adv_1s_gold": -1.9399358162255682
     },
     {
@@ -175,7 +175,7 @@
       0.5
      ],
      "trades": 2048218,
-     "adv_1s_trade_mid": -1.142839065675201,
+     "adv_1s_trade_mid": -1.1233047270127707,
      "adv_1s_gold": -1.2316289788187131
     },
     {
@@ -184,8 +184,8 @@
       2.0
      ],
      "trades": 506227,
-     "adv_1s_trade_mid": -0.7866227134780915,
-     "adv_1s_gold": -0.5562575632479911
+     "adv_1s_trade_mid": -0.8359799234269705,
+     "adv_1s_gold": -0.5562575632479912
     },
     {
      "cex_gap_maker_bps": [
@@ -193,11 +193,12 @@
       null
      ],
      "trades": 137962,
-     "adv_1s_trade_mid": -0.22533005986361349,
-     "adv_1s_gold": 0.4082580951960918
+     "adv_1s_trade_mid": -0.19573894509156758,
+     "adv_1s_gold": 0.4082580951960919
     }
-   ]
+   ],
+   "dates": "20251201..20251215"
   }
  },
- "note": "ETH covers Dec 1-15 only (time limit of the machine it ran on); SOL the whole month"
+ "note": "ETH covers Dec 1-15 only (time limit of the machine it ran on); SOL the whole month. Rerun 2026-11-01 after trade_mids took a block's last prices in execution order (taker oid, then sweep) instead of trade-id order"
 }

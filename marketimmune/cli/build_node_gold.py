@@ -56,7 +56,7 @@ from marketimmune.features.wallet_toxicity import DEFAULT_PRIOR_WEIGHT, verify_w
 from marketimmune.lake.tables import HyperliquidLakeLayout, leakage_report_path
 from marketimmune.logger import init_logger
 from marketimmune.priority.fees import hype_usd, with_fee_bps
-from marketimmune.priority.fills import pair_legs
+from marketimmune.priority.fills import execution_order, pair_legs
 from marketimmune.sim.data import binance_days
 from marketimmune.utils import DAY_MS, day_start_ms, parse_date_spec, shift_date
 
@@ -106,7 +106,7 @@ def load_legs(node_dir: Path, coin: str, date: str) -> pl.DataFrame:
 def match_rows(legs: pl.DataFrame, hype: pl.DataFrame) -> pl.DataFrame:
     """One row per match: the maker's side, the taker's fee and the block's time in ms."""
     pairs = with_fee_bps(pair_legs(legs), hype)
-    return pairs.with_columns((pl.col("block_time").dt.epoch("ns") / 1e6).alias("t_ms")).sort("block_number", "tid")
+    return pairs.with_columns((pl.col("block_time").dt.epoch("ns") / 1e6).alias("t_ms")).sort(execution_order("taker_oid", "taker_side"))
 
 
 def labels(
@@ -144,7 +144,7 @@ def build_day(args: argparse.Namespace, hype: pl.DataFrame, coin: str, date: str
         return {"date": date, "skipped": "no Binance file"}
     t0 = time.perf_counter()
     rows = match_rows(load_legs(args.node_dir, coin, date), hype)
-    blocks = block_table(rows.select("block_number", "tid", "t_ms", "px", "notional", "taker_side", "fee_bps", "liquidation"))
+    blocks = block_table(rows.select("block_number", "taker_oid", "t_ms", "px", "notional", "taker_side", "fee_bps", "liquidation"))
     start = day_start_ms(date)
     day = rows.filter((pl.col("time_ms") >= start) & (pl.col("time_ms") < start + DAY_MS))
     block = day["block_number"].to_numpy().astype(np.int64)
@@ -183,7 +183,7 @@ def build_day(args: argparse.Namespace, hype: pl.DataFrame, coin: str, date: str
     frame.write_parquet(tmp, compression="zstd")
     tmp.replace(path)
     trade_check = verify_trade_features_no_lookahead(
-        block, t_ms, side, rows.select("block_number", "tid", "t_ms", "px", "notional", "taker_side", "fee_bps", "liquidation"),
+        block, t_ms, side, rows.select("block_number", "taker_oid", "t_ms", "px", "notional", "taker_side", "fee_bps", "liquidation"),
         (*TRADE_STATE_COLUMNS, *FEE_COLUMNS, *FEE_PLACEBO_COLUMNS, *FORCED_COLUMNS),
     )  # fmt: skip
     cex_check = verify_cex_gap_no_lookahead(t_ms, side, bt, mids, cex, latency_ms=args.cex_latency_ms)
