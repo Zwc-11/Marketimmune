@@ -1,0 +1,493 @@
+{
+  "model": "lightgbm_quantile",
+  "dataset": "ETH_20251201-20251202-20251203-20251204-20251205-20251206-20251207-20251208-20251209-20251210-20251211-20251212-20251213-20251214-20251215-20251216-20251217-20251218-20251219-20251220-20251221-20251222-20251223-20251224-20251225-20251226-20251227-20251228-20251229-20251230-20251231",
+  "feature_set": "l3b_book",
+  "feature_columns": [
+    "sz",
+    "maker_side",
+    "l2_spread_bps",
+    "l2_microprice_offset_bps",
+    "l2_top_imbalance",
+    "l2_ofi_event",
+    "l2_ofi_1s",
+    "l2_ofi_5s",
+    "l2_ofi_10s",
+    "cex_gap_bps",
+    "cex_gap_maker_bps",
+    "cex_ret_100ms_bps",
+    "cex_ret_500ms_bps",
+    "cex_ret_1000ms_bps",
+    "cex_ret_5000ms_bps",
+    "cex_ret_1000ms_maker_bps",
+    "taker_tox_1s",
+    "taker_tox_10s",
+    "taker_log_n",
+    "forced_same_notional_1000ms",
+    "forced_opp_notional_1000ms",
+    "forced_same_notional_5000ms",
+    "forced_opp_notional_5000ms",
+    "forced_same_notional_60000ms",
+    "forced_opp_notional_60000ms",
+    "fc_same_5s",
+    "fc_opp_5s",
+    "fc_p_same_5s",
+    "fc_p_opp_5s",
+    "fc_same_15s",
+    "fc_opp_15s",
+    "fc_p_same_15s",
+    "fc_p_opp_15s",
+    "fc_same_60s",
+    "fc_opp_60s",
+    "fc_p_same_60s",
+    "fc_p_opp_60s",
+    "fc_heat_same_1pct",
+    "fc_heat_opp_1pct"
+  ],
+  "horizon": "1s",
+  "target": "markout_bps_1s",
+  "cv_scheme": "rolling_daily",
+  "train_days": 7,
+  "leakage_safe": true,
+  "leakage_check": [
+    {
+      "coin": "ETH",
+      "date": "20251201",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251202",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251203",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251204",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251205",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251206",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251207",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251208",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251209",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251210",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251211",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251212",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251213",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251214",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251215",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251216",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251217",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251218",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251219",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251220",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251221",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251222",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251223",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251224",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251225",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251226",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251227",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251228",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251229",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251230",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    },
+    {
+      "coin": "ETH",
+      "date": "20251231",
+      "passed": true,
+      "n_checked": 200,
+      "n_mismatched": 0,
+      "n_dropped": 0
+    }
+  ],
+  "rows": 6135786,
+  "fit_elapsed_s": 429.2,
+  "folds": [
+    {
+      "fold_id": 1,
+      "n_train": 1975841,
+      "n_test": 382668,
+      "test_start_ms": 1765324801209.0,
+      "test_end_ms": 1765411198482.0
+    },
+    {
+      "fold_id": 2,
+      "n_train": 2069711,
+      "n_test": 350415,
+      "test_start_ms": 1765411201124.0,
+      "test_end_ms": 1765497599063.0
+    },
+    {
+      "fold_id": 3,
+      "n_train": 2150245,
+      "n_test": 261579,
+      "test_start_ms": 1765497601314.0,
+      "test_end_ms": 1765583996056.0
+    },
+    {
+      "fold_id": 4,
+      "n_train": 2111090,
+      "n_test": 83872,
+      "test_start_ms": 1765584000091.0,
+      "test_end_ms": 1765670393054.0
+    },
+    {
+      "fold_id": 5,
+      "n_train": 2086348,
+      "n_test": 157105,
+      "test_start_ms": 1765670400668.0,
+      "test_end_ms": 1765756798021.0
+    },
+    {
+      "fold_id": 6,
+      "n_train": 1914941,
+      "n_test": 316336,
+      "test_start_ms": 1765756800088.0,
+      "test_end_ms": 1765843194120.0
+    },
+    {
+      "fold_id": 7,
+      "n_train": 1933796,
+      "n_test": 250034,
+      "test_start_ms": 1765843201233.0,
+      "test_end_ms": 1765929596591.0
+    },
+    {
+      "fold_id": 8,
+      "n_train": 1801949,
+      "n_test": 290403,
+      "test_start_ms": 1765929603104.0,
+      "test_end_ms": 1766015999005.0
+    },
+    {
+      "fold_id": 9,
+      "n_train": 1709668,
+      "n_test": 251668,
+      "test_start_ms": 1766016001109.0,
+      "test_end_ms": 1766102395038.0
+    },
+    {
+      "fold_id": 10,
+      "n_train": 1610971,
+      "n_test": 236192,
+      "test_start_ms": 1766102402005.0,
+      "test_end_ms": 1766188799061.0
+    },
+    {
+      "fold_id": 11,
+      "n_train": 1585571,
+      "n_test": 63860,
+      "test_start_ms": 1766188803443.0,
+      "test_end_ms": 1766275199010.0
+    },
+    {
+      "fold_id": 12,
+      "n_train": 1565582,
+      "n_test": 90788,
+      "test_start_ms": 1766275205145.0,
+      "test_end_ms": 1766361599279.0
+    },
+    {
+      "fold_id": 13,
+      "n_train": 1499250,
+      "n_test": 226493,
+      "test_start_ms": 1766361601854.0,
+      "test_end_ms": 1766447999854.0
+    },
+    {
+      "fold_id": 14,
+      "n_train": 1409295,
+      "n_test": 191004,
+      "test_start_ms": 1766448003091.0,
+      "test_end_ms": 1766534396642.0
+    },
+    {
+      "fold_id": 15,
+      "n_train": 1350305,
+      "n_test": 124698,
+      "test_start_ms": 1766534401055.0,
+      "test_end_ms": 1766620785092.0
+    },
+    {
+      "fold_id": 16,
+      "n_train": 1184685,
+      "n_test": 92138,
+      "test_start_ms": 1766620804035.0,
+      "test_end_ms": 1766707199014.0
+    },
+    {
+      "fold_id": 17,
+      "n_train": 1025027,
+      "n_test": 173827,
+      "test_start_ms": 1766707201762.0,
+      "test_end_ms": 1766793597367.0
+    },
+    {
+      "fold_id": 18,
+      "n_train": 962795,
+      "n_test": 67064,
+      "test_start_ms": 1766793602166.0,
+      "test_end_ms": 1766879998757.0
+    },
+    {
+      "fold_id": 19,
+      "n_train": 965542,
+      "n_test": 69793,
+      "test_start_ms": 1766880001479.0,
+      "test_end_ms": 1766966399074.0
+    },
+    {
+      "fold_id": 20,
+      "n_train": 944997,
+      "n_test": 215106,
+      "test_start_ms": 1766966405537.0,
+      "test_end_ms": 1767052799206.0
+    },
+    {
+      "fold_id": 21,
+      "n_train": 933577,
+      "n_test": 125002,
+      "test_start_ms": 1767052801009.0,
+      "test_end_ms": 1767139196064.0
+    },
+    {
+      "fold_id": 22,
+      "n_train": 867566,
+      "n_test": 139796,
+      "test_start_ms": 1767139206096.0,
+      "test_end_ms": 1767225597062.0
+    }
+  ],
+  "oof_predictions": "eval\\eth_dec\\q_eth_dec_l3b_book.oof.parquet",
+  "rows_tested": 4159841,
+  "per_tau": {
+    "q10": {
+      "pinball": 0.36070840643303803,
+      "pinball_climatology": 0.6831842303029672,
+      "skill": 0.4720188341099778,
+      "hit_rate": 0.12087457188868517
+    },
+    "q50": {
+      "pinball": 0.6224111188233661,
+      "pinball_climatology": 0.9651201294684028,
+      "skill": 0.35509466664404155,
+      "hit_rate": 0.48425192212875445
+    },
+    "q90": {
+      "pinball": 0.277058635638385,
+      "pinball_climatology": 0.4114519815223159,
+      "skill": 0.32663190826471156,
+      "hit_rate": 0.893144954338399
+    }
+  },
+  "interval": {
+    "nominal": 0.8,
+    "coverage": 0.7722703824497138,
+    "mean_width_bps": 3.4086445723579826
+  },
+  "params": {
+    "n_estimators": 300,
+    "learning_rate": 0.05,
+    "num_leaves": 31,
+    "min_child_samples": 200,
+    "seed": 42
+  }
+}

@@ -12,6 +12,7 @@ import pytest
 from marketimmune.cli import simulate_quotes
 from marketimmune.lake.tables import L2_DEPTH, HyperliquidLakeLayout
 from marketimmune.sim.engine import FILL
+from marketimmune.sim.signals import quote_signals_path
 from marketimmune.sources.albers_l4 import mbo_table
 
 SECOND = 1_000_000_000
@@ -56,6 +57,40 @@ def test_simulate_quotes_end_to_end(tmp_path: Path) -> None:
     assert fifo["spread_bps"] == pytest.approx(0.5)  # bought at 100.00, mid 100.005
     assert fifo["adverse_bps"] == pytest.approx(-1.0) and fifo["inventory_bps"] == pytest.approx(0.0)  # mid 99.995 from 2 s
     assert result["stale_vs_S1"]["fifo"]["days"] == 1
+
+
+def test_model_strategies_pull_on_the_quote_signals(tmp_path: Path) -> None:
+    common = _lake(tmp_path)
+    path = quote_signals_path(tmp_path / "signals", "SOL", "20251201")
+    path.parent.mkdir(parents=True)
+    rows = pq.read_table(HyperliquidLakeLayout(tmp_path / "lake").silver_l2_book_path("SOL", "20251201"))["ts_ns"].to_numpy()
+    nan = np.full(rows.size, np.nan)
+    # S2 expects its bid's next fill to lose more than 2 bps; S3 cannot score any row
+    signals = {
+        "ts_ns": rows,
+        "s2_q10_bid": np.full(rows.size, -5.0),
+        "s2_q10_ask": np.zeros(rows.size),
+        "s3_q10_bid": nan,
+        "s3_q10_ask": nan,
+    }
+    pq.write_table(pa.table(signals), path)
+    out = tmp_path / "sim.json"
+    args = [
+        *common,
+        "--binance-dir",
+        str(tmp_path / "binance"),
+        "--delay-ms",
+        "100",
+        "--signals-dir",
+        str(tmp_path / "signals"),
+        "--out",
+        str(out),
+    ]
+    assert simulate_quotes.main(args) == 0
+    result = json.loads(out.read_text())
+    assert result["makers"]["S2/fifo"]["fills"] == 0  # the bid that S1 gets filled on is pulled
+    assert result["makers"]["S3/fifo"]["fills"] == 1  # unscored rows keep quoting
+    assert result["S2_vs_S1"]["fifo"]["days"] == 1 and "S3_vs_S2" in result and result["signals_dir"] == str(tmp_path / "signals")
 
 
 def test_hft_baseline_end_to_end(tmp_path: Path) -> None:

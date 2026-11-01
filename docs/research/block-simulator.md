@@ -51,6 +51,8 @@ Strategies (`sim/strategies.py`), both deciding after every L2 row:
 - **S1:** join the best bid and ask with $1,000 a side; stop adding beyond 5 quotes of position.
 - **stale:** S1, but pull a side while Binance has moved 2 bps against it since Hyperliquid's mid
   last changed (`cex_gap_maker_bps`, Binance read 300 ms late).
+- **S2, S3:** S1, but pull a side while a quote-time model's 10th-percentile markout for that
+  side's next fill is below -2 bps (see "Quote-time models" below).
 
 PnL (`sim/attribution.py`), per fill, in USD and bps per filled dollar:
 
@@ -112,12 +114,130 @@ used information from the fill itself.
 S2 and S3 in this simulator need quote-time models: the same Gold rows and walk-forward folds,
 without the fill-time columns, predicting each side's next-fill markout at every L2 row.
 
+## Quote-time models (S2, S3)
+
+`marketimmune.sim.signals` and `marketimmune.cli.quote_signals` build them.
+
+- **Columns.** S2 is the `l2_book` rung and S3 the `l3_book` rung, each without `sz`,
+  `taker_tox_1s`, `taker_tox_10s` and `taker_log_n`. Every rung-L2 column is a wallet score, so
+  S2 is the `l1_book` rung without `sz`: book state, OFI and the CEX gap (15 columns). S3 adds
+  the lost-race counts, realised forced flow and the forced-flow forecast (47 columns).
+- **Training.** The ladder's own procedure, unchanged:
+  - LightGBM quantiles at 0.1, 0.5 and 0.9 with the pre-registered settings;
+  - label `markout_bps_1s`, on the same Gold rows (a row with a missing feature is dropped, as in
+    the ladder);
+  - rolling 7-day folds with a 60 s purge, seed 42 plus the fold number, and the three
+    predictions sorted per row.
+- **Serving.** Each fold's models predict on every Silver L2 row of the test day, once as a bid
+  (`maker_side = +1`) and once as an ask. A row's features are those Gold gives a fill 1 ms
+  after the row's block:
+  - the book up to and including that block;
+  - Binance up to 300 ms before that time;
+  - order events and the forecast grid strictly before it.
+
+  Signals sit on the simulator's rows (the last row per block time, as `sim.data.load_day`), in
+  `data/gold/hyperliquid/quote_signals/<COIN>/<COIN>-<date>.parquet`.
+- **Train/serve check.** Before a day is scored, `check_against_gold` evaluates the quote-time
+  features at that day's Gold fill times and compares them with the matrix the models train on.
+  A difference stops the run.
+  - On SOL (Dec 1, 3, 10, 19 and 31; 55,754 to 160,233 fills a day, all 47 columns), every value
+    matched.
+  - The largest difference, in the CEX columns on the VM, is 8.9e-12 bps: numpy's `log` differs
+    by one ulp between the Windows build that made Gold and the Linux VM. The check's tolerance is
+    1e-9 relative.
+- **Strategy.** `QuantilePuller` pulls a side while that side's q10 is below `-limit` (2 bps:
+  `simulate_policy`'s rule). A row a model cannot score keeps quoting.
+- **Coverage.** S3 starts later than S2:
+  - S2's first test day is Dec 8.
+  - The forecast grid is hazard-scaled from Dec 3, so S3's first test day is Dec 10.
+  - Comparisons pair days, so S3 against S2 covers Dec 10 to 31.
+
+### Skill (SOL, out of fold)
+
+Pinball skill against the training window's climatology, on the same fills as the ladder rungs
+(the corrected run's out-of-fold predictions):
+
+| Model | Columns | Fills | q10 | q50 | q90 |
+|---|---|---:|---:|---:|---:|
+| Ladder `l2_book` | S2 + `sz` + wallet | 2,183,820 (Dec 8-31) | 0.413 | 0.320 | 0.311 |
+| Ladder `l1_book` | S2 + `sz` | 2,183,820 | 0.327 | 0.296 | 0.307 |
+| **S2** (quote time) | 15 | 2,183,820 | **0.287** | 0.282 | 0.307 |
+| Ladder `l3_book` | S3 + `sz` + wallet | 1,944,199 (Dec 10-31) | 0.420 | 0.318 | 0.323 |
+| **S3** (quote time) | 47 | 1,944,199 | **0.295** | 0.278 | 0.313 |
+
+- The fill-time columns carry 0.126 of the ladder's q10 skill on Dec 8-31: 0.086 from the wallet
+  score and 0.040 from the trade size.
+- What a quoting maker can know (S2) still keeps 0.287.
+- The race and forced-flow columns add little.
+  - At quote time, on Dec 10-31's fills, S3's q10 skill is 0.295 against S2's 0.286 (+0.009).
+  - In the ladder on the same fills, `l3_book` is 0.420 against `l2_book`'s 0.416 (+0.004).
+- On the L2 rows, the 2 bps rule pulls a side on 15% to 58% of rows depending on the day
+  (`eval/quote_signals_sol.json`).
+- A 20-tree smoke run had q10 below -2 bps on every row. That model sits close to climatology,
+  so a run with fewer trees is no guide to the quoting rate.
+
+## SOL December: all strategies
+
+`eval/sim_sol.json`: 200 ms delay, $1,000 quotes, 1.5 bp maker fee.
+
+- S1 and stale are identical to the earlier run (324,155 and 239,933 `fifo` fills).
+- The comparisons pair days, so each one covers only the days both makers have.
+
+On the days S3 has (Dec 10-31, 22 days), `fifo`, bps per filled dollar:
+
+| Maker | Fills | Spread | Adverse 1 s | Inventory | Fee | Total | Before fee | USD a day |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| S1 | 197,086 | +0.28 | -1.74 | -0.23 | -1.50 | -3.19 | -1.69 | -976 |
+| stale | 146,174 | +0.31 | -1.46 | -0.10 | -1.50 | -2.76 | -1.26 | -644 |
+| S2 | 9,614 | +0.39 | -1.05 | -1.14 | -1.50 | -3.37 | -1.87 | -85 |
+| S3 | 14,064 | +0.39 | -0.86 | -1.18 | -1.50 | -3.22 | -1.72 | -108 |
+
+Daily PnL differences (challenger minus base, USD), stationary-bootstrap 95% interval:
+
+| Pair | `fifo` | Days better | `risk_averse` | Days better |
+|---|---|---:|---|---:|
+| stale - S1 (31 days) | +371 [286, 454] | 31/31 | +295 [224, 363] | 30/31 |
+| S2 - S1 (24 days) | +896 [655, 1,157] | 24/24 | +745 [537, 972] | 24/24 |
+| S3 - S1 (22 days) | +867 [610, 1,146] | 22/22 | +724 [502, 966] | 22/22 |
+| **S3 - S2 (22 days)** | **-23 [-71, +24], DM p 0.43** | 9/22 | **-17 [-62, +33], DM p 0.53** | 6/22 |
+| S2 - stale (24 days) | +553 [398, 716] | 24/24 | +468 [334, 615] | 24/24 |
+
+- **No strategy makes money, before or after the fee.**
+  - Not quoting at all (PnL 0) beats every maker here.
+  - S2's daily PnL interval is [-161, -58] USD; S3's is [-156, -63].
+- **S2 and S3 lose less mainly by trading less.** They fill 5% (S2) and 7% (S3) of S1's
+  volume.
+  - Pulling 15% to 58% of rows removes about 95% of the fills: the models pull when fills
+    arrive.
+- **Per filled dollar, the models halve adverse selection, and inventory takes the gain back.**
+  - Adverse selection at 1 s is -1.74 bps for S1, against -1.05 (S2) and -0.86 (S3).
+  - Inventory gets worse, from -0.23 to -1.14 and -1.18. With few, one-sided fills a position is
+    held for hours, so this term is mostly the day's drift on a small book.
+  - In total per dollar, S2 is slightly worse than S1 and S3 is level with it.
+- **S3 against S2, the plan's headline, shows nothing.**
+  - The race and forced-flow columns give no measurable economic gain at quote time under either
+    queue model.
+  - This matches the ladder: H3 is null, and H4 did not replicate on ETH.
+- The 2 bps limit is `simulate_policy`'s rule, set before these runs and not tuned. Other limits
+  trade volume against adverse selection. A frontier over limits is the next comparison, if
+  wanted, but no limit was chosen from these results.
+
 ## Run
 
 ```
 python -m marketimmune.cli.build_albers_silver --coin SOL --dates 20251201..20251231 --mbo
 python -m marketimmune.cli.simulate_quotes --coin SOL --dates 20251201..20251231 --out eval/sim_sol.json
 ```
+
+With S2 and S3:
+
+```
+python -m marketimmune.cli.quote_signals --coin SOL --dates 20251201..20251231 --report eval/quote_signals_sol.json
+python -m marketimmune.cli.simulate_quotes --coin SOL --dates 20251201..20251231 --signals-dir data/gold/hyperliquid/quote_signals --out eval/sim_sol.json
+```
+
+`--score-dates 20251215` scores one day with the full run's folds and seeds (resume, or a day per
+call).
 
 hftbacktest 2.4.4 needs numpy < 2.3 and the main environment has 2.4, so the baseline gets its
 own venv:

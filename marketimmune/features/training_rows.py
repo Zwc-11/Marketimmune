@@ -278,23 +278,29 @@ def _with_ofi(index: _CoinIndex) -> _CoinIndex:
 
 
 def _ofi_columns(index: _CoinIndex) -> dict[str, list[float]]:
-    """``ofi_event`` per row and its sums over each window ``[t - span, t]``.
+    columns = ofi_columns(index.ts_ms, {name: _column(index.rows, name) for name in _BOOK_COLUMNS})
+    return {name: values.tolist() for name, values in columns.items()}
+
+
+def ofi_columns(ts_ms: FloatArray, book: Mapping[str, FloatArray]) -> dict[str, FloatArray]:
+    """``ofi_event`` per row (time order) and its sums over each window ``[t - span, t]``, from
+    the top-of-book columns ``bid_px``, ``bid_sz``, ``ask_px``, ``ask_sz``. Gold's join and the
+    simulator's quote-time features (``marketimmune.sim.signals``) both use it.
 
     NOTE: after a book reset (a jump of more than ``STALE_BOOK_MS``) the first row has no
     previous book to difference against, like the first row of the data: its event is 0
     and no window reaches back across the jump. The prefix sum still runs over the raw
     events, so a window that does not touch a reset is bit-identical to one without.
     """
-    times = index.ts_ms
-    events = _normalized_ofi_events({name: _column(index.rows, name) for name in _BOOK_COLUMNS})
-    reset = np.concatenate(([False], np.diff(times) > STALE_BOOK_MS))
-    floor = np.maximum.accumulate(np.where(reset, np.arange(1, times.size + 1), 0))
+    events = _normalized_ofi_events(book)
+    reset = np.concatenate(([False], np.diff(ts_ms) > STALE_BOOK_MS))
+    floor = np.maximum.accumulate(np.where(reset, np.arange(1, ts_ms.size + 1), 0))
     prefix = np.concatenate(([0.0], np.cumsum(events)))
-    upto = np.arange(1, times.size + 1)
-    columns = {"ofi_event": np.where(reset, 0.0, events).tolist()}
+    upto = np.arange(1, ts_ms.size + 1)
+    columns = {"ofi_event": np.where(reset, 0.0, events)}
     for name, span in OFI_WINDOWS_MS.items():
-        start = np.maximum(np.searchsorted(times, times - span, side="left"), floor)
-        columns[name] = (prefix[upto] - prefix[start]).tolist()
+        start = np.maximum(np.searchsorted(ts_ms, ts_ms - span, side="left"), floor)
+        columns[name] = prefix[upto] - prefix[start]
     return columns
 
 

@@ -3,16 +3,19 @@
     python -m marketimmune.cli.simulate_quotes --coin SOL --dates 20251201..20251231 --out eval/sim_sol.json
 
 Needs Silver L2 with the near-touch L4 events (``build_albers_silver --mbo``) and Binance
-aggTrades. Runs two strategies under both queue models of ``marketimmune.sim.engine``:
+aggTrades. Runs these strategies under both queue models of ``marketimmune.sim.engine``:
 
 * S1 (inventory only): join the best bid and ask;
 * ``stale``: S1, but pull a side while Binance has moved ``--stale-bps`` against it since the
-  Hyperliquid mid last changed.
+  Hyperliquid mid last changed;
+* with ``--signals-dir`` (``quote_signals``), on the days that have signals: S2 and S3, S1 but
+  pull a side while the quote-time model's 10th-percentile markout of its next fill is below
+  ``-limit-bps``. A row a model cannot score keeps quoting.
 
 An action decided after a block lands ``--delay-ms`` later. Each day starts flat and is
 flattened at its last book, so days run in parallel. The PnL split (spread, adverse selection at
 ``--horizon-s``, inventory, fees, the closing hedge) is ``marketimmune.sim.attribution``. Pairs are
-compared by day, as in ``simulate_policy``.
+compared by day, as in ``simulate_policy``, on the days both have.
 """
 
 from __future__ import annotations
@@ -25,7 +28,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
+import pyarrow.parquet as pq
 
 from marketimmune.logger import init_logger
 from marketimmune.models.compare import stationary_bootstrap_ci
@@ -33,13 +38,14 @@ from marketimmune.sim.attribution import BPS, COMPONENTS, PX_SCALE, Costs, attri
 from marketimmune.sim.data import cex_gaps, load_day
 from marketimmune.sim.engine import FIFO, QUEUE_MODELS, DayBook, MakerSpec, Strategy, simulate_day
 from marketimmune.sim.pnl import compare_policies
-from marketimmune.sim.strategies import StaleQuotePuller, TouchQuoter
+from marketimmune.sim.signals import QUOTE_RUNGS, quote_signals_path
+from marketimmune.sim.strategies import QuantilePuller, StaleQuotePuller, TouchQuoter
 from marketimmune.utils import parse_date_spec
 
 logger = init_logger(__name__)
 
 LOT = {"BTC": 1e-5, "ETH": 1e-4, "SOL": 1e-2}  # Hyperliquid size decimals
-STRATEGIES = ("S1", "stale")
+COMPARISONS = (("stale", "S1"), ("S2", "S1"), ("S3", "S1"), ("S3", "S2"), ("S2", "stale"), ("S3", "stale"))
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -51,6 +57,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--delay-ms", type=float, default=200.0, help="from a block to our action landing in the book")
     parser.add_argument("--cex-latency-ms", type=float, default=300.0, help="Binance feed latency")
     parser.add_argument("--stale-bps", type=float, default=2.0)
+    parser.add_argument("--signals-dir", type=Path, default=None, help="quote_signals output; adds S2 and S3")
+    parser.add_argument("--limit-bps", type=float, default=2.0, help="S2/S3 pull when q10 < -limit")
     parser.add_argument("--quote-usd", type=float, default=1_000.0, help="quote size, at the day's first mid")
     parser.add_argument("--max-quotes", type=float, default=5.0, help="position limit in quote sizes")
     parser.add_argument("--maker-fee-bps", type=float, default=1.5)
@@ -68,6 +76,18 @@ def quote_qty(book: DayBook, coin: str, quote_usd: float) -> float:
     return float(max(round(quote_usd / mid0 / lot), 1) * lot)
 
 
+def model_pullers(base: TouchQuoter, path: Path, l2_ts: npt.NDArray[np.int64], limit_bps: float) -> dict[str, Strategy]:
+    """S2 and S3 from one day's quote signals (only the models scored that day)."""
+    table = pq.read_table(path)
+    assert np.array_equal(table["ts_ns"].to_numpy(), l2_ts), f"{path}: signals are not on the simulator's L2 rows"
+    out: dict[str, Strategy] = {}
+    for name in QUOTE_RUNGS:
+        if f"{name}_q10_bid" in table.column_names:
+            q10 = [table[f"{name}_q10_{side}"].to_numpy().astype(np.float64) for side in ("bid", "ask")]
+            out[name.upper()] = QuantilePuller(base, q10[0], q10[1], limit_bps)
+    return out
+
+
 def run_day(args: argparse.Namespace, date: str) -> list[dict[str, Any]]:
     coin = args.coin.upper()
     book = load_day(args.lake_root, coin, date)
@@ -75,7 +95,9 @@ def run_day(args: argparse.Namespace, date: str) -> list[dict[str, Any]]:
     bid_gap, ask_gap = cex_gaps(book, args.binance_dir, coin, date, latency_ms=args.cex_latency_ms)
     s1 = TouchQuoter(max_position=args.max_quotes * qty)
     strategies: dict[str, Strategy] = {"S1": s1, "stale": StaleQuotePuller(s1, bid_gap, ask_gap, args.stale_bps)}
-    specs = [MakerSpec(f"{name}/{queue}", strategies[name], queue, qty) for name in STRATEGIES for queue in QUEUE_MODELS]
+    if args.signals_dir is not None and (path := quote_signals_path(args.signals_dir, coin, date)).exists():
+        strategies |= model_pullers(s1, path, book.l2_ts, args.limit_bps)
+    specs = [MakerSpec(f"{name}/{queue}", strategy, queue, qty) for name, strategy in strategies.items() for queue in QUEUE_MODELS]
     results = simulate_day(book, specs, delay_ns=round(args.delay_ms * 1e6))
     costs = Costs(args.maker_fee_bps, args.taker_fee_bps, round(args.horizon_s * 1e9))
     rows = [
@@ -101,21 +123,32 @@ def summarise(daily: pd.DataFrame) -> dict[str, Any]:
     return out
 
 
+def report(args: argparse.Namespace, frame: pd.DataFrame) -> dict[str, Any]:
+    """Per-maker summaries and paired comparisons from the daily rows (``frame`` may be the
+    ``daily`` records of several runs over parts of ``args.dates``)."""
+    by_maker = {name: group.sort_values("day") for name, group in frame.groupby("maker")}
+    return {
+        "coin": args.coin.upper(),
+        "dates": args.dates,
+        "settings": {k: v for k, v in vars(args).items() if k not in ("lake_root", "binance_dir", "signals_dir", "out", "workers")},
+        "signals_dir": None if args.signals_dir is None else str(args.signals_dir),
+        "makers": {name: summarise(daily) for name, daily in by_maker.items()},
+        **{
+            f"{a}_vs_{b}": {q: compare_policies(by_maker[f"{b}/{q}"], by_maker[f"{a}/{q}"]) for q in QUEUE_MODELS}
+            for a, b in COMPARISONS
+            if f"{a}/{FIFO}" in by_maker and f"{b}/{FIFO}" in by_maker
+        },
+        "fifo_vs_risk_averse_S1": compare_policies(by_maker["S1/risk_averse"], by_maker[f"S1/{FIFO}"]),
+        "daily": frame.to_dict(orient="records"),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     dates = parse_date_spec(args.dates)
     with ProcessPoolExecutor(min(args.workers, len(dates)), mp_context=get_context("spawn")) as pool:
         frame = pd.DataFrame([row for rows in pool.map(run_day, [args] * len(dates), dates) for row in rows])
-    by_maker = {name: group.sort_values("day") for name, group in frame.groupby("maker")}
-    result: dict[str, Any] = {
-        "coin": args.coin.upper(),
-        "dates": args.dates,
-        "settings": {k: v for k, v in vars(args).items() if k not in ("lake_root", "binance_dir", "out", "workers")},
-        "makers": {name: summarise(daily) for name, daily in by_maker.items()},
-        "stale_vs_S1": {q: compare_policies(by_maker[f"S1/{q}"], by_maker[f"stale/{q}"]) for q in QUEUE_MODELS},
-        "fifo_vs_risk_averse_S1": compare_policies(by_maker["S1/risk_averse"], by_maker[f"S1/{FIFO}"]),
-        "daily": frame.to_dict(orient="records"),
-    }
+    result = report(args, frame)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2, default=float) + "\n", encoding="utf-8")
     for name, s in result["makers"].items():

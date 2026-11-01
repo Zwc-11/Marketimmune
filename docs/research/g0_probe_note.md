@@ -1,15 +1,15 @@
 # Gate G0 note
 
 Phase 0 ends when this page answers four questions. Each answer cites the probe
-JSON in `eval/` that supports it. Status on 2026-10-30: **open**; nothing has
-been run against the official bucket yet (needs the AWS account, deploy/ec2_tokyo.md).
+JSON in `eval/` that supports it. Status on 2026-10-31: **Q1 and Q3 answered** by the probe of 2025-12-15 on a c7i-flex.large in Tokyo
+(deploy/ec2_tokyo.md); Q2 needs the Rust extractor's timing; Q4 comes from the fills pull.
 
 | # | Question | Answer | Evidence |
 | - | -------- | ------ | -------- |
-| 1 | Are responses (`resps`) in `replica_cmds`, with order ids? | TBD | `eval/probe_<date>.json` → `q1_*` |
-| 2 | What does one processed day cost? | Size known: 151 to 257 GiB of LZ4 a day (2026-03-15, 2026-10-15), so Python is out and only windows of days are affordable; time per day TBD | CloudShell listing 2026-10-31; `q2_one_day` with the Rust extractor |
-| 3 | Which dates can E1 use? | TBD (follows from 1) | `q3_e1_dates` |
-| 4 | When did priority fees reach core perps? | TBD | `python -m marketimmune.cli.find_first_priority_day first-priority --coin BTC` over Mar–Jun 2026 |
+| 1 | Are responses (`resps`) in `replica_cmds`, with order ids? | **Yes.** Every action has a result (`q1_share_actions_with_result` 1.0); 18.7% of order actions carry an oid in their response | `eval/probe_2025-12-15.json` |
+| 2 | What does one processed day cost? | 151 to 257 GiB of LZ4 a day (2026-03-15, 2026-10-15). The Python prototype needs 2.7 single-core hours per day (2025-12-15, 167 GiB), about $0.30 of c7i-flex.large time; transfer inside Tokyo is free. The Rust extractor sets the final number | CloudShell listing 2026-10-31; `eval/probe_2025-12-15.json` → `q2_one_day` |
+| 3 | Which dates can E1 use? | Any `replica_cmds` date: order ids link to actions through `resps` | `q3_e1_dates` |
+| 4 | When did priority fees reach core perps? | Not on 2025-12-15 (no BTC fill with `priorityGas`). The first day comes from the Mar–Oct 2026 fills pull | `pull_node_fills`, then the query in deploy/ec2_tokyo.md §5 |
 
 ## What is already known (before the probe)
 

@@ -1,0 +1,2899 @@
+{
+  "coin": "ETH",
+  "dates": "20251201..20251231",
+  "grid_s": 10.0,
+  "cascade": {
+    "5s": {
+      "mean_relative_change": 0.00027990323685871886,
+      "p99_relative_change": 0.00773852377478457,
+      "share_above_1pct": 0.007043682826698649
+    },
+    "15s": {
+      "mean_relative_change": 0.00039103959167340236,
+      "p99_relative_change": 0.009874317891429502,
+      "share_above_1pct": 0.00975366922742671
+    },
+    "60s": {
+      "mean_relative_change": 0.0007962297543166821,
+      "p99_relative_change": 0.015159488671712925,
+      "share_above_1pct": 0.021024480392077046
+    }
+  },
+  "grid_points": 250357,
+  "days": 29,
+  "binary_usd": 10000.0,
+  "fast_sigma_1s_cut": 0.00017025155582720683,
+  "5s": {
+    "share_windows_with_forced_flow": 0.002057062514728967,
+    "share_windows_above_10000": 0.0010704713668880839,
+    "scored_rows": 483448,
+    "scored_days": 28,
+    "pinball_q50": {
+      "model": {
+        "all": 214.3352972712164,
+        "fast": 3897.959297770243,
+        "quiet": 24.74784240586885
+      },
+      "persistence": {
+        "all": 214.89860512995202,
+        "fast": 3904.7939436792185,
+        "quiet": 24.98837925991336
+      },
+      "oi_change": {
+        "all": 214.3352972712164,
+        "fast": 3897.959297770243,
+        "quiet": 24.74784240586885
+      },
+      "volatility": {
+        "all": 214.3352972712164,
+        "fast": 3897.959297770243,
+        "quiet": 24.74784240586885
+      },
+      "heatmap": {
+        "all": 214.3352972712164,
+        "fast": 3897.959297770243,
+        "quiet": 24.74784240586885
+      },
+      "model_persist": {
+        "all": 229.3550225599393,
+        "fast": 4190.318134259425,
+        "quiet": 25.49357658692452
+      },
+      "model_raw": {
+        "all": 266.0836500099102,
+        "fast": 4195.4703357031,
+        "quiet": 63.847368342336665
+      },
+      "zero": {
+        "all": 214.3352972712164,
+        "fast": 3897.959297770243,
+        "quiet": 24.74784240586885
+      }
+    },
+    "dm_pinball_q50": {
+      "model_vs_zero": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 214.3352972712164,
+          "loss_challenger": 214.3352972712164,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 3897.959297770243,
+          "loss_challenger": 3897.959297770243,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 24.74784240586885,
+          "loss_challenger": 24.74784240586885,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 214.89860512995202,
+          "loss_challenger": 214.3352972712164,
+          "mean_daily_improvement": 0.5633078587355907,
+          "days_improved": 9,
+          "bootstrap_ci_95": [
+            -0.06196099345457663,
+            1.7043358165527023
+          ],
+          "dm_t": 1.0495633560526023,
+          "dm_p": 0.30322318364138656
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 3904.7939436792185,
+          "loss_challenger": 3897.959297770243,
+          "mean_daily_improvement": 3.0756113951705237,
+          "days_improved": 8,
+          "bootstrap_ci_95": [
+            -3.1744663659739656,
+            12.372868079702938
+          ],
+          "dm_t": 0.7229623620079831,
+          "dm_p": 0.47591958240208543
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 24.98837925991336,
+          "loss_challenger": 24.74784240586885,
+          "mean_daily_improvement": 0.24796291027556164,
+          "days_improved": 9,
+          "bootstrap_ci_95": [
+            0.019263473152024774,
+            0.636503441877143
+          ],
+          "dm_t": 1.2893610007415066,
+          "dm_p": 0.20820924014084194
+        }
+      },
+      "model_vs_oi_change": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 214.3352972712164,
+          "loss_challenger": 214.3352972712164,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 3897.959297770243,
+          "loss_challenger": 3897.959297770243,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 24.74784240586885,
+          "loss_challenger": 24.74784240586885,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_volatility": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 214.3352972712164,
+          "loss_challenger": 214.3352972712164,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 3897.959297770243,
+          "loss_challenger": 3897.959297770243,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 24.74784240586885,
+          "loss_challenger": 24.74784240586885,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_heatmap": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 214.3352972712164,
+          "loss_challenger": 214.3352972712164,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 3897.959297770243,
+          "loss_challenger": 3897.959297770243,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 24.74784240586885,
+          "loss_challenger": 24.74784240586885,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_persist_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 214.89860512995202,
+          "loss_challenger": 229.3550225599393,
+          "mean_daily_improvement": -14.456417429987297,
+          "days_improved": 7,
+          "bootstrap_ci_95": [
+            -43.419920162487095,
+            0.09330240983611633
+          ],
+          "dm_t": -1.031774248381049,
+          "dm_p": 0.3113320533193362
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 3904.7939436792185,
+          "loss_challenger": 4190.318134259425,
+          "mean_daily_improvement": -175.57515340171162,
+          "days_improved": 7,
+          "bootstrap_ci_95": [
+            -525.0181440058316,
+            0.2620909906263289
+          ],
+          "dm_t": -1.039311438352128,
+          "dm_p": 0.307878075968371
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 24.98837925991336,
+          "loss_challenger": 25.49357658692452,
+          "mean_daily_improvement": -0.5228601684576061,
+          "days_improved": 8,
+          "bootstrap_ci_95": [
+            -1.7131637721531707,
+            0.11519248623488228
+          ],
+          "dm_t": -0.9395079323720283,
+          "dm_p": 0.3557996828404375
+        }
+      }
+    },
+    "pinball_q90": {
+      "model": {
+        "all": 385.80353508818956,
+        "fast": 7016.326735986437,
+        "quiet": 44.54611633056393
+      },
+      "persistence": {
+        "all": 358.4852544984588,
+        "fast": 6383.215108595456,
+        "quiet": 48.40659306754479
+      },
+      "oi_change": {
+        "all": 385.80353508818956,
+        "fast": 7016.326735986437,
+        "quiet": 44.54611633056393
+      },
+      "volatility": {
+        "all": 385.80353508818956,
+        "fast": 7016.326735986437,
+        "quiet": 44.54611633056393
+      },
+      "heatmap": {
+        "all": 385.80353508818956,
+        "fast": 7016.326735986437,
+        "quiet": 44.54611633056393
+      },
+      "model_persist": {
+        "all": 373.1196841473767,
+        "fast": 6748.955315128418,
+        "quiet": 44.970434996611736
+      },
+      "model_raw": {
+        "all": 394.86003879413596,
+        "fast": 7053.256163790111,
+        "quiet": 52.168066255063835
+      },
+      "zero": {
+        "all": 385.80353508818956,
+        "fast": 7016.326735986437,
+        "quiet": 44.54611633056393
+      }
+    },
+    "dm_pinball_q90": {
+      "model_vs_zero": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 385.80353508818956,
+          "loss_challenger": 385.80353508818956,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 7016.326735986437,
+          "loss_challenger": 7016.326735986437,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 44.54611633056393,
+          "loss_challenger": 44.54611633056393,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 358.4852544984588,
+          "loss_challenger": 385.80353508818956,
+          "mean_daily_improvement": -27.318280589730744,
+          "days_improved": 13,
+          "bootstrap_ci_95": [
+            -52.1388022726926,
+            -3.642049366812902
+          ],
+          "dm_t": -2.1283737655214225,
+          "dm_p": 0.04258173751276731
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 6383.215108595456,
+          "loss_challenger": 7016.326735986437,
+          "mean_daily_improvement": -871.2492696485767,
+          "days_improved": 10,
+          "bootstrap_ci_95": [
+            -1849.3262238832472,
+            -191.61310673800955
+          ],
+          "dm_t": -2.1383669108985313,
+          "dm_p": 0.04168949207724664
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 48.40659306754479,
+          "loss_challenger": 44.54611633056393,
+          "mean_daily_improvement": 4.016387980844612,
+          "days_improved": 19,
+          "bootstrap_ci_95": [
+            1.1217131065987813,
+            7.2514503870105465
+          ],
+          "dm_t": 2.2508475858458983,
+          "dm_p": 0.03274186987751965
+        }
+      },
+      "model_vs_oi_change": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 385.80353508818956,
+          "loss_challenger": 385.80353508818956,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 7016.326735986437,
+          "loss_challenger": 7016.326735986437,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 44.54611633056393,
+          "loss_challenger": 44.54611633056393,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_volatility": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 385.80353508818956,
+          "loss_challenger": 385.80353508818956,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 7016.326735986437,
+          "loss_challenger": 7016.326735986437,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 44.54611633056393,
+          "loss_challenger": 44.54611633056393,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_heatmap": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 385.80353508818956,
+          "loss_challenger": 385.80353508818956,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 7016.326735986437,
+          "loss_challenger": 7016.326735986437,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 44.54611633056393,
+          "loss_challenger": 44.54611633056393,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_persist_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 358.4852544984588,
+          "loss_challenger": 373.1196841473767,
+          "mean_daily_improvement": -14.634429648917935,
+          "days_improved": 13,
+          "bootstrap_ci_95": [
+            -34.48808651729194,
+            3.874600103011001
+          ],
+          "dm_t": -1.3810998147899343,
+          "dm_p": 0.17857310638764282
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 6383.215108595456,
+          "loss_challenger": 6748.955315128418,
+          "mean_daily_improvement": -588.3783263221695,
+          "days_improved": 10,
+          "bootstrap_ci_95": [
+            -1525.43081817002,
+            3.2311018061036854
+          ],
+          "dm_t": -1.5546087174426277,
+          "dm_p": 0.1316841007935153
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 48.40659306754479,
+          "loss_challenger": 44.970434996611736,
+          "mean_daily_improvement": 3.587165139718767,
+          "days_improved": 20,
+          "bootstrap_ci_95": [
+            0.9937696868106475,
+            6.160520963535384
+          ],
+          "dm_t": 2.5097338944873946,
+          "dm_p": 0.018381416764522828
+        }
+      }
+    },
+    "brier": {
+      "model": {
+        "brier": 0.0010462995624089433,
+        "reliability": 5.396953563996152e-08,
+        "resolution": 0.0,
+        "uncertainty": 0.0010496810435081762
+      },
+      "persistence": {
+        "brier": 0.000931254585294504,
+        "reliability": 6.0965454316125e-06,
+        "resolution": 0.00012089937495739674,
+        "uncertainty": 0.0010496810435081762
+      },
+      "oi_change": {
+        "brier": 0.0010468359323355678,
+        "reliability": 1.2490930775458425e-07,
+        "resolution": 0.0,
+        "uncertainty": 0.0010496810435081762
+      },
+      "volatility": {
+        "brier": 0.0010404899293699169,
+        "reliability": 1.4035337438315242e-10,
+        "resolution": 0.0,
+        "uncertainty": 0.0010496810435081762
+      },
+      "heatmap": {
+        "brier": 0.0010503420059433364,
+        "reliability": 3.27759737125599e-07,
+        "resolution": 0.0,
+        "uncertainty": 0.0010496810435081762
+      },
+      "climatology": {
+        "brier": 0.0010497844849514846,
+        "reliability": 1.2032084814101414e-07,
+        "resolution": 0.0,
+        "uncertainty": 0.0010496810435081762
+      },
+      "model_persist": {
+        "brier": 0.0009287942250334556,
+        "reliability": 2.060722609083026e-06,
+        "resolution": 0.0001224148372663392,
+        "uncertainty": 0.0010496810435081762
+      },
+      "model_raw": {
+        "brier": 0.0011293458335185967,
+        "reliability": 4.0831792701779674e-05,
+        "resolution": 1.8904417412051427e-06,
+        "uncertainty": 0.0010496810435081762
+      }
+    },
+    "dm_brier": {
+      "model_vs_climatology": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.0010497844849514846,
+          "loss_challenger": 0.0010462995624089433,
+          "mean_daily_improvement": 3.484922542568016e-06,
+          "days_improved": 25,
+          "bootstrap_ci_95": [
+            1.6055445892834162e-06,
+            5.604314643272218e-06
+          ],
+          "dm_t": 3.307598506502423,
+          "dm_p": 0.0026688949228012467
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.015550938942378002,
+          "loss_challenger": 0.01548872163131362,
+          "mean_daily_improvement": 4.6030266793085255e-05,
+          "days_improved": 22,
+          "bootstrap_ci_95": [
+            3.329071539270142e-05,
+            5.9550415512483156e-05
+          ],
+          "dm_t": 6.50290654551552,
+          "dm_p": 5.687048193537492e-07
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0003034442054277493,
+          "loss_challenger": 0.00030298210064742,
+          "mean_daily_improvement": 4.278077550485497e-07,
+          "days_improved": 16,
+          "bootstrap_ci_95": [
+            -8.067759294673838e-07,
+            1.4867250116709328e-06
+          ],
+          "dm_t": 0.6702683691118267,
+          "dm_p": 0.508379596425725
+        }
+      },
+      "model_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.000931254585294504,
+          "loss_challenger": 0.0010462995624089433,
+          "mean_daily_improvement": -0.00011504497711440456,
+          "days_improved": 7,
+          "bootstrap_ci_95": [
+            -0.00017832218450328208,
+            -5.643259558449283e-05
+          ],
+          "dm_t": -3.7450818417622656,
+          "dm_p": 0.0008652385553879237
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.013153853977341846,
+          "loss_challenger": 0.01548872163131362,
+          "mean_daily_improvement": -0.0019704059543629257,
+          "days_improved": 4,
+          "bootstrap_ci_95": [
+            -0.0027352061072959794,
+            -0.0012696747395066236
+          ],
+          "dm_t": -4.792814667927514,
+          "dm_p": 5.3152825677537506e-05
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0003021861705314667,
+          "loss_challenger": 0.00030298210064742,
+          "mean_daily_improvement": -1.0491250730875384e-06,
+          "days_improved": 18,
+          "bootstrap_ci_95": [
+            -1.4292014707733378e-05,
+            1.1455990157829378e-05
+          ],
+          "dm_t": -0.15946492911000573,
+          "dm_p": 0.8744895115895861
+        }
+      },
+      "model_vs_oi_change": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.0010468359323355678,
+          "loss_challenger": 0.0010462995624089433,
+          "mean_daily_improvement": 5.363699266574954e-07,
+          "days_improved": 17,
+          "bootstrap_ci_95": [
+            -1.562771340624192e-06,
+            2.4348685385005687e-06
+          ],
+          "dm_t": 0.4925032260397327,
+          "dm_p": 0.6263448754668388
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.01547133059727729,
+          "loss_challenger": 0.01548872163131362,
+          "mean_daily_improvement": -4.439503447936413e-06,
+          "days_improved": 15,
+          "bootstrap_ci_95": [
+            -3.697541441436267e-05,
+            2.6544589197186688e-05
+          ],
+          "dm_t": -0.2432252869785798,
+          "dm_p": 0.809669304223578
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0003044411518491199,
+          "loss_challenger": 0.00030298210064742,
+          "mean_daily_improvement": 1.4418980644174302e-06,
+          "days_improved": 21,
+          "bootstrap_ci_95": [
+            2.2676473032619946e-07,
+            2.622688762827733e-06
+          ],
+          "dm_t": 2.214769824837613,
+          "dm_p": 0.03540257159374127
+        }
+      },
+      "model_vs_volatility": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.0010404899293699169,
+          "loss_challenger": 0.0010462995624089433,
+          "mean_daily_improvement": -5.809633039050091e-06,
+          "days_improved": 10,
+          "bootstrap_ci_95": [
+            -8.89666338236371e-06,
+            -2.763012409407049e-06
+          ],
+          "dm_t": -3.429072917186878,
+          "dm_p": 0.0019593166291779237
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.015369687016083869,
+          "loss_challenger": 0.01548872163131362,
+          "mean_daily_improvement": -6.029639519589597e-05,
+          "days_improved": 11,
+          "bootstrap_ci_95": [
+            -9.377896944001665e-05,
+            -2.6723298702734346e-05
+          ],
+          "dm_t": -3.2456454878847016,
+          "dm_p": 0.003120584931481194
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.00030299989087358186,
+          "loss_challenger": 0.00030298210064742,
+          "mean_daily_improvement": 1.9820388321970057e-08,
+          "days_improved": 15,
+          "bootstrap_ci_95": [
+            -1.0760700482060407e-06,
+            1.1501589653631037e-06
+          ],
+          "dm_t": 0.031996271516957824,
+          "dm_p": 0.9747103821323296
+        }
+      },
+      "model_vs_heatmap": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.0010503420059433364,
+          "loss_challenger": 0.0010462995624089433,
+          "mean_daily_improvement": 4.0424435343942695e-06,
+          "days_improved": 22,
+          "bootstrap_ci_95": [
+            1.992778285891691e-06,
+            6.250544498140768e-06
+          ],
+          "dm_t": 4.197391961012023,
+          "dm_p": 0.00026204982794881816
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.015478885524952394,
+          "loss_challenger": 0.01548872163131362,
+          "mean_daily_improvement": -5.4393718519400435e-06,
+          "days_improved": 12,
+          "bootstrap_ci_95": [
+            -4.06183814220514e-05,
+            2.6544385039433983e-05
+          ],
+          "dm_t": -0.2771769988160302,
+          "dm_p": 0.7837553225284976
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.00030773884047035304,
+          "loss_challenger": 0.00030298210064742,
+          "mean_daily_improvement": 4.751824726726979e-06,
+          "days_improved": 24,
+          "bootstrap_ci_95": [
+            2.1452820398577392e-06,
+            7.687591355981747e-06
+          ],
+          "dm_t": 3.168665993471924,
+          "dm_p": 0.0037848735550810872
+        }
+      },
+      "model_persist_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.000931254585294504,
+          "loss_challenger": 0.0009287942250334556,
+          "mean_daily_improvement": 2.460360261035612e-06,
+          "days_improved": 14,
+          "bootstrap_ci_95": [
+            -5.740989131083051e-06,
+            1.0342962094585677e-05
+          ],
+          "dm_t": 0.6124941281323277,
+          "dm_p": 0.5453353783769498
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.013153853977341846,
+          "loss_challenger": 0.013294835266688565,
+          "mean_daily_improvement": -0.0002658237159183818,
+          "days_improved": 9,
+          "bootstrap_ci_95": [
+            -0.0004872959269765679,
+            -7.123735112871998e-05
+          ],
+          "dm_t": -2.8025956651664865,
+          "dm_p": 0.009267164151454677
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0003021861705314667,
+          "loss_challenger": 0.0002923432062730669,
+          "mean_daily_improvement": 1.002304398693967e-05,
+          "days_improved": 23,
+          "bootstrap_ci_95": [
+            4.073966806976041e-06,
+            1.6106651148132404e-05
+          ],
+          "dm_t": 3.3687001329980224,
+          "dm_p": 0.002285537489264034
+        }
+      }
+    }
+  },
+  "15s": {
+    "share_windows_with_forced_flow": 0.00437774857503485,
+    "share_windows_above_10000": 0.002542369496359199,
+    "scored_rows": 483448,
+    "scored_days": 28,
+    "pinball_q50": {
+      "model": {
+        "all": 640.7204370899664,
+        "fast": 10418.018043944392,
+        "quiet": 137.5059481808197
+      },
+      "persistence": {
+        "all": 640.8016592826118,
+        "fast": 10419.803176272719,
+        "quiet": 137.4994741303362
+      },
+      "oi_change": {
+        "all": 640.7204370899664,
+        "fast": 10418.018043944392,
+        "quiet": 137.5059481808197
+      },
+      "volatility": {
+        "all": 640.7204370899664,
+        "fast": 10418.018043944392,
+        "quiet": 137.5059481808197
+      },
+      "heatmap": {
+        "all": 640.7204370899664,
+        "fast": 10418.018043944392,
+        "quiet": 137.5059481808197
+      },
+      "model_persist": {
+        "all": 640.790834081649,
+        "fast": 10418.019705601339,
+        "quiet": 137.57988281835603
+      },
+      "model_raw": {
+        "all": 875.2017434444147,
+        "fast": 13346.099697762316,
+        "quiet": 233.35398625630273
+      },
+      "zero": {
+        "all": 640.7204370899664,
+        "fast": 10418.018043944392,
+        "quiet": 137.5059481808197
+      }
+    },
+    "dm_pinball_q50": {
+      "model_vs_zero": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 640.7204370899664,
+          "loss_challenger": 640.7204370899664,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 10418.018043944392,
+          "loss_challenger": 10418.018043944392,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 137.5059481808197,
+          "loss_challenger": 137.5059481808197,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 640.8016592826118,
+          "loss_challenger": 640.7204370899664,
+          "mean_daily_improvement": 0.08122219264539078,
+          "days_improved": 10,
+          "bootstrap_ci_95": [
+            -0.01593151177085248,
+            0.19361180877867532
+          ],
+          "dm_t": 1.3971509291959125,
+          "dm_p": 0.17374570321831623
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 10419.803176272719,
+          "loss_challenger": 10418.018043944392,
+          "mean_daily_improvement": 0.9850884216525263,
+          "days_improved": 12,
+          "bootstrap_ci_95": [
+            -0.4889849455550801,
+            2.5634351415571177
+          ],
+          "dm_t": 1.2450653001048775,
+          "dm_p": 0.22380599360966993
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 137.4994741303362,
+          "loss_challenger": 137.5059481808197,
+          "mean_daily_improvement": -0.0074670757731998905,
+          "days_improved": 5,
+          "bootstrap_ci_95": [
+            -0.03804339407729874,
+            0.015315494371044442
+          ],
+          "dm_t": -0.5059160904491602,
+          "dm_p": 0.6170214252988073
+        }
+      },
+      "model_vs_oi_change": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 640.7204370899664,
+          "loss_challenger": 640.7204370899664,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 10418.018043944392,
+          "loss_challenger": 10418.018043944392,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 137.5059481808197,
+          "loss_challenger": 137.5059481808197,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_volatility": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 640.7204370899664,
+          "loss_challenger": 640.7204370899664,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 10418.018043944392,
+          "loss_challenger": 10418.018043944392,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 137.5059481808197,
+          "loss_challenger": 137.5059481808197,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_heatmap": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 640.7204370899664,
+          "loss_challenger": 640.7204370899664,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 10418.018043944392,
+          "loss_challenger": 10418.018043944392,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 137.5059481808197,
+          "loss_challenger": 137.5059481808197,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_persist_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 640.8016592826118,
+          "loss_challenger": 640.790834081649,
+          "mean_daily_improvement": 0.010825200962713404,
+          "days_improved": 10,
+          "bootstrap_ci_95": [
+            -0.10912158767710796,
+            0.13030020021991578
+          ],
+          "dm_t": 0.1786873406298369,
+          "dm_p": 0.859517268726278
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 10419.803176272719,
+          "loss_challenger": 10418.019705601339,
+          "mean_daily_improvement": 0.9834401382017494,
+          "days_improved": 11,
+          "bootstrap_ci_95": [
+            -0.48974162487569983,
+            2.55934650908122
+          ],
+          "dm_t": 1.2441890021320399,
+          "dm_p": 0.22412322126082743
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 137.4994741303362,
+          "loss_challenger": 137.57988281835603,
+          "mean_daily_improvement": -0.07953886508016443,
+          "days_improved": 5,
+          "bootstrap_ci_95": [
+            -0.21567558904764883,
+            0.008192520396159189
+          ],
+          "dm_t": -1.2256324001136336,
+          "dm_p": 0.23092080380040803
+        }
+      }
+    },
+    "pinball_q90": {
+      "model": {
+        "all": 1153.2967867619398,
+        "fast": 18752.432479099905,
+        "quiet": 247.51070672547544
+      },
+      "persistence": {
+        "all": 1088.9740635573626,
+        "fast": 17462.2941887281,
+        "quiet": 246.27782479733523
+      },
+      "oi_change": {
+        "all": 1153.2967867619398,
+        "fast": 18752.432479099905,
+        "quiet": 247.51070672547544
+      },
+      "volatility": {
+        "all": 1153.2967867619398,
+        "fast": 18752.432479099905,
+        "quiet": 247.51070672547544
+      },
+      "heatmap": {
+        "all": 1153.2967867619398,
+        "fast": 18752.432479099905,
+        "quiet": 247.51070672547544
+      },
+      "model_persist": {
+        "all": 1089.9140667107022,
+        "fast": 17516.82256443264,
+        "quiet": 244.45976057979743
+      },
+      "model_raw": {
+        "all": 1179.8247716323974,
+        "fast": 18941.085650214874,
+        "quiet": 265.69448995496685
+      },
+      "zero": {
+        "all": 1153.2967867619398,
+        "fast": 18752.432479099905,
+        "quiet": 247.51070672547544
+      }
+    },
+    "dm_pinball_q90": {
+      "model_vs_zero": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 1153.2967867619398,
+          "loss_challenger": 1153.2967867619398,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 18752.432479099905,
+          "loss_challenger": 18752.432479099905,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 247.51070672547544,
+          "loss_challenger": 247.51070672547544,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 1088.9740635573626,
+          "loss_challenger": 1153.2967867619398,
+          "mean_daily_improvement": -64.32272320457699,
+          "days_improved": 11,
+          "bootstrap_ci_95": [
+            -110.87712381114359,
+            -24.470566681272217
+          ],
+          "dm_t": -2.911082966225768,
+          "dm_p": 0.007136803845659924
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 17462.2941887281,
+          "loss_challenger": 18752.432479099905,
+          "mean_daily_improvement": -1058.7297727083,
+          "days_improved": 10,
+          "bootstrap_ci_95": [
+            -1661.3729105185573,
+            -504.7540482468083
+          ],
+          "dm_t": -3.399176081525927,
+          "dm_p": 0.0021147901488370534
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 246.27782479733523,
+          "loss_challenger": 247.51070672547544,
+          "mean_daily_improvement": -1.4548273257625541,
+          "days_improved": 18,
+          "bootstrap_ci_95": [
+            -8.06068251223218,
+            4.643744187839147
+          ],
+          "dm_t": -0.4430995315281474,
+          "dm_p": 0.6612238112590432
+        }
+      },
+      "model_vs_oi_change": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 1153.2967867619398,
+          "loss_challenger": 1153.2967867619398,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 18752.432479099905,
+          "loss_challenger": 18752.432479099905,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 247.51070672547544,
+          "loss_challenger": 247.51070672547544,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_volatility": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 1153.2967867619398,
+          "loss_challenger": 1153.2967867619398,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 18752.432479099905,
+          "loss_challenger": 18752.432479099905,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 247.51070672547544,
+          "loss_challenger": 247.51070672547544,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_heatmap": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 1153.2967867619398,
+          "loss_challenger": 1153.2967867619398,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 18752.432479099905,
+          "loss_challenger": 18752.432479099905,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 247.51070672547544,
+          "loss_challenger": 247.51070672547544,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_persist_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 1088.9740635573626,
+          "loss_challenger": 1089.9140667107022,
+          "mean_daily_improvement": -0.9400031533404675,
+          "days_improved": 13,
+          "bootstrap_ci_95": [
+            -12.71498714128186,
+            10.94284245493712
+          ],
+          "dm_t": -0.15642607881436169,
+          "dm_p": 0.8768609601353107
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 17462.2941887281,
+          "loss_challenger": 17516.82256443264,
+          "mean_daily_improvement": -150.20248631104556,
+          "days_improved": 9,
+          "bootstrap_ci_95": [
+            -351.67566611598625,
+            51.81731086911674
+          ],
+          "dm_t": -1.521560880622868,
+          "dm_p": 0.13974560628225655
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 246.27782479733523,
+          "loss_challenger": 244.45976057979743,
+          "mean_daily_improvement": 1.8258035082998696,
+          "days_improved": 20,
+          "bootstrap_ci_95": [
+            -2.579248981776999,
+            5.766016647608241
+          ],
+          "dm_t": 0.8282004595812127,
+          "dm_p": 0.4148181225875288
+        }
+      }
+    },
+    "brier": {
+      "model": {
+        "brier": 0.002445139627618127,
+        "reliability": 3.385132324586005e-07,
+        "resolution": 0.0,
+        "uncertainty": 0.002478066782560384
+      },
+      "persistence": {
+        "brier": 0.002135686619433127,
+        "reliability": 3.6941532564587446e-06,
+        "resolution": 0.00034404961474514127,
+        "uncertainty": 0.002478066782560384
+      },
+      "oi_change": {
+        "brier": 0.002466442376935665,
+        "reliability": 7.99754639281164e-07,
+        "resolution": 0.0,
+        "uncertainty": 0.002478066782560384
+      },
+      "volatility": {
+        "brier": 0.0024345617397525396,
+        "reliability": 7.061697762939696e-09,
+        "resolution": 0.0,
+        "uncertainty": 0.002478066782560384
+      },
+      "heatmap": {
+        "brier": 0.0024811459865158,
+        "reliability": 1.893532120083008e-06,
+        "resolution": 0.0,
+        "uncertainty": 0.002478066782560384
+      },
+      "climatology": {
+        "brier": 0.0024786678103920962,
+        "reliability": 7.522056694820899e-07,
+        "resolution": 0.0,
+        "uncertainty": 0.002478066782560384
+      },
+      "model_persist": {
+        "brier": 0.002137163994019385,
+        "reliability": 5.33476092755802e-06,
+        "resolution": 0.0003390433471267842,
+        "uncertainty": 0.002478066782560384
+      },
+      "model_raw": {
+        "brier": 0.002889313678967292,
+        "reliability": 0.00040490346876640766,
+        "resolution": 4.313283220288512e-05,
+        "uncertainty": 0.002478066782560384
+      }
+    },
+    "dm_brier": {
+      "model_vs_climatology": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.0024786678103920962,
+          "loss_challenger": 0.002445139627618127,
+          "mean_daily_improvement": 3.3528182774128035e-05,
+          "days_improved": 26,
+          "bootstrap_ci_95": [
+            1.9761286015433613e-05,
+            5.124061750767276e-05
+          ],
+          "dm_t": 4.027225893483626,
+          "dm_p": 0.0004117996933341849
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.03278891514282227,
+          "loss_challenger": 0.032191147265536624,
+          "mean_daily_improvement": 0.00041399491726868537,
+          "days_improved": 23,
+          "bootstrap_ci_95": [
+            0.00029719283244705676,
+            0.000538106229482401
+          ],
+          "dm_t": 6.594176220439011,
+          "dm_p": 4.492636500119526e-07
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0009186707403012978,
+          "loss_challenger": 0.0009141826462014111,
+          "mean_daily_improvement": 4.311518526249889e-06,
+          "days_improved": 18,
+          "bootstrap_ci_95": [
+            -1.4030478067510117e-06,
+            9.496110117814054e-06
+          ],
+          "dm_t": 1.4647356437502008,
+          "dm_p": 0.1545410532406521
+        }
+      },
+      "model_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.002135686619433127,
+          "loss_challenger": 0.002445139627618127,
+          "mean_daily_improvement": -0.000309453008184657,
+          "days_improved": 7,
+          "bootstrap_ci_95": [
+            -0.0004534815202151832,
+            -0.0001702556589953767
+          ],
+          "dm_t": -4.168958049571962,
+          "dm_p": 0.0002826585619778134
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.027028098068935535,
+          "loss_challenger": 0.032191147265536624,
+          "mean_daily_improvement": -0.0037593173259934955,
+          "days_improved": 6,
+          "bootstrap_ci_95": [
+            -0.0050467805905486645,
+            -0.002489527538136114
+          ],
+          "dm_t": -5.485767302854115,
+          "dm_p": 8.282953160510882e-06
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.000854532806901536,
+          "loss_challenger": 0.0009141826462014111,
+          "mean_daily_improvement": -6.218691410446776e-05,
+          "days_improved": 12,
+          "bootstrap_ci_95": [
+            -0.00011239708278354742,
+            -1.8486982047084148e-05
+          ],
+          "dm_t": -2.6006344851571788,
+          "dm_p": 0.014911643626170224
+        }
+      },
+      "model_vs_oi_change": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.002466442376935665,
+          "loss_challenger": 0.002445139627618127,
+          "mean_daily_improvement": 2.1302749317846304e-05,
+          "days_improved": 27,
+          "bootstrap_ci_95": [
+            1.2880258304335454e-05,
+            3.208045303906291e-05
+          ],
+          "dm_t": 4.068165588544296,
+          "dm_p": 0.00036945809602378677
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.03247215550523708,
+          "loss_challenger": 0.032191147265536624,
+          "mean_daily_improvement": 0.00023347939554390634,
+          "days_improved": 22,
+          "bootstrap_ci_95": [
+            0.00014514615592504053,
+            0.00033032553514394263
+          ],
+          "dm_t": 4.275062352171278,
+          "dm_p": 0.00021302784295591182
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0009221189653595235,
+          "loss_challenger": 0.0009141826462014111,
+          "mean_daily_improvement": 7.830919489753983e-06,
+          "days_improved": 22,
+          "bootstrap_ci_95": [
+            2.5072184076517646e-06,
+            1.274126629722416e-05
+          ],
+          "dm_t": 2.857163380483216,
+          "dm_p": 0.008130006398070462
+        }
+      },
+      "model_vs_volatility": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.0024345617397525396,
+          "loss_challenger": 0.002445139627618127,
+          "mean_daily_improvement": -1.0577887865563553e-05,
+          "days_improved": 16,
+          "bootstrap_ci_95": [
+            -2.341072503187617e-05,
+            1.5498763776502961e-06
+          ],
+          "dm_t": -1.542939100002155,
+          "dm_p": 0.13448616801698707
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.031986089750723715,
+          "loss_challenger": 0.032191147265536624,
+          "mean_daily_improvement": -3.6369513623084273e-05,
+          "days_improved": 16,
+          "bootstrap_ci_95": [
+            -0.0001896549155996237,
+            0.00010454809928630559
+          ],
+          "dm_t": -0.45359310666193003,
+          "dm_p": 0.6537465440247937
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0009136141668669633,
+          "loss_challenger": 0.0009141826462014111,
+          "mean_daily_improvement": -5.879114007566472e-07,
+          "days_improved": 14,
+          "bootstrap_ci_95": [
+            -6.199628753706e-06,
+            5.144151525412195e-06
+          ],
+          "dm_t": -0.18965740271468903,
+          "dm_p": 0.8509962184400562
+        }
+      },
+      "model_vs_heatmap": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.0024811459865158,
+          "loss_challenger": 0.002445139627618127,
+          "mean_daily_improvement": 3.600635889788365e-05,
+          "days_improved": 24,
+          "bootstrap_ci_95": [
+            2.1340730287611737e-05,
+            5.240667993824111e-05
+          ],
+          "dm_t": 4.885901898605576,
+          "dm_p": 4.138592159486112e-05
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.0324566057632466,
+          "loss_challenger": 0.032191147265536624,
+          "mean_daily_improvement": 0.00018705731370578313,
+          "days_improved": 20,
+          "bootstrap_ci_95": [
+            -2.434907772091421e-06,
+            0.00036866950865731344
+          ],
+          "dm_t": 1.810378126024262,
+          "dm_p": 0.08138062701582353
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0009383796437188403,
+          "loss_challenger": 0.0009141826462014111,
+          "mean_daily_improvement": 2.4091658815992985e-05,
+          "days_improved": 24,
+          "bootstrap_ci_95": [
+            1.1268729014663482e-05,
+            3.820214646216159e-05
+          ],
+          "dm_t": 3.2865885561100647,
+          "dm_p": 0.002814513090684987
+        }
+      },
+      "model_persist_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.002135686619433127,
+          "loss_challenger": 0.002137163994019385,
+          "mean_daily_improvement": -1.47737458606329e-06,
+          "days_improved": 14,
+          "bootstrap_ci_95": [
+            -2.1227070839648473e-05,
+            2.028808204553886e-05
+          ],
+          "dm_t": -0.13503504755821208,
+          "dm_p": 0.8935858210532656
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.027028098068935535,
+          "loss_challenger": 0.026963986652713434,
+          "mean_daily_improvement": -5.248362257632664e-05,
+          "days_improved": 13,
+          "bootstrap_ci_95": [
+            -0.00036187624787086626,
+            0.00026187985607601484
+          ],
+          "dm_t": -0.32142151701987776,
+          "dm_p": 0.7503660384320866
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.000854532806901536,
+          "loss_challenger": 0.0008593858821335087,
+          "mean_daily_improvement": -5.029985140018302e-06,
+          "days_improved": 16,
+          "bootstrap_ci_95": [
+            -1.7217257624842725e-05,
+            5.561279007583942e-06
+          ],
+          "dm_t": -0.7376601014590211,
+          "dm_p": 0.46708403335574417
+        }
+      }
+    }
+  },
+  "60s": {
+    "share_windows_with_forced_flow": 0.011202003538946384,
+    "share_windows_above_10000": 0.007019975475021669,
+    "scored_rows": 483448,
+    "scored_days": 28,
+    "pinball_q50": {
+      "model": {
+        "all": 2558.3108389125,
+        "fast": 36462.08975090603,
+        "quiet": 813.3631587552633
+      },
+      "persistence": {
+        "all": 2559.7676095342626,
+        "fast": 36490.13951174951,
+        "quiet": 813.4512507788005
+      },
+      "oi_change": {
+        "all": 2558.3108389125,
+        "fast": 36462.08975090603,
+        "quiet": 813.3631587552633
+      },
+      "volatility": {
+        "all": 2558.3108389125,
+        "fast": 36462.08975090603,
+        "quiet": 813.3631587552633
+      },
+      "heatmap": {
+        "all": 2558.3108389125,
+        "fast": 36462.08975090603,
+        "quiet": 813.3631587552633
+      },
+      "model_persist": {
+        "all": 2558.351649689786,
+        "fast": 36461.514897441164,
+        "quiet": 813.4356563216207
+      },
+      "model_raw": {
+        "all": 4220.4546348388985,
+        "fast": 60856.60827377661,
+        "quiet": 1305.5251468362233
+      },
+      "zero": {
+        "all": 2558.3108389125,
+        "fast": 36462.08975090603,
+        "quiet": 813.3631587552633
+      }
+    },
+    "dm_pinball_q50": {
+      "model_vs_zero": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 2558.3108389125,
+          "loss_challenger": 2558.3108389125,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 36462.08975090603,
+          "loss_challenger": 36462.08975090603,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 813.3631587552633,
+          "loss_challenger": 813.3631587552633,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 2559.7676095342626,
+          "loss_challenger": 2558.3108389125,
+          "mean_daily_improvement": 1.4567706217619332,
+          "days_improved": 11,
+          "bootstrap_ci_95": [
+            -1.2809687509633532,
+            4.5540491838182815
+          ],
+          "dm_t": 0.9925659083731805,
+          "dm_p": 0.32973409032975703
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 36490.13951174951,
+          "loss_challenger": 36462.08975090603,
+          "mean_daily_improvement": 22.22494394211855,
+          "days_improved": 13,
+          "bootstrap_ci_95": [
+            -17.66947868508603,
+            64.18780315707895
+          ],
+          "dm_t": 1.0933333059434067,
+          "dm_p": 0.283906602393129
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 813.4512507788005,
+          "loss_challenger": 813.3631587552633,
+          "mean_daily_improvement": 0.07739669577429911,
+          "days_improved": 8,
+          "bootstrap_ci_95": [
+            -0.926951243466996,
+            0.8393680742091971
+          ],
+          "dm_t": 0.16532583252746005,
+          "dm_p": 0.869919178951809
+        }
+      },
+      "model_vs_oi_change": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 2558.3108389125,
+          "loss_challenger": 2558.3108389125,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 36462.08975090603,
+          "loss_challenger": 36462.08975090603,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 813.3631587552633,
+          "loss_challenger": 813.3631587552633,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_volatility": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 2558.3108389125,
+          "loss_challenger": 2558.3108389125,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 36462.08975090603,
+          "loss_challenger": 36462.08975090603,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 813.3631587552633,
+          "loss_challenger": 813.3631587552633,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_heatmap": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 2558.3108389125,
+          "loss_challenger": 2558.3108389125,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 36462.08975090603,
+          "loss_challenger": 36462.08975090603,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 813.3631587552633,
+          "loss_challenger": 813.3631587552633,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_persist_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 2559.7676095342626,
+          "loss_challenger": 2558.351649689786,
+          "mean_daily_improvement": 1.4159598444787416,
+          "days_improved": 11,
+          "bootstrap_ci_95": [
+            -1.3490919279257034,
+            4.522816673377887
+          ],
+          "dm_t": 0.960285448053612,
+          "dm_p": 0.3454328773053642
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 36490.13951174951,
+          "loss_challenger": 36461.514897441164,
+          "mean_daily_improvement": 22.22805849219555,
+          "days_improved": 13,
+          "bootstrap_ci_95": [
+            -17.481515736576643,
+            64.07241017736047
+          ],
+          "dm_t": 1.094767098122207,
+          "dm_p": 0.28328905589045683
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 813.4512507788005,
+          "loss_challenger": 813.4356563216207,
+          "mean_daily_improvement": 0.004369848053757508,
+          "days_improved": 8,
+          "bootstrap_ci_95": [
+            -0.9702103328851981,
+            0.746874373762186
+          ],
+          "dm_t": 0.009674643497482892,
+          "dm_p": 0.9923520035275777
+        }
+      }
+    },
+    "pinball_q90": {
+      "model": {
+        "all": 4604.9595100425,
+        "fast": 65631.76155163084,
+        "quiet": 1464.053685759474
+      },
+      "persistence": {
+        "all": 4249.539103021781,
+        "fast": 58672.26074350898,
+        "quiet": 1448.5297488457131
+      },
+      "oi_change": {
+        "all": 4604.9595100425,
+        "fast": 65631.76155163084,
+        "quiet": 1464.053685759474
+      },
+      "volatility": {
+        "all": 4604.9595100425,
+        "fast": 65631.76155163084,
+        "quiet": 1464.053685759474
+      },
+      "heatmap": {
+        "all": 4604.9595100425,
+        "fast": 65631.76155163084,
+        "quiet": 1464.053685759474
+      },
+      "model_persist": {
+        "all": 4249.035353738585,
+        "fast": 58885.78761467615,
+        "quiet": 1437.0103474251275
+      },
+      "model_raw": {
+        "all": 4621.966594395334,
+        "fast": 64541.94124173836,
+        "quiet": 1538.0265702650345
+      },
+      "zero": {
+        "all": 4604.9595100425,
+        "fast": 65631.76155163084,
+        "quiet": 1464.053685759474
+      }
+    },
+    "dm_pinball_q90": {
+      "model_vs_zero": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 4604.9595100425,
+          "loss_challenger": 4604.9595100425,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 65631.76155163084,
+          "loss_challenger": 65631.76155163084,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 1464.053685759474,
+          "loss_challenger": 1464.053685759474,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 4249.539103021781,
+          "loss_challenger": 4604.9595100425,
+          "mean_daily_improvement": -355.420407020724,
+          "days_improved": 11,
+          "bootstrap_ci_95": [
+            -590.16085912366,
+            -149.90501278970726
+          ],
+          "dm_t": -2.9864295719483716,
+          "dm_p": 0.005939917325237503
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 58672.26074350898,
+          "loss_challenger": 65631.76155163084,
+          "mean_daily_improvement": -4283.86966486549,
+          "days_improved": 10,
+          "bootstrap_ci_95": [
+            -6656.345418110365,
+            -1809.3310329751432
+          ],
+          "dm_t": -3.38818150658726,
+          "dm_p": 0.0021749158838246965
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 1448.5297488457131,
+          "loss_challenger": 1464.053685759474,
+          "mean_daily_improvement": -16.436785139626988,
+          "days_improved": 16,
+          "bootstrap_ci_95": [
+            -52.60594996138384,
+            17.276789317202535
+          ],
+          "dm_t": -0.8086949435860118,
+          "dm_p": 0.42575948094043925
+        }
+      },
+      "model_vs_oi_change": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 4604.9595100425,
+          "loss_challenger": 4604.9595100425,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 65631.76155163084,
+          "loss_challenger": 65631.76155163084,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 1464.053685759474,
+          "loss_challenger": 1464.053685759474,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_volatility": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 4604.9595100425,
+          "loss_challenger": 4604.9595100425,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 65631.76155163084,
+          "loss_challenger": 65631.76155163084,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 1464.053685759474,
+          "loss_challenger": 1464.053685759474,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_vs_heatmap": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 4604.9595100425,
+          "loss_challenger": 4604.9595100425,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 65631.76155163084,
+          "loss_challenger": 65631.76155163084,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 1464.053685759474,
+          "loss_challenger": 1464.053685759474,
+          "mean_daily_improvement": 0.0,
+          "days_improved": 0,
+          "bootstrap_ci_95": [
+            0.0,
+            0.0
+          ],
+          "dm_t": 0.0,
+          "dm_p": 1.0
+        }
+      },
+      "model_persist_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 4249.539103021781,
+          "loss_challenger": 4249.035353738585,
+          "mean_daily_improvement": 0.5037492831872815,
+          "days_improved": 13,
+          "bootstrap_ci_95": [
+            -70.2600996626008,
+            81.69381316956022
+          ],
+          "dm_t": 0.01349074329672194,
+          "dm_p": 0.9893354643251798
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 58672.26074350898,
+          "loss_challenger": 58885.78761467615,
+          "mean_daily_improvement": -874.6592945394402,
+          "days_improved": 12,
+          "bootstrap_ci_95": [
+            -2145.1729479533246,
+            445.43782178705874
+          ],
+          "dm_t": -1.3793710974784303,
+          "dm_p": 0.17909925003760882
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 1448.5297488457131,
+          "loss_challenger": 1437.0103474251275,
+          "mean_daily_improvement": 12.94674188831497,
+          "days_improved": 15,
+          "bootstrap_ci_95": [
+            -34.53070279386803,
+            65.88958493456666
+          ],
+          "dm_t": 0.51289250642465,
+          "dm_p": 0.6121975577523358
+        }
+      }
+    },
+    "brier": {
+      "model": {
+        "brier": 0.006496517095078675,
+        "reliability": 5.342458914661795e-08,
+        "resolution": 0.0,
+        "uncertainty": 0.006773252235457945
+      },
+      "persistence": {
+        "brier": 0.005577508677506069,
+        "reliability": 9.192707701594053e-06,
+        "resolution": 0.0012218175941054352,
+        "uncertainty": 0.006773252235457945
+      },
+      "oi_change": {
+        "brier": 0.006725959323379883,
+        "reliability": 6.340141250501117e-06,
+        "resolution": 0.0,
+        "uncertainty": 0.006773252235457945
+      },
+      "volatility": {
+        "brier": 0.006521489504812061,
+        "reliability": 1.1705924739503176e-07,
+        "resolution": 0.0,
+        "uncertainty": 0.006773252235457945
+      },
+      "heatmap": {
+        "brier": 0.006789396764473068,
+        "reliability": 1.3653083489350781e-05,
+        "resolution": 0.0,
+        "uncertainty": 0.006773252235457945
+      },
+      "climatology": {
+        "brier": 0.00677798748590497,
+        "reliability": 6.01494838023312e-06,
+        "resolution": 0.0,
+        "uncertainty": 0.006773252235457945
+      },
+      "model_persist": {
+        "brier": 0.005520928331055208,
+        "reliability": 1.4745138147497903e-06,
+        "resolution": 0.0012165056386173572,
+        "uncertainty": 0.006773252235457945
+      },
+      "model_raw": {
+        "brier": 0.010537986436023241,
+        "reliability": 0.004168164917615724,
+        "resolution": 0.000558428134597491,
+        "uncertainty": 0.006773252235457945
+      }
+    },
+    "dm_brier": {
+      "model_vs_climatology": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.00677798748590497,
+          "loss_challenger": 0.006496517095078675,
+          "mean_daily_improvement": 0.00028147039082700176,
+          "days_improved": 24,
+          "bootstrap_ci_95": [
+            0.0001620270522646928,
+            0.0004168983942763932
+          ],
+          "dm_t": 4.189859671416949,
+          "dm_p": 0.00026735988786072407
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.07615517283933503,
+          "loss_challenger": 0.07136531957408955,
+          "mean_daily_improvement": 0.0025354512211949844,
+          "days_improved": 18,
+          "bootstrap_ci_95": [
+            0.0013035237158710651,
+            0.0037514391932301117
+          ],
+          "dm_t": 3.8474228571188043,
+          "dm_p": 0.0006617345847201088
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0032073070920601017,
+          "loss_challenger": 0.003157872553591123,
+          "mean_daily_improvement": 4.931076271359524e-05,
+          "days_improved": 21,
+          "bootstrap_ci_95": [
+            1.2619565379738156e-05,
+            8.288940517074906e-05
+          ],
+          "dm_t": 2.697673903001068,
+          "dm_p": 0.011886389514496285
+        }
+      },
+      "model_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.005577508677506069,
+          "loss_challenger": 0.006496517095078675,
+          "mean_daily_improvement": -0.0009190084175723556,
+          "days_improved": 5,
+          "bootstrap_ci_95": [
+            -0.0013569516105703696,
+            -0.0005004051149376368
+          ],
+          "dm_t": -4.048251719146208,
+          "dm_p": 0.0003894886458151248
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.05673204001130098,
+          "loss_challenger": 0.07136531957408955,
+          "mean_daily_improvement": -0.009924448160708208,
+          "days_improved": 4,
+          "bootstrap_ci_95": [
+            -0.01306929782856468,
+            -0.006637134227623735
+          ],
+          "dm_t": -5.897960949225345,
+          "dm_p": 2.7695133998722533e-06
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0029447053840401744,
+          "loss_challenger": 0.003157872553591123,
+          "mean_daily_improvement": -0.00022001589288047108,
+          "days_improved": 7,
+          "bootstrap_ci_95": [
+            -0.0003764346278425429,
+            -9.409841076849519e-05
+          ],
+          "dm_t": -3.010347748515882,
+          "dm_p": 0.005601704224405483
+        }
+      },
+      "model_vs_oi_change": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.006725959323379883,
+          "loss_challenger": 0.006496517095078675,
+          "mean_daily_improvement": 0.0002294422283005436,
+          "days_improved": 25,
+          "bootstrap_ci_95": [
+            0.00014107582744510684,
+            0.00032387867319245
+          ],
+          "dm_t": 4.792021829482531,
+          "dm_p": 5.3266221793887484e-05
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.0748701871397046,
+          "loss_challenger": 0.07136531957408955,
+          "mean_daily_improvement": 0.0018320380125573688,
+          "days_improved": 17,
+          "bootstrap_ci_95": [
+            0.0008225397705997443,
+            0.00278221678520489
+          ],
+          "dm_t": 3.468009312544729,
+          "dm_p": 0.001773357470090189
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0032187363511896627,
+          "loss_challenger": 0.003157872553591123,
+          "mean_daily_improvement": 6.107438719072512e-05,
+          "days_improved": 23,
+          "bootstrap_ci_95": [
+            2.9377878803102578e-05,
+            8.946372893686353e-05
+          ],
+          "dm_t": 3.9679652912792993,
+          "dm_p": 0.0004816808391006123
+        }
+      },
+      "model_vs_volatility": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.006521489504812061,
+          "loss_challenger": 0.006496517095078675,
+          "mean_daily_improvement": 2.4972409733334396e-05,
+          "days_improved": 18,
+          "bootstrap_ci_95": [
+            -2.4093013637495323e-05,
+            7.626414627745453e-05
+          ],
+          "dm_t": 0.9553182314215208,
+          "dm_p": 0.3478925615762676
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.0718731676756553,
+          "loss_challenger": 0.07136531957408955,
+          "mean_daily_improvement": 0.0004352272177746835,
+          "days_improved": 23,
+          "bootstrap_ci_95": [
+            -9.460044200823566e-05,
+            0.0008867001975867236
+          ],
+          "dm_t": 1.6521347342919537,
+          "dm_p": 0.11009117016767031
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.003157992488311194,
+          "loss_challenger": 0.003157872553591123,
+          "mean_daily_improvement": 8.275881168473041e-07,
+          "days_improved": 16,
+          "bootstrap_ci_95": [
+            -2.8356418357554553e-05,
+            3.0137427628261563e-05
+          ],
+          "dm_t": 0.05541779611600418,
+          "dm_p": 0.9562136733787663
+        }
+      },
+      "model_vs_heatmap": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.006789396764473068,
+          "loss_challenger": 0.006496517095078675,
+          "mean_daily_improvement": 0.0002928796693946081,
+          "days_improved": 25,
+          "bootstrap_ci_95": [
+            0.00017174883230546158,
+            0.0004235632045681837
+          ],
+          "dm_t": 4.621558524291042,
+          "dm_p": 8.421034694042578e-05
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.0744327529775928,
+          "loss_challenger": 0.07136531957408955,
+          "mean_daily_improvement": 0.0014206382685471757,
+          "days_improved": 15,
+          "bootstrap_ci_95": [
+            0.0004222292781518799,
+            0.002523297384140517
+          ],
+          "dm_t": 2.520154143482081,
+          "dm_p": 0.017948777045290663
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0033079524744863233,
+          "loss_challenger": 0.003157872553591123,
+          "mean_daily_improvement": 0.0001499359285943974,
+          "days_improved": 25,
+          "bootstrap_ci_95": [
+            7.388842783889011e-05,
+            0.00023235823730772596
+          ],
+          "dm_t": 3.4592924401658904,
+          "dm_p": 0.001813440780448299
+        }
+      },
+      "model_persist_vs_persistence": {
+        "all": {
+          "rows": 483448,
+          "days": 28,
+          "loss_base": 0.005577508677506069,
+          "loss_challenger": 0.005520928331055208,
+          "mean_daily_improvement": 5.6580346450983553e-05,
+          "days_improved": 19,
+          "bootstrap_ci_95": [
+            -8.070129342609872e-06,
+            0.00012887056556118326
+          ],
+          "dm_t": 1.5467501434044018,
+          "dm_p": 0.13356576654536703
+        },
+        "fast": {
+          "rows": 23664,
+          "days": 28,
+          "loss_base": 0.05673204001130098,
+          "loss_challenger": 0.055945484490842516,
+          "mean_daily_improvement": 0.00032801664989635715,
+          "days_improved": 17,
+          "bootstrap_ci_95": [
+            -0.0008393881127986288,
+            0.0015797459529042785
+          ],
+          "dm_t": 0.4677118164689432,
+          "dm_p": 0.6437439351364317
+        },
+        "quiet": {
+          "rows": 459784,
+          "days": 28,
+          "loss_base": 0.0029447053840401744,
+          "loss_challenger": 0.002925695141198217,
+          "mean_daily_improvement": 1.9691549039293147e-05,
+          "days_improved": 17,
+          "bootstrap_ci_95": [
+            -1.7387004025798766e-05,
+            5.560221790521122e-05
+          ],
+          "dm_t": 0.9895714364992492,
+          "dm_p": 0.33116952348068013
+        }
+      }
+    }
+  },
+  "lead_time": {
+    "horizon": "60s",
+    "onsets": 617,
+    "model": {
+      "onsets": 577,
+      "hit_rate": 0.37435008665511266,
+      "median_lead_s_when_hit": 145.758,
+      "mean_lead_s": 59.54629462738301,
+      "alarm_rate": 0.040316642120765835
+    },
+    "persistence": {
+      "onsets": 577,
+      "hit_rate": 0.05199306759098787,
+      "median_lead_s_when_hit": 81.1455,
+      "mean_lead_s": 4.828615251299826,
+      "alarm_rate": 0.010871903493240225
+    },
+    "oi_change": {
+      "onsets": 577,
+      "hit_rate": 0.17850953206239167,
+      "median_lead_s_when_hit": 20.664,
+      "mean_lead_s": 5.336043327556325,
+      "alarm_rate": 0.05229931657592957
+    },
+    "volatility": {
+      "onsets": 577,
+      "hit_rate": 0.28422876949740034,
+      "median_lead_s_when_hit": 218.2215,
+      "mean_lead_s": 51.96260311958405,
+      "alarm_rate": 0.03786963644487101
+    },
+    "heatmap": {
+      "onsets": 577,
+      "hit_rate": 0.2322357019064125,
+      "median_lead_s_when_hit": 300.0,
+      "mean_lead_s": 50.85993067590988,
+      "alarm_rate": 0.09606203769588456
+    },
+    "model_minus_heatmap_hit": {
+      "days": 28,
+      "mean": 0.07881812858072533,
+      "dm_t": 1.4798109495251446,
+      "dm_p": 0.15049831108999526,
+      "bootstrap_ci_95": [
+        -0.013198428059936545,
+        0.17364969007076897
+      ]
+    },
+    "model_minus_heatmap_lead_s": {
+      "days": 28,
+      "mean": -4.204116568986689,
+      "dm_t": -0.29634807350192366,
+      "dm_p": 0.7692318617984462,
+      "bootstrap_ci_95": [
+        -28.550301934671285,
+        20.810703570440076
+      ]
+    }
+  }
+}

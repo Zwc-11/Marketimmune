@@ -48,13 +48,18 @@ def load_day(lake_root: Path, coin: str, date: str) -> DayBook:
     )
 
 
-def cex_gaps(book: DayBook, binance_dir: Path, coin: str, date: str, *, latency_ms: float) -> tuple[FloatArray, FloatArray]:
-    """``cex_gap_maker_bps`` for a bid and for an ask on every L2 row, known after that row's
-    block: Hyperliquid mids up to the row, Binance up to ``latency_ms`` before it."""
+def binance_days(binance_dir: Path, coin: str, date: str) -> PriceSeries:
+    """Binance aggTrades of ``date`` and, when present, the day before (as Gold's L1 columns)."""
     symbol = f"{coin.upper()}USDT"
     zips = [binance_dir / symbol / f"{symbol}-aggTrades-{d[:4]}-{d[4:6]}-{d[6:]}.zip" for d in (shift_date(date, -1), date)]
     assert zips[1].exists(), f"missing {zips[1]}"
-    cex = PriceSeries.concat([read_binance_aggtrades_zip(z) for z in zips if z.exists()])
+    return PriceSeries.concat([read_binance_aggtrades_zip(z) for z in zips if z.exists()])
+
+
+def cex_gaps(book: DayBook, binance_dir: Path, coin: str, date: str, *, latency_ms: float) -> tuple[FloatArray, FloatArray]:
+    """``cex_gap_maker_bps`` for a bid and for an ask on every L2 row, known after that row's
+    block: Hyperliquid mids up to the row, Binance up to ``latency_ms`` before it."""
+    cex = binance_days(binance_dir, coin, date)
     t_ms = book.l2_ts / 1e6
     mid = (book.bid_px[:, 0] + book.ask_px[:, 0]) / 2.0 / PX_SCALE
     gap = cex_gap_features(t_ms + 1.0, np.ones(t_ms.size), t_ms, mid, cex, latency_ms=latency_ms)["cex_gap_bps"]
