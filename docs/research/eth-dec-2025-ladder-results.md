@@ -86,6 +86,13 @@ doubled.
   | S3 | 41.1% | +0.45 | -0.35 |
   | Stale-quote rule (500 ms) | 90.1% | -0.21 | -0.40 |
 
+## Data coverage
+
+Hyperliquid's node fills confirm every Albers trade in December exactly
+(`docs/research/node-fills-reconciliation.md`). The archive misses 13 windows: 388 minutes,
+0.77% of ETH's trades. They are ordinary market time by trade rate and volatility. The results
+cover December without them.
+
 ## What follows
 
 - H2 is the project's confirmed claim: SOL found it, and ETH confirmed it under a fixed

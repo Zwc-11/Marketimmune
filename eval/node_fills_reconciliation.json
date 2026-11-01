@@ -1,0 +1,1516 @@
+{
+ "dates": "20251201..20251231",
+ "coins": {
+  "SOL": {
+   "total": {
+    "node": 3125067,
+    "albers": 3096373,
+    "matched": 3096372,
+    "node_only": 28695,
+    "albers_only": 1,
+    "differ": {
+     "ts_ms": 0,
+     "px": 0,
+     "sz": 0,
+     "taker_side": 0,
+     "liquidation": 0
+    },
+    "boundary": {
+     "node_only": 1,
+     "albers_only": 1
+    },
+    "node_only_share": 0.009182203133564817,
+    "windows": 13,
+    "window_trades": 28694
+   },
+   "days": {
+    "20251201": {
+     "node": 169024,
+     "albers": 169024,
+     "matched": 169024,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251202": {
+     "node": 182402,
+     "albers": 182402,
+     "matched": 182402,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251203": {
+     "node": 153186,
+     "albers": 153186,
+     "matched": 153186,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251204": {
+     "node": 117985,
+     "albers": 117985,
+     "matched": 117985,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251205": {
+     "node": 114259,
+     "albers": 114259,
+     "matched": 114259,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251206": {
+     "node": 59182,
+     "albers": 59182,
+     "matched": 59182,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251207": {
+     "node": 106366,
+     "albers": 106366,
+     "matched": 106366,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251208": {
+     "node": 119799,
+     "albers": 119799,
+     "matched": 119799,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251209": {
+     "node": 119823,
+     "albers": 119822,
+     "matched": 119822,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 1,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 1,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251210": {
+     "node": 139211,
+     "albers": 139212,
+     "matched": 139211,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 1,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 1
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251211": {
+     "node": 149959,
+     "albers": 149959,
+     "matched": 149959,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251212": {
+     "node": 148147,
+     "albers": 143388,
+     "matched": 143388,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 4759,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": [
+      {
+       "first_ms": 1765561246006,
+       "last_ms": 1765563360251,
+       "trades": 4759,
+       "albers_stops_ms": 1765561243045,
+       "albers_resumes_ms": 1765563362020,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251213": {
+     "node": 42179,
+     "albers": 42179,
+     "matched": 42179,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251214": {
+     "node": 68889,
+     "albers": 68889,
+     "matched": 68889,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251215": {
+     "node": 156348,
+     "albers": 154898,
+     "matched": 154898,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 1450,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": [
+      {
+       "first_ms": 1765801649072,
+       "last_ms": 1765802841055,
+       "trades": 1450,
+       "albers_stops_ms": 1765801646302,
+       "albers_resumes_ms": 1765802843573,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251216": {
+     "node": 104875,
+     "albers": 104875,
+     "matched": 104875,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251217": {
+     "node": 136769,
+     "albers": 136769,
+     "matched": 136769,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251218": {
+     "node": 157949,
+     "albers": 146346,
+     "matched": 146346,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 11603,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 29,
+     "windows": [
+      {
+       "first_ms": 1766068582438,
+       "last_ms": 1766069596787,
+       "trades": 2896,
+       "albers_stops_ms": 1766068581613,
+       "albers_resumes_ms": 1766069598143,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766070577736,
+       "last_ms": 1766071984842,
+       "trades": 5801,
+       "albers_stops_ms": 1766070577209,
+       "albers_resumes_ms": 1766071987420,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766072446575,
+       "last_ms": 1766073581530,
+       "trades": 2906,
+       "albers_stops_ms": 1766072445237,
+       "albers_resumes_ms": 1766073585050,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251219": {
+     "node": 123720,
+     "albers": 123720,
+     "matched": 123720,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251220": {
+     "node": 37501,
+     "albers": 34133,
+     "matched": 34133,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 3368,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": [
+      {
+       "first_ms": 1766217020056,
+       "last_ms": 1766218171093,
+       "trades": 469,
+       "albers_stops_ms": 1766216810985,
+       "albers_resumes_ms": 1766218182048,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766218713866,
+       "last_ms": 1766219761448,
+       "trades": 1899,
+       "albers_stops_ms": 1766218711039,
+       "albers_resumes_ms": 1766219770499,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766220237023,
+       "last_ms": 1766221343198,
+       "trades": 518,
+       "albers_stops_ms": 1766220222831,
+       "albers_resumes_ms": 1766221344805,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766224452047,
+       "last_ms": 1766226121032,
+       "trades": 482,
+       "albers_stops_ms": 1766224441040,
+       "albers_resumes_ms": 1766226137934,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251221": {
+     "node": 50366,
+     "albers": 47177,
+     "matched": 47177,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 3189,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 10,
+     "windows": [
+      {
+       "first_ms": 1766324377059,
+       "last_ms": 1766326144821,
+       "trades": 2237,
+       "albers_stops_ms": 1766324373679,
+       "albers_resumes_ms": 1766326146038,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766327491809,
+       "last_ms": 1766329403756,
+       "trades": 952,
+       "albers_stops_ms": 1766327487031,
+       "albers_resumes_ms": 1766329407390,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251222": {
+     "node": 81810,
+     "albers": 81810,
+     "matched": 81810,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251223": {
+     "node": 74377,
+     "albers": 74377,
+     "matched": 74377,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251224": {
+     "node": 64146,
+     "albers": 64146,
+     "matched": 64146,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251225": {
+     "node": 46610,
+     "albers": 46610,
+     "matched": 46610,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251226": {
+     "node": 85305,
+     "albers": 85305,
+     "matched": 85305,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251227": {
+     "node": 40209,
+     "albers": 40209,
+     "matched": 40209,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251228": {
+     "node": 40639,
+     "albers": 40639,
+     "matched": 40639,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251229": {
+     "node": 114375,
+     "albers": 114375,
+     "matched": 114375,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251230": {
+     "node": 63903,
+     "albers": 59578,
+     "matched": 59578,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 4325,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": [
+      {
+       "first_ms": 1767119626470,
+       "last_ms": 1767122366719,
+       "trades": 2214,
+       "albers_stops_ms": 1767119620051,
+       "albers_resumes_ms": 1767122372227,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1767123199590,
+       "last_ms": 1767127253730,
+       "trades": 2111,
+       "albers_stops_ms": 1767123199177,
+       "albers_resumes_ms": 1767127260455,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251231": {
+     "node": 55754,
+     "albers": 55754,
+     "matched": 55754,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    }
+   }
+  },
+  "ETH": {
+   "total": {
+    "node": 6882090,
+    "albers": 6828907,
+    "matched": 6828905,
+    "node_only": 53185,
+    "albers_only": 2,
+    "differ": {
+     "ts_ms": 0,
+     "px": 0,
+     "sz": 0,
+     "taker_side": 0,
+     "liquidation": 0
+    },
+    "boundary": {
+     "node_only": 2,
+     "albers_only": 2
+    },
+    "node_only_share": 0.007728030293123165,
+    "windows": 13,
+    "window_trades": 53183
+   },
+   "days": {
+    "20251201": {
+     "node": 402483,
+     "albers": 402483,
+     "matched": 402483,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251202": {
+     "node": 270879,
+     "albers": 270879,
+     "matched": 270879,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251203": {
+     "node": 288871,
+     "albers": 288871,
+     "matched": 288871,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251204": {
+     "node": 270134,
+     "albers": 270134,
+     "matched": 270134,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251205": {
+     "node": 300694,
+     "albers": 300694,
+     "matched": 300694,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251206": {
+     "node": 109246,
+     "albers": 109246,
+     "matched": 109246,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251207": {
+     "node": 328380,
+     "albers": 328380,
+     "matched": 328380,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251208": {
+     "node": 297615,
+     "albers": 297615,
+     "matched": 297615,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251209": {
+     "node": 381851,
+     "albers": 381851,
+     "matched": 381851,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251210": {
+     "node": 382668,
+     "albers": 382668,
+     "matched": 382668,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251211": {
+     "node": 350415,
+     "albers": 350415,
+     "matched": 350415,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251212": {
+     "node": 270478,
+     "albers": 263278,
+     "matched": 263278,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 7200,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": [
+      {
+       "first_ms": 1765561243866,
+       "last_ms": 1765563361727,
+       "trades": 7200,
+       "albers_stops_ms": 1765561243165,
+       "albers_resumes_ms": 1765563362105,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251213": {
+     "node": 83873,
+     "albers": 83873,
+     "matched": 83873,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251214": {
+     "node": 157105,
+     "albers": 157105,
+     "matched": 157105,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251215": {
+     "node": 320336,
+     "albers": 317537,
+     "matched": 317537,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 2799,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": [
+      {
+       "first_ms": 1765801649596,
+       "last_ms": 1765802840855,
+       "trades": 2799,
+       "albers_stops_ms": 1765801647293,
+       "albers_resumes_ms": 1765802844582,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251216": {
+     "node": 250034,
+     "albers": 250034,
+     "matched": 250034,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251217": {
+     "node": 290403,
+     "albers": 290403,
+     "matched": 290403,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251218": {
+     "node": 283714,
+     "albers": 261135,
+     "matched": 261135,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 22579,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 2,
+     "windows": [
+      {
+       "first_ms": 1766068581976,
+       "last_ms": 1766069597082,
+       "trades": 9109,
+       "albers_stops_ms": 1766068581824,
+       "albers_resumes_ms": 1766069597676,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766070577794,
+       "last_ms": 1766071983004,
+       "trades": 8839,
+       "albers_stops_ms": 1766070577055,
+       "albers_resumes_ms": 1766071987055,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766072445623,
+       "last_ms": 1766073582302,
+       "trades": 4631,
+       "albers_stops_ms": 1766072444603,
+       "albers_resumes_ms": 1766073582350,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251219": {
+     "node": 236192,
+     "albers": 236192,
+     "matched": 236192,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251220": {
+     "node": 70440,
+     "albers": 66210,
+     "matched": 66210,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 4230,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 1,
+     "windows": [
+      {
+       "first_ms": 1766217019965,
+       "last_ms": 1766218176702,
+       "trades": 1293,
+       "albers_stops_ms": 1766216814588,
+       "albers_resumes_ms": 1766218180151,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766218716973,
+       "last_ms": 1766219762878,
+       "trades": 1488,
+       "albers_stops_ms": 1766218709111,
+       "albers_resumes_ms": 1766219763070,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766220234339,
+       "last_ms": 1766221340013,
+       "trades": 664,
+       "albers_stops_ms": 1766220233721,
+       "albers_resumes_ms": 1766221362059,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766224448400,
+       "last_ms": 1766226126063,
+       "trades": 785,
+       "albers_stops_ms": 1766224439030,
+       "albers_resumes_ms": 1766226132036,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251221": {
+     "node": 100868,
+     "albers": 93041,
+     "matched": 93041,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 7827,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 15,
+     "windows": [
+      {
+       "first_ms": 1766324375507,
+       "last_ms": 1766326144199,
+       "trades": 5193,
+       "albers_stops_ms": 1766324373752,
+       "albers_resumes_ms": 1766326146038,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1766327492246,
+       "last_ms": 1766329405093,
+       "trades": 2634,
+       "albers_stops_ms": 1766327490419,
+       "albers_resumes_ms": 1766329406690,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251222": {
+     "node": 226493,
+     "albers": 226491,
+     "matched": 226491,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 2,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 2,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251223": {
+     "node": 191004,
+     "albers": 191006,
+     "matched": 191004,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 2,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 2
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251224": {
+     "node": 124698,
+     "albers": 124698,
+     "matched": 124698,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251225": {
+     "node": 92138,
+     "albers": 92138,
+     "matched": 92138,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251226": {
+     "node": 173827,
+     "albers": 173827,
+     "matched": 173827,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251227": {
+     "node": 67064,
+     "albers": 67064,
+     "matched": 67064,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251228": {
+     "node": 69793,
+     "albers": 69793,
+     "matched": 69793,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251229": {
+     "node": 215106,
+     "albers": 215106,
+     "matched": 215106,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    },
+    "20251230": {
+     "node": 135492,
+     "albers": 126944,
+     "matched": 126944,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 8548,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 4,
+     "windows": [
+      {
+       "first_ms": 1767119623083,
+       "last_ms": 1767122370017,
+       "trades": 5954,
+       "albers_stops_ms": 1767119621045,
+       "albers_resumes_ms": 1767122372588,
+       "l2_rows_inside": 0
+      },
+      {
+       "first_ms": 1767123200523,
+       "last_ms": 1767127254007,
+       "trades": 2594,
+       "albers_stops_ms": 1767123189333,
+       "albers_resumes_ms": 1767127256026,
+       "l2_rows_inside": 0
+      }
+     ]
+    },
+    "20251231": {
+     "node": 139796,
+     "albers": 139796,
+     "matched": 139796,
+     "differ": {
+      "ts_ms": 0,
+      "px": 0,
+      "sz": 0,
+      "taker_side": 0,
+      "liquidation": 0
+     },
+     "node_only": 0,
+     "albers_only": 0,
+     "boundary": {
+      "node_only": 0,
+      "albers_only": 0
+     },
+     "node_only_liquidations": 0,
+     "windows": []
+    }
+   }
+  }
+ },
+ "assembled_from": "ETH run in three date ranges (VM time limit), totals summed"
+}

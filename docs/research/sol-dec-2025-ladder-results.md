@@ -51,6 +51,14 @@ Mean daily loss reduction, days improved, DM p (Holm), bootstrap 95% CI:
   Because the fixes came after the results were seen, H2 and the H4 pinball result stay
   exploratory until data the analysis has not touched confirms them.
 
+## Data coverage (checked 2026-11-01)
+
+Hyperliquid's node fills confirm every Albers trade in December exactly: 3,096,372 of 3,096,373
+match, and the one left over is a 23:59:59 trade filed under the next date
+(`docs/research/node-fills-reconciliation.md`). The archive misses 13 windows: 388 minutes,
+0.92% of SOL's trades. They are ordinary market time by trade rate and volatility. The corrected
+run covers December without them.
+
 ## Secondary results (not used for claims)
 
 - **Realised forced flow alone** (`l3b_realised` vs L2), pinball in `forced_60s`:
