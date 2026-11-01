@@ -62,6 +62,14 @@ def maintenance_deduction(tiers: Sequence[Tier], k: int) -> float:
     return sum(tiers[i].lower_usd * (tiers[i].maintenance_rate - tiers[i - 1].maintenance_rate) for i in range(1, k + 1))
 
 
+def maintenance_terms(coin: str, notional_usd: float) -> tuple[float, float]:
+    """``(rate, deduction)`` of the tier the notional falls in: maintenance margin is
+    ``notional * rate - deduction``."""
+    tiers = tiers_for(coin)
+    k = _tier_index(tiers, abs(notional_usd))
+    return tiers[k].maintenance_rate, maintenance_deduction(tiers, k)
+
+
 def maintenance_margin(coin: str, notional_usd: float) -> float:
     """``notional * rate - deduction`` for the tier the notional falls in."""
     tiers = tiers_for(coin)

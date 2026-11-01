@@ -71,10 +71,15 @@ def trigger_probability(distance_log: FloatArray, sigma_1s: float | FloatArray, 
 
 @dataclass(frozen=True, slots=True)
 class PositionBook:
-    """Open positions at one instant: signed size and average entry (NaN = unknown)."""
+    """Open positions at one instant: signed size and average entry (NaN = unknown).
+
+    ``liq``, when given, is each position's known liquidation price: finite = exact (a
+    position snapshot), ``inf`` = none (the account cannot be liquidated on this coin), NaN =
+    unknown, so the margin-free prior applies (which needs the entry)."""
 
     size: FloatArray
     entry: FloatArray
+    liq: FloatArray | None = None
 
 
 def forecast_forced_flow(
@@ -114,16 +119,20 @@ def forecast_forced_flow(
     million USD; trigger probabilities are recomputed at the moved mark with liquidation prices
     held fixed.
     """
-    known = ~np.isnan(book.entry) & (book.size != 0.0)
-    size, entry = book.size[known], book.entry[known]
-    if size.size == 0 or not math.isfinite(implied_mark) or sorted_delta.size == 0:
+    given = np.full(book.size.shape, np.nan) if book.liq is None else book.liq
+    known = (~np.isnan(book.entry) | ~np.isnan(given)) & (book.size != 0.0)
+    size, entry, given = book.size[known], book.entry[known], given[known]
+    if size.size == 0 or not math.isfinite(implied_mark) or (sorted_delta.size == 0 and np.isnan(given).any()):
         return dict.fromkeys(forecast_columns(horizons_s), 0.0)
     sign = np.sign(size)
-    excursion = np.maximum(-sign * (implied_mark - entry) / entry, 0.0)
-    liq = entry * (1.0 - sign * conditional_median_distance(sorted_delta, excursion))
+    prior = np.isnan(given)
+    liq = given.copy()
+    if prior.any():
+        excursion = np.maximum(-sign[prior] * (implied_mark - entry[prior]) / entry[prior], 0.0)
+        liq[prior] = entry[prior] * (1.0 - sign[prior] * conditional_median_distance(sorted_delta, excursion))
     # Only positions with a liquidation price carry hazard. Selecting them up front keeps every
     # sum below over the same elements, in the same order, as summing the full book with zeros.
-    usable = ~np.isnan(liq) & (liq > 0.0)
+    usable = np.isfinite(liq) & (liq > 0.0)
     liq, long = liq[usable], sign[usable] > 0
     notional = np.abs(size[usable]) * implied_mark
     sliced = notional * np.where(notional > SLICE_NOTIONAL, SLICE_FRACTION, 1.0)

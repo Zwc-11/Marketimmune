@@ -138,3 +138,26 @@ def test_onsets_need_a_quiet_minute_and_land_on_the_grid() -> None:
     # 10000 falls in (0, 10000]; 95000 in (90000, 100000]; 200000 in (190000, 200000]
     assert got[0] == 10_000.0 and math.isnan(got[1])
     assert got[2] == 95_000.0 and got[3] == 200_000.0
+
+
+def test_known_liquidation_prices_replace_the_prior() -> None:
+    # entry 100, prior distance 2.5%: with no liq given every position uses the prior; a given
+    # finite price is used as is, inf means none, NaN falls back to the prior
+    deltas = np.array([0.025])
+    size, entry = np.array([1_000.0, 1_000.0, 1_000.0]), np.array([100.0] * 3)
+
+    def run(book: PositionBook) -> dict[str, float]:
+        return forecast_forced_flow(book, 98.0, 0.001, deltas, [60.0])
+
+    prior = run(PositionBook(size, entry))
+    same = run(PositionBook(size, entry, np.full(3, np.nan)))
+    assert prior == same
+    known = run(PositionBook(size, entry, np.array([97.9, np.inf, np.nan])))
+    # 97.9 is nearer the mark than the prior's 97.5, and the inf position adds nothing
+    one_prior = run(PositionBook(size[:1], entry[:1]))
+    one_exact = run(PositionBook(size[:1], entry[:1], np.array([97.9])))
+    assert known["Fraw_bid_60s"] == pytest.approx(one_exact["Fraw_bid_60s"] + one_prior["Fraw_bid_60s"])
+    assert known["heatmap_bid_1pct"] == pytest.approx(196_000.0)  # 97.9 and the prior's 97.5 are within 1% of 98
+    # an exact price needs no entry, and no prior sample
+    bare = forecast_forced_flow(PositionBook(size[:1], np.array([np.nan]), np.array([97.9])), 98.0, 0.001, np.zeros(0), [60.0])
+    assert bare["Fraw_bid_60s"] == pytest.approx(one_exact["Fraw_bid_60s"])
