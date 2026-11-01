@@ -1,0 +1,203 @@
+{
+ "coins": {
+  "SOL": {
+   "dates": "20251201..20251231",
+   "trades": 2883611,
+   "adv_1s": {
+    "vs": "markout_bps_1s",
+    "n": 2883541,
+    "corr": 0.7636093978879998,
+    "mean_trade_mid": -0.8445701413730249,
+    "mean_gold": -1.2044999890972738,
+    "mean_abs_diff": 1.2747696346092512
+   },
+   "mo_1s": {
+    "vs": "markout_px_bps_1s",
+    "n": 2883541,
+    "corr": 0.6806031421012287,
+    "mean_trade_mid": 0.5252596824878235,
+    "mean_gold": -0.23022142218012054,
+    "mean_abs_diff": 1.2246047225613772
+   },
+   "adv_10s": {
+    "vs": "markout_bps_10s",
+    "n": 2883320,
+    "corr": 0.9441630726869673,
+    "mean_trade_mid": -1.6476262788416882,
+    "mean_gold": -1.3048808544409556,
+    "mean_abs_diff": 1.5729516297642074
+   },
+   "mo_10s": {
+    "vs": "markout_px_bps_10s",
+    "n": 2883320,
+    "corr": 0.9705089349613495,
+    "mean_trade_mid": -0.27780224088114136,
+    "mean_gold": -0.33059122901803323,
+    "mean_abs_diff": 0.9992715252100519
+   },
+   "adv_60s": {
+    "vs": "markout_bps_60s",
+    "n": 2882423,
+    "corr": 0.987603703356958,
+    "mean_trade_mid": -1.743879365254327,
+    "mean_gold": -1.3643894447778637,
+    "mean_abs_diff": 1.6170864024911515
+   },
+   "mo_60s": {
+    "vs": "markout_px_bps_60s",
+    "n": 2882423,
+    "corr": 0.9939545111264968,
+    "mean_trade_mid": -0.3743044939939334,
+    "mean_gold": -0.39021288700205853,
+    "mean_abs_diff": 1.0050023683389049
+   },
+   "by_cex_gap": [
+    {
+     "cex_gap_maker_bps": [
+      null,
+      -2.0
+     ],
+     "trades": 355997,
+     "adv_1s_trade_mid": -2.2114413987502313,
+     "adv_1s_gold": -3.3415409707764927
+    },
+    {
+     "cex_gap_maker_bps": [
+      -2.0,
+      -0.5
+     ],
+     "trades": 844091,
+     "adv_1s_trade_mid": -0.970189243633354,
+     "adv_1s_gold": -1.4144827497120218
+    },
+    {
+     "cex_gap_maker_bps": [
+      -0.5,
+      0.5
+     ],
+     "trades": 942658,
+     "adv_1s_trade_mid": -0.6577287935574035,
+     "adv_1s_gold": -0.9410099740651173
+    },
+    {
+     "cex_gap_maker_bps": [
+      0.5,
+      2.0
+     ],
+     "trades": 614703,
+     "adv_1s_trade_mid": -0.3450443418136406,
+     "adv_1s_gold": -0.47494195788163523
+    },
+    {
+     "cex_gap_maker_bps": [
+      2.0,
+      null
+     ],
+     "trades": 126162,
+     "adv_1s_trade_mid": 0.02288409806687625,
+     "adv_1s_gold": 0.7076661292742673
+    }
+   ]
+  },
+  "ETH": {
+   "dates": "20251201..20251215",
+   "trades": 3824772,
+   "adv_1s": {
+    "vs": "markout_bps_1s",
+    "n": 3824724,
+    "corr": 0.8407057525006048,
+    "mean_trade_mid": -1.3425843374810507,
+    "mean_gold": -1.4813155156749556,
+    "mean_abs_diff": 1.0690542555381282
+   },
+   "mo_1s": {
+    "vs": "markout_px_bps_1s",
+    "n": 3824724,
+    "corr": 0.825357383623796,
+    "mean_trade_mid": 0.16003850671489486,
+    "mean_gold": -0.46826401392862066,
+    "mean_abs_diff": 0.9761580495940423
+   },
+   "adv_10s": {
+    "vs": "markout_bps_10s",
+    "n": 3824680,
+    "corr": 0.9736769804459159,
+    "mean_trade_mid": -2.1068315858677362,
+    "mean_gold": -1.6184635447017202,
+    "mean_abs_diff": 1.1613933047257758
+   },
+   "mo_10s": {
+    "vs": "markout_px_bps_10s",
+    "n": 3824680,
+    "corr": 0.9887204509445772,
+    "mean_trade_mid": -0.6041942656758428,
+    "mean_gold": -0.6053620231150527,
+    "mean_abs_diff": 0.6145482620341067
+   },
+   "adv_60s": {
+    "vs": "markout_bps_60s",
+    "n": 3824325,
+    "corr": 0.9939807339310281,
+    "mean_trade_mid": -2.0649277320038673,
+    "mean_gold": -1.5774518710324767,
+    "mean_abs_diff": 1.1545622004205018
+   },
+   "mo_60s": {
+    "vs": "markout_px_bps_60s",
+    "n": 3824325,
+    "corr": 0.9975511956604207,
+    "mean_trade_mid": -0.5622688035982621,
+    "mean_gold": -0.5644236359815881,
+    "mean_abs_diff": 0.606549853069079
+   },
+   "by_cex_gap": [
+    {
+     "cex_gap_maker_bps": [
+      null,
+      -2.0
+     ],
+     "trades": 336583,
+     "adv_1s_trade_mid": -3.2577394194668896,
+     "adv_1s_gold": -4.082130621841286
+    },
+    {
+     "cex_gap_maker_bps": [
+      -2.0,
+      -0.5
+     ],
+     "trades": 795782,
+     "adv_1s_trade_mid": -1.5940192519867835,
+     "adv_1s_gold": -1.9399358162255682
+    },
+    {
+     "cex_gap_maker_bps": [
+      -0.5,
+      0.5
+     ],
+     "trades": 2048218,
+     "adv_1s_trade_mid": -1.142839065675201,
+     "adv_1s_gold": -1.2316289788187131
+    },
+    {
+     "cex_gap_maker_bps": [
+      0.5,
+      2.0
+     ],
+     "trades": 506227,
+     "adv_1s_trade_mid": -0.7866227134780915,
+     "adv_1s_gold": -0.5562575632479911
+    },
+    {
+     "cex_gap_maker_bps": [
+      2.0,
+      null
+     ],
+     "trades": 137962,
+     "adv_1s_trade_mid": -0.22533005986361349,
+     "adv_1s_gold": 0.4082580951960918
+    }
+   ]
+  }
+ },
+ "note": "ETH covers Dec 1-15 only (time limit of the machine it ran on); SOL the whole month"
+}

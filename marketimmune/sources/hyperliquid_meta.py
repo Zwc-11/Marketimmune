@@ -33,11 +33,33 @@ class Asset:
         return max(0, 6 - self.sz_decimals)
 
 
-def fetch_meta(url: str = INFO_URL, timeout: float = 20.0) -> dict[str, Any]:
-    req = urllib.request.Request(url, data=json.dumps({"type": "meta"}).encode(), headers={"Content-Type": "application/json"})
+def info(payload: dict[str, Any], url: str = INFO_URL, timeout: float = 20.0) -> Any:
+    """One POST to the ``info`` endpoint."""
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
-        meta: dict[str, Any] = json.load(r)
+        return json.load(r)
+
+
+def fetch_meta(url: str = INFO_URL, timeout: float = 20.0) -> dict[str, Any]:
+    meta: dict[str, Any] = info({"type": "meta"}, url, timeout)
     return meta
+
+
+INTERVAL_MS = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
+MAX_CANDLES = 5_000  # per candleSnapshot response
+
+
+def fetch_candles(coin: str, interval: str, start_ms: int, end_ms: int, url: str = INFO_URL) -> list[dict[str, Any]]:
+    """Perp candles ``[start_ms, end_ms)`` (``t`` open time, ``o``/``h``/``l``/``c`` strings), in pages
+    of ``MAX_CANDLES``. The endpoint serves only the most recent 5,000 candles of an interval."""
+    step = INTERVAL_MS[interval] * MAX_CANDLES
+    out: dict[int, dict[str, Any]] = {}
+    for lo in range(start_ms, end_ms, step):
+        hi = min(lo + step, end_ms) - 1
+        for c in info({"type": "candleSnapshot", "req": {"coin": coin, "interval": interval, "startTime": lo, "endTime": hi}}, url):
+            if start_ms <= c["t"] < end_ms:
+                out[c["t"]] = c
+    return [out[t] for t in sorted(out)]
 
 
 def assets_by_name(meta: dict[str, Any]) -> dict[str, Asset]:
