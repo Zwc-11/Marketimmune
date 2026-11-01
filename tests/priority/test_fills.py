@@ -123,8 +123,8 @@ def test_read_lz4_prefilter_and_first_priority_cli(tmp_path: Path, capsys: pytes
     assert capsys.readouterr().out.startswith("no priorityGas > 0 on ETH")
 
 
-def test_liquidation_details_and_coin_frames() -> None:
-    from marketimmune.cli.pull_node_fills import coin_frames
+def test_liquidation_details_and_write_day(tmp_path: Path) -> None:
+    from marketimmune.cli.pull_node_fills import write_day
 
     forced = {
         "local_time": "2025-12-15T12:00:02.100000000",
@@ -139,10 +139,20 @@ def test_liquidation_details_and_coin_frames() -> None:
             ["0xE", fill("ETH", "3000.0", "1", "B", 31, 10, True)],
         ],
     }
-    frames = coin_frames([lines(), [json.dumps(forced)]], ["BTC", "SOL"])  # two hourly files
-    btc = frames["BTC"]
-    assert btc.height == 6 and frames["SOL"].height == 0
+    hours = [lines(), [json.dumps(forced)]]  # two hourly files
+    expected = fills.parse([*lines(), json.dumps(forced)]).filter(pl.col("coin") == "BTC").sort("block_number", "tid", "crossed")
+    for chunk_rows in (1, 3, 1_000):  # a chunk ends at a block, so 3 splits after block 101
+        paths = {c: tmp_path / str(chunk_rows) / c / f"{c}-20251215.parquet" for c in ("BTC", "SOL")}
+        assert write_day(hours, ["BTC", "SOL"], paths, chunk_rows=chunk_rows) == {"BTC": 6, "SOL": 0}
+        btc = pl.read_parquet(paths["BTC"])
+        assert btc.equals(expected) and pl.read_parquet(paths["SOL"]).height == 0
+        assert not list(tmp_path.rglob("*.part"))
     liq = btc.filter(pl.col("liquidation"))
     assert liq.select("liquidated_user", "liquidation_mark_px", "liquidation_method").row(0) == ("0xL", 98.1, "backstop")
     assert btc.filter(~pl.col("liquidation"))["liquidation_method"].null_count() == 5
-    assert coin_frames([], ["BTC"])["BTC"].height == 0
+    # blocks out of order across hours: the file is sorted again
+    late = {c: tmp_path / "late" / c / f"{c}.parquet" for c in ("BTC",)}
+    write_day([[json.dumps(forced)], lines()], ["BTC"], late, chunk_rows=1)
+    assert pl.read_parquet(late["BTC"]).equals(expected)
+    empty = {"BTC": tmp_path / "empty" / "BTC.parquet"}
+    assert write_day([], ["BTC"], empty) == {"BTC": 0} and pl.read_parquet(empty["BTC"]).schema == expected.schema

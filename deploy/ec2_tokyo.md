@@ -87,7 +87,18 @@ aws s3 sync /data s3://pop-silver-CHANGEME/
 ```
 
 Each pull prints a JSON line per day and skips days already written, so rerun it after a
-spot interruption. The first day with a priority fee, per coin:
+spot interruption.
+
+- **Memory.** The pull parses `--chunk-rows` legs (200,000) at a time and only for `--coins`.
+  A synthetic day with 2M BTC legs, and as many legs of another coin in the same blocks, peaks
+  at 0.58 GB.
+  - The earlier version held a Python dict per leg of every coin for a whole day.
+  - That version was killed for memory on busy days, even with one worker: 2025-10-10,
+    2025-12-01 and 2026-03-02.
+- **Workers.** `--workers 1` (the default) is enough. A day takes about 45 s
+  (2025-12-15: 0.5 GiB read, 42.5 s).
+- **Detaching.** Run long pulls with `setsid nohup ... &`: anything in the foreground of a
+  Session Manager session stops when the session ends. The first day with a priority fee, per coin:
 
 ```bash
 uv run python -c "import polars as pl; print(pl.scan_parquet('/data/node_fills/*/*.parquet').filter(pl.col('priority_gas') > 0).group_by('coin').agg(pl.col('block_time').min()).collect())"

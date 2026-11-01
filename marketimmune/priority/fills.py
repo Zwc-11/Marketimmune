@@ -10,7 +10,7 @@ carries ``liquidation = {"liquidatedUser", "markPx", "method"}``; ``method`` is 
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Iterator
+from collections.abc import Collection, Iterable, Iterator, Sequence
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -52,11 +52,14 @@ def _f(x: Any) -> float | None:
     return None if x is None else float(x)
 
 
-def rows(lines: Iterable[str]) -> Iterator[dict[str, Any]]:
-    """One dict per ``[user, fill]`` event."""
+def rows(lines: Iterable[str], coins: Collection[str] | None = None) -> Iterator[dict[str, Any]]:
+    """One dict per ``[user, fill]`` event (only ``coins``' when given: a block holds every coin's
+    fills, and a dict per leg is what costs memory)."""
     for line in lines:
         blk = json.loads(line)
         for user, f in blk["events"]:
+            if coins is not None and f["coin"] not in coins:
+                continue
             liq = f.get("liquidation") or {}
             yield {
                 "block_number": blk["block_number"],
@@ -89,7 +92,12 @@ def rows(lines: Iterable[str]) -> Iterator[dict[str, Any]]:
 
 
 def parse(lines: Iterable[str]) -> pl.DataFrame:
-    df = pl.DataFrame(list(rows(lines)), schema=FILL_SCHEMA)
+    return to_frame(list(rows(lines)))
+
+
+def to_frame(records: Sequence[dict[str, Any]]) -> pl.DataFrame:
+    """``rows`` output as a typed frame (times parsed to UTC nanoseconds)."""
+    df = pl.DataFrame(records, schema=FILL_SCHEMA)
     return df.with_columns(
         pl.col("block_time").str.to_datetime(time_unit="ns", time_zone="UTC"),
         pl.col("local_time").str.to_datetime(time_unit="ns", time_zone="UTC"),
