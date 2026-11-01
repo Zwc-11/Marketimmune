@@ -55,6 +55,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--taus", default="0.1,0.5,0.9")
     parser.add_argument("--cv-scheme", choices=CV_SCHEMES, default="rolling_daily")
     parser.add_argument("--train-days", type=int, default=7)
+    parser.add_argument("--test-dates", default=None, help="test only these dates; the rest of --dates still trains")
     parser.add_argument("--purge-ms", type=float, default=60_000.0)
     parser.add_argument("--n-estimators", type=int, default=300)
     parser.add_argument("--learning-rate", type=float, default=0.05)
@@ -110,6 +111,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         taus=taus,
         params=params,
         train_days=args.train_days,
+        test_days=set(parse_date_spec(args.test_dates)) if args.test_dates else None,
         purge_ms=args.purge_ms,
         seed=args.seed,
         contrib_tau=0.5 if args.contrib else None,

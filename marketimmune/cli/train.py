@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -96,6 +96,7 @@ def train_oof_catboost(
     depth: int,
     seed: int,
     calibration_fraction: float = 0.2,
+    test_days: Collection[str] | None = None,
 ) -> CatBoostTrainingResult:
     assert 0.0 <= calibration_fraction < 1.0, f"{calibration_fraction=}"
     timestamps = frame["ts_ms"].to_numpy(dtype=np.float64)
@@ -126,7 +127,7 @@ def train_oof_catboost(
     probabilities = np.full(len(frame), np.nan)
     raw_probabilities = np.full(len(frame), np.nan)
     fold_summaries: list[dict[str, Any]] = []
-    folds = temporal_fold_arrays(timestamps, purge_ms=purge_ms, train_days=train_days)
+    folds = temporal_fold_arrays(timestamps, purge_ms=purge_ms, train_days=train_days, test_days=test_days)
     for fold_id, fold in enumerate(folds, start=1):
         sizes = {"fold_id": fold_id, "n_train": int(fold.train.size)}
         fitted = fit(fold.train, seed + fold_id)
@@ -205,8 +206,13 @@ def write_isotonic_calibrator(path: Path, calibrator: IsotonicRegression | None,
 
 
 def event_ofi_probabilities(frame: pd.DataFrame) -> FloatArray:
-    """Event-level OFI baseline, signed to the maker's adverse-selection side."""
-    signed_risk = -(frame["maker_side"].to_numpy(dtype=np.float64) * frame["l2_ofi_10s"].to_numpy(dtype=np.float64))
+    """Event-level OFI baseline, signed to the maker's adverse-selection side. Rows with no book
+    (the 2026 trade-only rungs) use the taker flow toward the maker over 10 s instead
+    (``features.trade_state``), which is already signed to the maker."""
+    if "l2_ofi_10s" in frame.columns:
+        signed_risk = -(frame["maker_side"].to_numpy(dtype=np.float64) * frame["l2_ofi_10s"].to_numpy(dtype=np.float64))
+    else:
+        signed_risk = -frame["flow_maker_10000ms"].to_numpy(dtype=np.float64)
     return np.asarray(0.5 + 0.5 * np.tanh(signed_risk), dtype=np.float64)
 
 
@@ -333,6 +339,7 @@ def main(argv: list[str] | None = None) -> int:
             depth=args.depth,
             seed=args.seed,
             calibration_fraction=args.calibration_fraction,
+            test_days=set(parse_date_spec(args.test_dates)) if args.test_dates else None,
         )
         elapsed_s = time.perf_counter() - start
     probabilities, raw_probabilities, folds = result.probabilities, result.raw_probabilities, result.folds

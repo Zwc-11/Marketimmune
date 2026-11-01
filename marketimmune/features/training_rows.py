@@ -18,6 +18,7 @@ import numpy.typing as npt
 from marketimmune.features.cex_gap import CEX_FEATURE_COLUMNS
 from marketimmune.features.forced_flow_features import FORECAST_FEATURE_COLUMNS
 from marketimmune.features.order_events import FORCED_FEATURE_COLUMNS, RACE_FEATURE_COLUMNS
+from marketimmune.features.trade_state import FEE_COLUMNS, FEE_PLACEBO_COLUMNS, TRADE_STATE_COLUMNS
 from marketimmune.features.wallet_toxicity import WALLET_FEATURE_COLUMNS
 from marketimmune.labels.leakage import LookaheadReport, check_no_lookahead
 
@@ -102,6 +103,14 @@ FEATURE_SETS["l3a_placebo_book"] = (
     *FEATURE_SETS["l2_book"],
     *(c for c in RACE_FEATURE_COLUMNS if "_opp_" in c),
 )
+# The 2026 A1 ladder (docs/preregistration/a1-speed-bids-2026.md): no order book, so the state
+# rung comes from trades (features.trade_state); L3 adds the priority fees paid on the side that
+# hits the maker, the placebo the fees on the other side only.
+FEATURE_SETS["l0_trade"] = ("sz", "maker_side", *TRADE_STATE_COLUMNS)
+FEATURE_SETS["l1_trade"] = (*FEATURE_SETS["l0_trade"], *CEX_FEATURE_COLUMNS)
+FEATURE_SETS["l2_trade"] = (*FEATURE_SETS["l1_trade"], *WALLET_FEATURE_COLUMNS)
+FEATURE_SETS["l3_fee"] = (*FEATURE_SETS["l2_trade"], *FEE_COLUMNS)
+FEATURE_SETS["l3_fee_placebo"] = (*FEATURE_SETS["l2_trade"], *FEE_PLACEBO_COLUMNS)
 OFI_WINDOWS_MS = {
     "ofi_1s": 1_000.0,
     "ofi_5s": 5_000.0,

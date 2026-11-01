@@ -20,7 +20,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from marketimmune.cli.compare_rungs import KEY, keyed_by_fill
+from marketimmune.cli.compare_rungs import KEY, keyed_by_fill, tested_dates
 from marketimmune.models.compare import LOSSES, daily_means, make_loss
 from marketimmune.models.mcs import model_confidence_set
 from marketimmune.models.quantile_ladder import quantile_column
@@ -35,6 +35,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--n-boot", type=int, default=5_000)
     parser.add_argument("--mean-block", type=float, default=3.0)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--dates", default=None, help="only these tested dates (e.g. a confirmation period)")
     parser.add_argument("--out", type=Path, default=None)
     return parser.parse_args(argv)
 
@@ -55,7 +56,7 @@ def common_rows(frames: dict[str, pd.DataFrame], *, target: str, prediction: str
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
     assert len(args.oofs) >= 2, "give at least two .oof.parquet files"
-    frames = {p.stem.removesuffix(".oof"): pd.read_parquet(p) for p in args.oofs}
+    frames = {p.stem.removesuffix(".oof"): tested_dates(pd.read_parquet(p), args.dates) for p in args.oofs}
     if args.loss == "pinball":
         target, prediction = "markout_bps", quantile_column(args.tau)
     else:
@@ -79,6 +80,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "loss": args.loss,
         **({"tau": args.tau} if args.loss == "pinball" else {}),
         "files": [str(p) for p in args.oofs],
+        "dates": args.dates,
         "rows_common": len(rows),
         "days": len(days),
         **result.to_dict(),

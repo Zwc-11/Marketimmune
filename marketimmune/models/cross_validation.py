@@ -8,7 +8,9 @@ after the test day is ever used. Index arrays point into the caller's row order.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Literal
 
 import numpy as np
@@ -39,8 +41,10 @@ def temporal_fold_arrays(
     *,
     purge_ms: float = 0.0,
     train_days: int | None = None,
+    test_days: Collection[str] | None = None,
 ) -> tuple[FoldArrays, ...]:
-    """Rolling daily folds; ties in time keep input order (stable sort)."""
+    """Rolling daily folds; ties in time keep input order (stable sort). With ``test_days``
+    (``YYYYMMDD``), only those days are tested; the others still train later folds."""
     days_back = DEFAULT_ROLLING_TRAIN_DAYS if train_days is None else train_days
     assert days_back >= 1 and purge_ms >= 0.0, f"{train_days=} {purge_ms=}"
     ts = np.asarray(timestamps_ms, dtype=np.float64)
@@ -52,6 +56,8 @@ def temporal_fold_arrays(
     folds: list[FoldArrays] = []
     for day in days.tolist():
         if day - first_day < days_back:
+            continue
+        if test_days is not None and datetime.fromtimestamp(day * DAY_MS / 1000.0, UTC).strftime("%Y%m%d") not in test_days:
             continue
         day_start = day * DAY_MS
         a, b, lo, hi = np.searchsorted(ordered, (day_start, day_start + DAY_MS, day_start - days_back * DAY_MS, day_start - purge_ms))

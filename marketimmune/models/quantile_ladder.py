@@ -19,7 +19,7 @@ count can change LightGBM's histogram sums). Prediction is per row and uses ever
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -100,6 +100,7 @@ def train_quantile_oof(
     seed: int = 42,
     contrib_tau: float | None = None,
     contrib_groups: Mapping[str, Sequence[int]] | None = None,
+    test_days: Collection[str] | None = None,
 ) -> QuantileOOF:
     """Fit one booster per (fold, tau) with seed ``seed + fold``; predict the fold's test rows.
 
@@ -117,7 +118,7 @@ def train_quantile_oof(
     contrib: dict[str, FloatArray] = {g: np.full(ys.size, np.nan) for g in (*groups, "bias")} if groups is not None else {}
     summaries: list[dict[str, Any]] = []
     threads = os.cpu_count() or 1
-    for fold_id, fold in enumerate(temporal_fold_arrays(ts, purge_ms=purge_ms, train_days=train_days), start=1):
+    for fold_id, fold in enumerate(temporal_fold_arrays(ts, purge_ms=purge_ms, train_days=train_days, test_days=test_days), start=1):
         if fold.train.size < 2 or fold.test.size == 0:
             continue
         y_train, x_test = ys[fold.train], xs[fold.test]

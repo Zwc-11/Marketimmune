@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from marketimmune.models.cross_validation import DAY_MS, temporal_fold_arrays
@@ -35,7 +36,7 @@ def test_rolling_daily_default_window_and_too_little_data() -> None:
         temporal_fold_arrays(_days(3))
     for bad in ({"train_days": 0}, {"purge_ms": -1.0}):
         with pytest.raises(AssertionError):
-            temporal_fold_arrays(_days(3), **bad)  # type: ignore[arg-type]
+            temporal_fold_arrays(_days(3), **bad)
     with pytest.raises(AssertionError, match="at least one row"):
         temporal_fold_arrays([], train_days=1)
 
@@ -45,3 +46,12 @@ def test_rolling_daily_skips_gap_days() -> None:
     folds = temporal_fold_arrays(ts, train_days=1)
     # day 2 is empty (no test rows) and day 3's one-day window is empty (no train rows)
     assert [int(f.test_start_ms // DAY_MS) for f in folds] == [1, 4]
+
+
+def test_rolling_daily_tests_only_the_given_days() -> None:
+    ts = np.repeat(np.arange(10) * DAY_MS, 3).astype(np.float64)  # 1970-01-01 to 01-10
+    all_folds = temporal_fold_arrays(ts, train_days=2)
+    picked = temporal_fold_arrays(ts, train_days=2, test_days={"19700104", "19700110"})
+    assert [f.test_start_ms for f in picked] == [3 * DAY_MS, 9 * DAY_MS]
+    by_start = {f.test_start_ms: f for f in all_folds}
+    assert all(np.array_equal(f.train, by_start[f.test_start_ms].train) for f in picked)

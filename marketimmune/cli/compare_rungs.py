@@ -35,6 +35,7 @@ import pandas as pd
 from marketimmune.models.compare import LOSSES, compare_rungs
 from marketimmune.models.decomposition import FORCED_60S
 from marketimmune.models.quantile_ladder import quantile_column
+from marketimmune.utils import parse_date_spec
 
 REGIME_COLUMNS = ("cex_ret_1000ms_bps", "liquidation", *FORCED_60S)
 KEY = ("partition_date", "ts_ms", "px", "sz", "maker_side", "oid", "tid")
@@ -47,9 +48,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--loss", choices=sorted(LOSSES), default="brier")
     parser.add_argument("--tau", type=float, default=0.5, help="quantile for --loss pinball")
     parser.add_argument("--cex-move-bps", type=float, default=2.0)
+    parser.add_argument("--dates", default=None, help="only these tested dates (e.g. a confirmation period)")
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--seed", type=int, default=0)
     return parser.parse_args(argv)
+
+
+def tested_dates(frame: pd.DataFrame, spec: str | None) -> pd.DataFrame:
+    """The rows of the dates in ``spec`` (all rows without one)."""
+    if spec is None:
+        return frame
+    keep = set(parse_date_spec(spec))
+    return frame[frame["partition_date"].astype(str).isin(keep)]
 
 
 def keyed_by_fill(frame: pd.DataFrame, key: list[str]) -> pd.DataFrame:
@@ -79,8 +89,8 @@ def align(base: pd.DataFrame, challenger: pd.DataFrame, *, target: str = "label"
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    base = pd.read_parquet(args.base)
-    challenger = pd.read_parquet(args.challenger)
+    base = tested_dates(pd.read_parquet(args.base), args.dates)
+    challenger = tested_dates(pd.read_parquet(args.challenger), args.dates)
     if args.loss == "pinball":
         merged = align(base, challenger, target="markout_bps", prediction=quantile_column(args.tau))
     else:
@@ -108,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
     payload = {
         "base": str(args.base),
         "challenger": str(args.challenger),
+        "dates": args.dates,
         "rows_base": len(base),
         "rows_challenger": len(challenger),
         "rows_matched": len(merged),

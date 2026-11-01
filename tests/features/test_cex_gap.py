@@ -87,3 +87,11 @@ def test_verify_cex_gap_no_lookahead_passes() -> None:
     assert report["passed"] is True and report["n_checked"] == 4
     empty = verify_cex_gap_no_lookahead(np.zeros(0), np.zeros(0), hl_ts, hl_mid, cex)
     assert empty["passed"] is False
+
+
+def test_a_fill_with_no_earlier_mid_has_no_gap() -> None:
+    """No Hyperliquid mid before the fill: the gap is undefined, not read from a later price."""
+    cex = PriceSeries.from_arrays([0.0, 1_000.0, 5_000.0], [100.0, 101.0, 150.0])
+    f = cex_gap_features([2_000.0], [1.0], [3_000.0], [100.0], cex, latency_ms=300.0)
+    assert np.isnan(f["cex_gap_bps"][0]) and np.isfinite(f["cex_ret_1000ms_bps"][0])
+    assert np.isnan(cex.at_or_before(np.array([np.nan]))[0])

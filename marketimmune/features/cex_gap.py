@@ -61,10 +61,15 @@ class PriceSeries:
         return cls(ts_ms=ts[order], log_px=np.concatenate([p.log_px for p in parts])[order])
 
     def at_or_before(self, t_ms: FloatArray) -> FloatArray:
-        """Log price of the last trade with ``ts <= t`` (NaN when none)."""
-        idx = np.searchsorted(self.ts_ms, t_ms, side="right") - 1
-        out = np.full(np.shape(t_ms), np.nan)
-        ok = idx >= 0
+        """Log price of the last trade with ``ts <= t`` (NaN when none, or when ``t`` is NaN).
+
+        NOTE: ``searchsorted`` puts a NaN time after every trade, so without the NaN guard a fill
+        with no earlier Hyperliquid mid (``cex_gap_bps``'s change time is NaN) read the series'
+        *last* price. No December Gold row has that case: each has an earlier book row."""
+        t = np.asarray(t_ms, dtype=np.float64)
+        idx = np.searchsorted(self.ts_ms, t, side="right") - 1
+        out = np.full(np.shape(t), np.nan)
+        ok = (idx >= 0) & ~np.isnan(t)
         out[ok] = self.log_px[idx[ok]]
         return out
 

@@ -23,6 +23,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--feature-set", choices=sorted(FEATURE_SETS), default="l0", help="ladder rung (see FEATURE_SETS)")
     parser.add_argument("--cv-scheme", choices=CV_SCHEMES, default="rolling_daily")
     parser.add_argument("--train-days", type=int, default=7, help="training window before each tested day")
+    parser.add_argument("--test-dates", default=None, help="test only these dates; the rest of --dates still trains")
     parser.add_argument("--purge-ms", type=float, default=60_000.0)
     parser.add_argument("--iterations", type=int, default=150)
     parser.add_argument("--learning-rate", type=float, default=0.08)

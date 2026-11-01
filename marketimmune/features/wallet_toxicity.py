@@ -89,8 +89,16 @@ def wallet_toxicity_features(
     ts_ms: npt.ArrayLike, taker: npt.ArrayLike, markouts: Mapping[str, npt.ArrayLike], *, prior_weight: float = DEFAULT_PRIOR_WEIGHT
 ) -> dict[str, FloatArray]:
     """``taker_tox_<h>`` per horizon in ``markouts`` and ``taker_log_n`` (longest h)."""
+    return wallet_toxicity_from_codes(ts_ms, _wallet_codes(taker), markouts, prior_weight=prior_weight)
+
+
+def wallet_toxicity_from_codes(
+    ts_ms: npt.ArrayLike, codes: npt.ArrayLike, markouts: Mapping[str, npt.ArrayLike], *, prior_weight: float = DEFAULT_PRIOR_WEIGHT
+) -> dict[str, FloatArray]:
+    """``wallet_toxicity_features`` with the wallets already as integer codes (-1 for none), for
+    months too large to hold the addresses as Python strings."""
     t = np.asarray(ts_ms, dtype=np.float64)
-    codes = _wallet_codes(taker)
+    codes = np.asarray(codes, dtype=np.int64)
     longest = max(markouts, key=_horizon_ms)
     out: dict[str, FloatArray] = {}
     for h, y in markouts.items():
