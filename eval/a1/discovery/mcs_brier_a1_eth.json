@@ -1,0 +1,57 @@
+{
+  "loss": "brier",
+  "files": [
+    "eval\\a1\\a1_eth_l0_trade.oof.parquet",
+    "eval\\a1\\a1_eth_l1_trade.oof.parquet",
+    "eval\\a1\\a1_eth_l2_trade.oof.parquet",
+    "eval\\a1\\a1_eth_l3_fee.oof.parquet",
+    "eval\\a1\\a1_eth_l3_fee_placebo.oof.parquet"
+  ],
+  "dates": "20260506,20260513,20260520,20260527,20260603,20260610,20260617,20260624,20260701,20260708,20260715,20260722,20260729,20260805,20260812,20260819,20260826",
+  "rows_common": 3352784,
+  "days": 17,
+  "alpha": 0.1,
+  "included": [
+    "a1_eth_l2_trade",
+    "a1_eth_l3_fee",
+    "a1_eth_l3_fee_placebo"
+  ],
+  "elimination_order": [
+    "a1_eth_l0_trade",
+    "a1_eth_l1_trade",
+    "a1_eth_l3_fee_placebo",
+    "a1_eth_l2_trade"
+  ],
+  "models": [
+    {
+      "name": "a1_eth_l3_fee",
+      "mean_loss": 0.19642544225991795,
+      "mcs_p_value": 1.0,
+      "in_mcs": true
+    },
+    {
+      "name": "a1_eth_l2_trade",
+      "mean_loss": 0.19656444886067004,
+      "mcs_p_value": 0.8748,
+      "in_mcs": true
+    },
+    {
+      "name": "a1_eth_l3_fee_placebo",
+      "mean_loss": 0.1965797038343579,
+      "mcs_p_value": 0.8748,
+      "in_mcs": true
+    },
+    {
+      "name": "a1_eth_l1_trade",
+      "mean_loss": 0.2036858286085196,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    },
+    {
+      "name": "a1_eth_l0_trade",
+      "mean_loss": 0.22762319517309743,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    }
+  ]
+}
