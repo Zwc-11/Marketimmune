@@ -98,8 +98,16 @@ def test_hft_baseline_end_to_end(tmp_path: Path) -> None:
     from marketimmune.cli import hft_baseline
 
     out = tmp_path / "hft.json"
-    assert hft_baseline.main([*_lake(tmp_path), "--out", str(out)]) == 0
-    makers = json.loads(out.read_text())["makers"]
+    argv = [*_lake(tmp_path), "--out", str(out), "--day-dir", str(tmp_path / "days")]
+    assert hft_baseline.main(argv) == 0
+    day = tmp_path / "days" / "SOL" / "20251201.json"
+    assert day.exists()
+    first = json.loads(out.read_text())
+    assert first["days_done"] == 1 and first["days_missing"] == []
+    day.write_text(day.read_text().replace('"fills": 1,', '"fills": 7,', 1))  # a cached day is read, not simulated again
+    assert hft_baseline.main(argv) == 0
+    assert json.loads(out.read_text())["makers"]["S1/fifo"]["fills"] == 7
+    makers = first["makers"]
     assert set(makers) == {
         "S1/fifo",
         "S1/risk_averse",
@@ -120,3 +128,26 @@ def test_depth_diffs_send_changes_and_levels_gone_inside_the_range() -> None:
     ts, px, qty = _depth_diffs(np.array([1, 2], dtype=np.int64), asks, sizes, bid=False)
     # row 2: 102 unchanged, 103 new, 101 gone from inside the visible range
     assert sorted(zip(ts.tolist(), px.tolist(), qty.tolist(), strict=True)) == [(1, 101, 4.0), (1, 102, 2.0), (2, 101, 0.0), (2, 103, 1.0)]
+
+
+def test_pull_frontier_limits_and_shifted_placebo(tmp_path: Path) -> None:
+    from marketimmune.cli import pull_frontier
+
+    common = _lake(tmp_path)
+    path = quote_signals_path(tmp_path / "signals", "SOL", "20251201")
+    path.parent.mkdir(parents=True)
+    rows = pq.read_table(HyperliquidLakeLayout(tmp_path / "lake").silver_l2_book_path("SOL", "20251201"))["ts_ns"].to_numpy()
+    # S2's bid q10 is -3 on the row the fill comes after (1 s) and 0 elsewhere; rolled by half the
+    # rows it lands on the next row, so the shifted placebo keeps quoting the bid through the fill
+    bid = np.zeros(rows.size)
+    bid[1] = -3.0
+    pq.write_table(pa.table({"ts_ns": rows, "s2_q10_bid": bid, "s2_q10_ask": np.zeros(rows.size)}), path)
+    out = tmp_path / "frontier.json"
+    argv = [*common, "--signals-dir", str(tmp_path / "signals"), "--limits", "2,5", "--delay-ms", "100"]
+    argv += ["--day-dir", str(tmp_path / "days"), "--out", str(out)]
+    assert pull_frontier.main(argv) == 0
+    makers = json.loads(out.read_text())["makers"]
+    assert makers["S1"]["fills"] == 1
+    assert makers["s2@2"]["fills"] == 0 and makers["s2@5"]["fills"] == 1  # -3 is below -2, not below -5
+    assert makers["s2_shifted@2"]["fills"] == 1 and "s3@2" not in makers
+    assert (tmp_path / "days" / "SOL" / "20251201.json").exists()

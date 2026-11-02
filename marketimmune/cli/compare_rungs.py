@@ -31,6 +31,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 
 from marketimmune.models.compare import LOSSES, compare_rungs
 from marketimmune.models.decomposition import FORCED_60S
@@ -62,6 +63,15 @@ def tested_dates(frame: pd.DataFrame, spec: str | None) -> pd.DataFrame:
     return frame[frame["partition_date"].astype(str).isin(keep)]
 
 
+def read_oof(path: Path, target: str, prediction: str, dates: str | None) -> pd.DataFrame:
+    """The columns a comparison uses (fill key, target, prediction, regime inputs) of one OOF
+    file, on ``dates``. Reading only these keeps a coin's months within a small machine's memory
+    (the files also hold features and contributions)."""
+    names = pq.read_schema(path).names
+    wanted = [c for c in dict.fromkeys((*KEY, target, prediction, *REGIME_COLUMNS)) if c in names]
+    return tested_dates(pd.read_parquet(path, columns=wanted), dates)
+
+
 def keyed_by_fill(frame: pd.DataFrame, key: list[str]) -> pd.DataFrame:
     """A copy with the key columns as strings (dtypes differ between writers) and ``_dup``, the
     occurrence number of a repeated key, so duplicate fills are matched in order."""
@@ -89,12 +99,10 @@ def align(base: pd.DataFrame, challenger: pd.DataFrame, *, target: str = "label"
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    base = tested_dates(pd.read_parquet(args.base), args.dates)
-    challenger = tested_dates(pd.read_parquet(args.challenger), args.dates)
-    if args.loss == "pinball":
-        merged = align(base, challenger, target="markout_bps", prediction=quantile_column(args.tau))
-    else:
-        merged = align(base, challenger)
+    target, prediction = ("markout_bps", quantile_column(args.tau)) if args.loss == "pinball" else ("label", "prob")
+    base = read_oof(args.base, target, prediction, args.dates)
+    challenger = read_oof(args.challenger, target, prediction, args.dates)
+    merged = align(base, challenger, target=target, prediction=prediction)
     regimes: dict[str, Any] = {}
     if "cex_ret_1000ms_bps" in merged.columns:
         move = np.abs(merged["cex_ret_1000ms_bps"].astype(float).to_numpy()) >= args.cex_move_bps

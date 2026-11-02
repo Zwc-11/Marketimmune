@@ -92,9 +92,10 @@ SOL 2025-12-01 (one day), bps per filled dollar:
 - **The engines agree.** With the L2 rule, the engine and hftbacktest land within 0.03 bps per
   filled dollar. The split between spread and adverse selection differs because hftbacktest
   stamps a fill at its exchange event, the engine at its block.
-- **Post-only rejection is worth 0.55 to 0.62 bps per filled dollar to a touch quoter.** Without
-  the L2 rule the engine trades less than half as much and loses less per dollar. That rule
-  exists only in L4 data, because only L4 says which orders were post-only.
+- **On this day, post-only rejection is worth 0.55 to 0.62 bps per filled dollar to a touch
+  quoter.** Without the L2 rule the engine trades less than half as much and loses less per
+  dollar. That rule exists only in L4 data, because only L4 says which orders were post-only.
+  Over the month the per-dollar effect does not hold (below); the volume effect does.
 - **The queue model matters less than staleness.** Risk-averse and probabilistic queues give the
   same result in hftbacktest: most of S1's fills come from the price moving through quotes not
   yet updated.
@@ -102,6 +103,30 @@ SOL 2025-12-01 (one day), bps per filled dollar:
 On the same day the stale-quote rule improves S1 from -2.71 to -2.29 bps (`fifo`) and from -2.67
 to -2.21 (`risk_averse`). Every maker loses money: even before the fee, S1 is -1.21 bps at the
 touch.
+
+### The whole month (`eval/sim_hft_sol.json`, SOL Dec 1-31)
+
+| Maker | Fills | Spread | Adverse 1 s | Inventory | Fee | Total | USD/day [95%] |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Engine `fifo` | 324,155 | +0.28 | -1.76 | -0.18 | -1.50 | **-3.18** | -1,104 [-1,343, -863] |
+| Engine `risk_averse` | 267,403 | +0.24 | -1.93 | -0.15 | -1.50 | **-3.35** | -931 [-1,140, -721] |
+| Engine `fifo` + L2 crossing rule | 861,530 | -0.09 | -1.24 | -0.36 | -1.50 | **-3.19** | -6,528 [-7,857, -5,090] |
+| Engine `risk_averse` + L2 crossing rule | 811,525 | -0.11 | -1.25 | -0.36 | -1.50 | **-3.23** | -6,488 [-7,812, -5,056] |
+| hftbacktest risk-averse | 624,692 | -0.40 | -0.95 | -0.36 | -1.50 | **-3.21** | -6,477 [-7,796, -5,052] |
+| hftbacktest power-prob 3 | 634,582 | -0.36 | -0.96 | -0.36 | -1.50 | **-3.18** | -6,520 [-7,839, -5,093] |
+
+- **The engines agree on every day.** With the L2 rule, the engine's daily total is within 0.1
+  bps per filled dollar of hftbacktest's on 31 of 31 days. The mean gaps are +0.023 (`fifo` vs
+  risk-averse), -0.015 (`risk_averse` vs risk-averse) and -0.007 (`fifo` vs power-prob) bps.
+- **Over the month, post-only rejection changes volume, not the loss per dollar.**
+  - Per filled dollar, without the rule minus with it: +0.10 bps for `fifo` (day-level 95%
+    interval [-0.04, +0.26], DM p 0.22) and +0.00 for `risk_averse` (p 0.98).
+  - The sign varies by day: the rule costs more than 0.3 bps on 10 days and helps by more than
+    0.3 on 8. Dec 1 (+0.54) was one of the costly days.
+  - The volume effect is large and stable. An L2 backtester fills S1 2.7 to 3.0 times as often,
+    and so loses six to seven times as many dollars a day ($6.5k against $0.9k-1.1k).
+- Run per day, cached in `data/gold/hyperliquid/sim_hft/<COIN>/`. `--max-days` bounds a call:
+  about 25-35 s per SOL day on the 2-vCPU VM.
 
 ## What the fill filter got wrong
 
@@ -219,8 +244,52 @@ Daily PnL differences (challenger minus base, USD), stationary-bootstrap 95% int
     queue model.
   - This matches the ladder: H3 is null, and H4 did not replicate on ETH.
 - The 2 bps limit is `simulate_policy`'s rule, set before these runs and not tuned. Other limits
-  trade volume against adverse selection. A frontier over limits is the next comparison, if
-  wanted, but no limit was chosen from these results.
+  trade volume against adverse selection. The frontier below runs them (exploratory).
+
+## Pull-limit frontier and a time-shifted placebo (exploratory)
+
+`eval/sim_frontier_sol.json` (`cli.pull_frontier`), SOL Dec 8-31 (S3 from Dec 10), `fifo`, the
+same engine, costs and S1 as above.
+- S2 and S3 pull at limits of 0.5, 1, 2, 3 and 5 bps.
+- `s2_shifted` pulls on S2's own q10 series rolled by half the day's L2 rows. It keeps how
+  often S2 wants to pull, but not when.
+- These limits were run after seeing the 2 bps result, so nothing here is confirmatory.
+
+| Maker | Fills | Adverse 1 s | Inventory | Total | Before fee | USD a day |
+|---|---:|---:|---:|---:|---:|---:|
+| S1 | 222,231 | -1.75 | -0.21 | -3.19 | -1.69 | -1,004 |
+| S2 @ 2 bps | 10,503 | -1.04 | -1.98 | -4.19 | -2.69 | -108 |
+| S2 @ 3 | 60,259 | -1.06 | -0.18 | **-2.41** | -0.91 | -260 |
+| S2 @ 5 | 170,542 | -1.28 | -0.17 | -2.65 | -1.15 | -663 |
+| S3 @ 3 (Dec 10-31) | 61,788 | -0.99 | -0.24 | **-2.39** | -0.89 | -276 |
+| S3 @ 5 | 152,534 | -1.28 | -0.13 | -2.60 | -1.10 | -630 |
+| shifted @ 1 | 26,263 | -2.21 | -0.17 | -3.72 | -2.22 | -130 |
+| shifted @ 2 | 100,524 | -2.02 | -0.08 | -3.38 | -1.88 | -476 |
+| shifted @ 3 | 173,864 | -1.88 | -0.16 | -3.29 | -1.79 | -804 |
+
+At 0.5 and 1 bps the models fill only 300 to 1,300 times in the month, so their per-dollar numbers
+are dominated by inventory noise (-3 to -16 bps). They are in the JSON.
+
+- **At the same volume, the model's quotes lose less per dollar.** Shifting the series leaves
+  the pulls in quiet hours, so at the same limit the placebo trades far more. The fair comparison
+  is at matched volume.
+  - S2 @ 5 against the placebo @ 3: 170,542 and 173,864 fills (2% apart). S2's daily total
+    is better by +0.54 bps per filled dollar [+0.42, +0.67], on 22 of 24 days (DM p 2e-7).
+    Its adverse selection is better by +0.52, on 24 of 24 days.
+  - S3 @ 5 against the placebo @ 3 on S3's days: 152,534 and 153,226 fills. S3 is better by
+    +0.56 [+0.43, +0.70], on 20 of 22 days.
+  - So the quote-time models carry information about when to pull. The 2 bps result
+    ("they lose less mainly by trading less") was the extreme end of the frontier, where the
+    inventory term swamps the gain.
+- **Against S1 per filled dollar,** S2 @ 3 is better by +0.68 [+0.32, +1.03] (19 of 24 days),
+  S3 @ 3 by +0.66 [+0.24, +1.07], and S2 @ 5 by +0.45 [+0.33, +0.57] at 77% of S1's volume.
+- **Still nothing makes money.** The best point, -2.39 bps all in, is -0.89 before the 1.5 bp
+  maker fee.
+  - Every maker from the 2 bps limit up has a daily PnL interval below zero.
+  - At 0.5 and 1 bps the models barely trade (-3 to -46 USD a day). Their intervals include zero.
+  - At this fee and latency a touch quoter on SOL needs about 0.9 bps more per filled dollar
+    than the best model gives.
+  - At a 0 bp maker fee (high volume tiers) the best points would still lose about 0.9 bps.
 
 ## Run
 
@@ -234,6 +303,18 @@ With S2 and S3:
 ```
 python -m marketimmune.cli.quote_signals --coin SOL --dates 20251201..20251231 --report eval/quote_signals_sol.json
 python -m marketimmune.cli.simulate_quotes --coin SOL --dates 20251201..20251231 --signals-dir data/gold/hyperliquid/quote_signals --out eval/sim_sol.json
+```
+
+Frontier (needs the quote signals; days cached, `--max-days` per call):
+
+```
+python -m marketimmune.cli.pull_frontier --coin SOL --dates 20251208..20251231 --out eval/sim_frontier_sol.json
+```
+
+ETH, the same three steps (`eval/quote_signals_eth.json`, `eval/sim_eth.json`):
+
+```
+powershell -ExecutionPolicy Bypass -File .\scripts\run_eth_sim.ps1
 ```
 
 `--score-dates 20251215` scores one day with the full run's folds and seeds (resume, or a day per

@@ -50,6 +50,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--horizon-s", type=float, default=1.0)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--out", type=Path, default=Path("eval/sim_hft.json"))
+    parser.add_argument(
+        "--day-dir",
+        type=Path,
+        default=Path("data/gold/hyperliquid/sim_hft"),
+        help="each day's rows are kept here (<COIN>/<date>.json) and reused, so a month can run a few days per call",
+    )
+    parser.add_argument("--max-days", type=int, default=0, help="simulate at most this many new days, then summarise what exists")
     return parser.parse_args(argv)
 
 
@@ -87,16 +94,43 @@ def run_day(args: argparse.Namespace, date: str) -> list[dict[str, Any]]:
     return rows
 
 
+def day_path(args: argparse.Namespace, date: str) -> Path:
+    path: Path = Path(args.day_dir) / str(args.coin).upper() / f"{date}.json"
+    return path
+
+
+def cached_day(args: argparse.Namespace, date: str) -> list[dict[str, Any]]:
+    """``run_day``, kept in ``--day-dir``: a day already there is read, not simulated again."""
+    path = day_path(args, date)
+    if path.exists():
+        rows: list[dict[str, Any]] = json.loads(path.read_text(encoding="utf-8"))
+        return rows
+    rows = run_day(args, date)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".part")
+    tmp.write_text(json.dumps(rows, default=float), encoding="utf-8")
+    tmp.replace(path)
+    return rows
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    dates = parse_date_spec(args.dates)
-    with ProcessPoolExecutor(min(args.workers, len(dates)), mp_context=get_context("spawn")) as pool:
-        frame = pd.DataFrame([row for rows in pool.map(run_day, [args] * len(dates), dates) for row in rows])
+    dates = list(parse_date_spec(args.dates))
+    todo = [d for d in dates if not day_path(args, d).exists()]
+    if args.max_days:
+        todo = todo[: args.max_days]
+    if todo:
+        with ProcessPoolExecutor(min(args.workers, len(todo)), mp_context=get_context("spawn")) as pool:
+            list(pool.map(cached_day, [args] * len(todo), todo))
+    done = [d for d in dates if day_path(args, d).exists()]
+    frame = pd.DataFrame([row for d in done for row in cached_day(args, d)])
     makers = {name: summarise(daily.sort_values("day")) for name, daily in frame.groupby("maker", sort=False)}
     result = {
         "coin": args.coin.upper(),
         "dates": args.dates,
-        "settings": {k: v for k, v in vars(args).items() if k not in ("lake_root", "out", "workers")},
+        "days_done": len(done),
+        "days_missing": [d for d in dates if d not in done],
+        "settings": {k: v for k, v in vars(args).items() if k not in ("lake_root", "out", "workers", "day_dir", "max_days")},
         "makers": makers,
         "daily": frame.to_dict(orient="records"),
     }

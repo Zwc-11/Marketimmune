@@ -63,4 +63,5 @@ $Done = @("btc", "eth", "sol") | Where-Object { Test-Path "$Eval\confirmation\q_
 if ($Done.Count -eq 3) {
     Run @("-m", "marketimmune.cli.score_a1", "--dir", "$Eval\confirmation", "--out", "$Eval\a1_verdicts.json")
     Run @("-m", "marketimmune.cli.score_a1", "--dir", "$Eval\discovery", "--out", "$Eval\a1_discovery_exploratory.json")
+    Run @("-m", "marketimmune.cli.a1_report", "--dir", $Eval, "--out", "$Eval\a1_tables.md")
 }

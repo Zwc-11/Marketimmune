@@ -12,7 +12,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from marketimmune.cli import a1_ladder, build_node_gold, score_a1
+from marketimmune.cli import a1_ladder, a1_report, build_node_gold, score_a1
 from marketimmune.cli._train_data import use_feature_set
 from marketimmune.lake.tables import HyperliquidLakeLayout
 from marketimmune.priority.fills import to_frame
@@ -149,3 +149,44 @@ def test_score_a1_claims(tmp_path: Path) -> None:
 @pytest.mark.parametrize("coin", ["SOL"])
 def test_report_names(coin: str) -> None:
     assert score_a1.report_name("q_", coin, "l3_fee", "l2_trade") == "q_a1_sol_l3_fee_vs_q_a1_sol_l2_trade.json"
+
+
+def test_a1_report_renders_every_section(tmp_path: Path) -> None:
+    good, flat = _report(0.01, 1e-6, 0.005), _report(-0.001, 0.4, -0.01)
+    coins = ("BTC", "ETH", "SOL")
+    for period in ("confirmation", "discovery"):
+        d = tmp_path / period
+        d.mkdir()
+        for prefix in ("", "q_"):
+            for coin in coins:
+                for (c, b), rep in (
+                    (("l3_fee", "l2_trade"), good), (("l1_trade", "l0_trade"), good), (("l2_trade", "l1_trade"), good), (("l3_fee_placebo", "l2_trade"), flat),
+                ):  # fmt: skip
+                    (d / score_a1.report_name(prefix, coin, c, b)).write_text(json.dumps(rep))
+        for coin in coins:
+            models = [
+                {"name": f"a1_{coin.lower()}_{r}", "in_mcs": r == "l3_fee", "mcs_p_value": 1.0 if r == "l3_fee" else 0.01}
+                for r in a1_report.RUNGS
+            ]
+            for m in ("brier", "pinball_q10"):
+                (d / f"mcs_{m}_a1_{coin.lower()}.json").write_text(json.dumps({"models": models}))
+        out = "a1_verdicts.json" if period == "confirmation" else "a1_discovery_exploratory.json"
+        (tmp_path / out).write_text(json.dumps(score_a1.score(d, coins)))
+    (tmp_path / "a1_sol_l3_fee.json").write_text(json.dumps({"tested_days": 77, "rows_tested": 1234, "leakage_safe": True}))
+    text = a1_report.render(tmp_path, coins)
+    assert "`gate_a1_passes`: True" in text and text.count("| A1: `l3_fee` vs `l2_trade`, cex_move |") == 6
+    assert "**+10.000 [+5.000, +1005.000], 40/60, p <1e-4 (Holm <1e-4), placebo min p 0.4**" in text  # Brier x1e-3
+    assert "| SOL | brier | `l3_fee` (1.00) |" in text and "| SOL | classifier | `l3_fee` | 77 | 1,234 | True |" in text
+    assert "(no `a1_verdicts.json` yet)" not in text and "(no discovery scoring yet)" not in text
+
+
+def test_a1_lead_time_counts_blocks_since_a_fee_on_the_same_side() -> None:
+    from marketimmune.cli import a1_lead_time
+
+    block = np.array([10, 11, 12, 12, 13, 50], dtype=np.int64)
+    side = np.array([1.0, 1.0, -1.0, 1.0, 1.0, 1.0])
+    fees = {1.0: np.array([9, 12], dtype=np.int64), -1.0: np.zeros(0, dtype=np.int64)}
+    lag = a1_lead_time.lags(block, side, fees)
+    # the other side never had a fee; the fee in block 12 counts from block 13, not for block 12's own fill
+    assert lag[[0, 1, 3, 4, 5]].tolist() == [1.0, 2.0, 3.0, 1.0, 38.0] and np.isinf(lag[2])
+    assert [a1_lead_time.LABELS[k] for k in a1_lead_time.bucket(lag)] == ["1", "2-3", "none", "2-3", "1", "31-100"]

@@ -45,3 +45,4 @@ db.sqlite3-*
 # The A1 ladder's per-day trainer reports (one per tested day, rung and model); the per-rung
 # summary next to them keeps each day's seed, rows and leakage flag
 /eval/a1/folds/
+/eval/a1/*/folds/
