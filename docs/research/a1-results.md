@@ -129,9 +129,31 @@ CEX-gap control.
 - 36-52% of confirmation fills come within 300 blocks of a fee-paying taker on the same side.
 - The 10 s markouts and the discovery months show the same shape (in the JSON).
 
-**Other losses** (log loss, pinball at τ = 0.5 and 0.9) and **the 1 s and 60 s horizons** are
-run by `scripts/run_a1_secondary.ps1` (`-WithHorizons` for the horizons). Their tables appear in
-`eval/a1/a1_tables.md` once run. They are secondary and cannot change the verdicts above.
+**Other losses** (`eval/a1/secondary/`, confirmation months). Each cell is the mean daily
+improvement of the fee rung over `l2_trade` [95%], with the DM p.
+
+| Coin | Regime | Log loss ×1e-3 | Pinball τ = 0.5, bps | Pinball τ = 0.9, bps |
+|---|---|---|---|---|
+| BTC | all | -0.17 [-0.80, +0.44], p 0.62 | -0.004 [-0.008, +0.000], p 0.096 | -0.001 [-0.003, +0.000], p 0.075 |
+| BTC | cex_move | -0.30 [-5.43, +5.41], p 0.92 | -0.024 [-0.049, +0.003], p 0.099 | -0.007 [-0.016, +0.002], p 0.15 |
+| ETH | all | -1.05 [-3.38, +0.60], p 0.32 | +0.001 [-0.003, +0.005], p 0.82 | -0.001 [-0.003, +0.001], p 0.51 |
+| ETH | cex_move | **-6.81 [-14.07, -0.90], p 0.051** | +0.004 [-0.017, +0.029], p 0.76 | -0.000 [-0.009, +0.010], p 0.99 |
+| SOL | all | -0.05 [-0.99, +0.86], p 0.92 | +0.000 [-0.004, +0.005], p 0.85 | -0.000 [-0.004, +0.003], p 0.81 |
+| SOL | cex_move | -1.94 [-5.35, +1.78], p 0.33 | -0.006 [-0.034, +0.020], p 0.66 | -0.007 [-0.030, +0.012], p 0.55 |
+
+- **The other losses agree.** The fee rung is never better than `l2_trade`.
+  - The one interval that excludes zero is ETH's log loss during CEX moves, and it points the
+    wrong way: the fee features make the classifier's probabilities worse there.
+  - The placebo is null on every loss.
+- **The replications hold on these losses too.**
+  - The CEX gap improves log loss by 0.056-0.065 and every pinball level, on 59-60 of 60 days.
+  - The wallet score improves log loss by 0.015-0.018 (58-60 days) and pinball at τ = 0.5.
+  - At τ = 0.9 the wallet score's gain is small: +0.002 to +0.003 bps, on 38-41 days; SOL
+    p 0.11. The wallet score is about the loss tail, not the gain tail.
+
+**The 1 s and 60 s horizons** have not been run: `scripts/run_a1_secondary.ps1 -WithHorizons`
+retrains the whole ladder twice, which is roughly twice A1's compute. They are secondary and
+cannot change the verdicts above.
 
 ## Limits
 

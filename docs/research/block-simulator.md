@@ -291,6 +291,52 @@ are dominated by inventory noise (-3 to -16 bps). They are in the JSON.
     than the best model gives.
   - At a 0 bp maker fee (high volume tiers) the best points would still lose about 0.9 bps.
 
+## ETH December (`eval/sim_eth.json`, `eval/quote_signals_eth.json`)
+
+The SOL pipeline unchanged (`scripts/run_eth_sim.ps1`): the month rebuilt with `--mbo`, S2 and S3
+trained on ETH Gold, the same engine, costs and 2 bps limit.
+- S2 runs from Dec 8 (24 days), S3 from Dec 10 (22 days). The train/serve check against Gold
+  passed on all 24 days.
+- **Quote-time skill** (pinball skill against climatology on the Gold fills each model did not
+  train on, q10 / q50 / q90):
+  - S2: 0.321 / 0.309 / 0.328 (4.84M fills).
+  - S3: 0.332 / 0.306 / 0.321 (4.16M fills).
+- **Rows pulled at 2 bps** (mean over days): S2 47% (bid) and 45% (ask); S3 37% and 33%. SOL's
+  were 42% and 34% on the bid.
+
+On the days S3 has (Dec 10-31, 22 days), `fifo`, bps per filled dollar:
+
+| Maker | Fills | Spread | Adverse 1 s | Inventory | Total | Before fee | USD a day |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| S1 | 314,835 | +0.06 | -1.67 | -0.22 | -3.33 | -1.83 | -1,772 |
+| stale | 275,725 | +0.07 | -1.52 | -0.16 | -3.11 | -1.61 | -1,441 |
+| S2 | 14,515 | +0.16 | -0.85 | +0.01 | -2.21 | -0.71 | -84 |
+| S3 | 29,950 | +0.15 | -0.79 | -0.37 | -2.53 | -1.03 | -168 |
+
+Daily PnL differences (challenger minus base, USD), stationary-bootstrap 95% interval:
+
+| Pair | `fifo` | Days better | `risk_averse` | Days better |
+|---|---|---:|---|---:|
+| stale - S1 (31 days) | +388 [281, 488] | 31/31 | +334 [240, 423] | 31/31 |
+| S2 - S1 (24 days) | +1,828 [1,289, 2,409] | 24/24 | +1,606 [1,113, 2,144] | 24/24 |
+| S3 - S1 (22 days) | +1,604 [1,111, 2,139] | 22/22 | +1,405 [958, 1,890] | 22/22 |
+| **S3 - S2 (22 days)** | **-84 [-146, -11], DM p 0.021** | 4/22 | **-70 [-134, +4], DM p 0.066** | 4/22 |
+| S2 - stale (24 days) | +1,480 [1,046, 1,951] | 24/24 | +1,305 [906, 1,738] | 24/24 |
+
+- **No strategy makes money on ETH either.** Every maker's daily PnL interval is below zero.
+  - S2 comes closest: -0.71 bps per filled dollar before the fee on Dec 10-31, and -0.30 over
+    its 24 days.
+  - Unlike on SOL, its inventory term is flat (+0.01), so the halved adverse selection
+    survives.
+- **S3 is worse than S2 on ETH, not level as on SOL.** It loses $84 a day more, on 18 of 22
+  days.
+  - S3 trades twice S2's volume and does worse per dollar (-2.53 against -2.21), mostly
+    through inventory.
+  - The race and forced-flow columns lose money at quote time here. This matches the ladder: H3
+    null in both coins, H4 not replicated on ETH.
+- **The models' gain over S1 replicates:** +$1.4k-1.8k a day on every day, under both queue
+  models.
+
 ## Run
 
 ```
@@ -309,7 +355,10 @@ Frontier (needs the quote signals; days cached, `--max-days` per call):
 
 ```
 python -m marketimmune.cli.pull_frontier --coin SOL --dates 20251208..20251231 --out eval/sim_frontier_sol.json
+python -m marketimmune.cli.pull_frontier --coin ETH --dates 20251208..20251231 --workers 2 --out eval/sim_frontier_eth.json
 ```
+
+Some ETH days need more than 4 GB, more than the VM has.
 
 ETH, the same three steps (`eval/quote_signals_eth.json`, `eval/sim_eth.json`):
 
