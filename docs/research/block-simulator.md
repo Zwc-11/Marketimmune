@@ -248,8 +248,8 @@ Daily PnL differences (challenger minus base, USD), stationary-bootstrap 95% int
 
 ## Pull-limit frontier and a time-shifted placebo (exploratory)
 
-`eval/sim_frontier_sol.json` (`cli.pull_frontier`), SOL Dec 8-31 (S3 from Dec 10), `fifo`, the
-same engine, costs and S1 as above.
+`eval/sim_frontier_sol.json` and `eval/sim_frontier_eth.json` (`cli.pull_frontier`), Dec 8-31 (S3
+from Dec 10), `fifo`, the same engine, costs and S1 as above. SOL first, then ETH.
 - S2 and S3 pull at limits of 0.5, 1, 2, 3 and 5 bps.
 - `s2_shifted` pulls on S2's own q10 series rolled by half the day's L2 rows. It keeps how
   often S2 wants to pull, but not when.
@@ -290,6 +290,38 @@ are dominated by inventory noise (-3 to -16 bps). They are in the JSON.
   - At this fee and latency a touch quoter on SOL needs about 0.9 bps more per filled dollar
     than the best model gives.
   - At a 0 bp maker fee (high volume tiers) the best points would still lose about 0.9 bps.
+
+### ETH (`eval/sim_frontier_eth.json`, Dec 8-31, S3 from Dec 10)
+
+| Maker | Fills | Adverse 1 s | Inventory | Total | Before fee | USD a day |
+|---|---:|---:|---:|---:|---:|---:|
+| S1 | 384,250 | -1.68 | -0.23 | -3.35 | -1.85 | -1,904 |
+| S2 @ 2 bps | 18,218 | -0.86 | +0.43 | **-1.80** | -0.30 | -77 |
+| S2 @ 3 | 131,173 | -1.01 | -0.16 | -2.56 | -1.06 | -574 |
+| S2 @ 5 | 311,641 | -1.27 | -0.22 | -2.91 | -1.41 | -1,386 |
+| S3 @ 2 (Dec 10-31) | 29,950 | -0.79 | -0.37 | -2.53 | -1.03 | -168 |
+| S3 @ 3 | 122,733 | -0.99 | -0.19 | -2.57 | -1.07 | -595 |
+| S3 @ 5 | 255,067 | -1.26 | -0.21 | -2.89 | -1.39 | -1,276 |
+| shifted @ 2 | 182,858 | -1.92 | -0.16 | -3.56 | -2.06 | -905 |
+| shifted @ 3 | 329,543 | -1.78 | -0.22 | -3.45 | -1.95 | -1,636 |
+
+At 0.5 and 1 bps the models fill 400 to 2,600 times in the month. Per dollar they swing from
+-9.2 to +10.5 bps on inventory alone, and their daily PnL intervals include zero (in the JSON).
+
+- **The matched-volume result replicates on ETH.**
+  - S2 @ 5 against the placebo @ 3 (311,641 and 329,543 fills, 5% apart): S2 is better by
+    +0.44 bps per filled dollar [+0.29, +0.60], on 23 of 24 days (DM p 1e-5). Its adverse
+    selection is better on 24 of 24 days.
+  - S3 @ 5 against the placebo @ 3 on S3's days (255,067 and 268,058 fills): +0.43
+    [+0.27, +0.61], on 21 of 22 days.
+  - In both coins the quote-time models carry timing information worth 0.4-0.6 bps per filled
+    dollar against pulling just as often at uninformed times.
+- **On ETH the pre-set 2 bps limit is the best point.** It is not the extreme end of the curve,
+  as it was on SOL. S2 @ 2 loses -1.80 all in, -0.30 before the fee, on 18,218 fills.
+- **Still nothing makes money.**
+  - Every maker from the 2 bps limit up has a daily PnL interval below zero.
+  - At a 0 bp maker fee, S2 @ 2 on ETH would sit at -0.30 bps per filled dollar, the closest
+    to break-even anywhere in these runs.
 
 ## ETH December (`eval/sim_eth.json`, `eval/quote_signals_eth.json`)
 
