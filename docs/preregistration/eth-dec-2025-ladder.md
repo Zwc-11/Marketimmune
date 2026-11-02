@@ -38,7 +38,7 @@ Identical to the SOL pre-registration except for the coin:
 | --- | --- |
 | Market | Hyperliquid ETH perpetual |
 | Period | 2025-12-01 to 2025-12-31 (UTC) |
-| Code | Commit `286ead8`: the corrected pipeline (archive replays dropped, triggers that would cross trade instead of resting, OFI windows restart at a book reset) |
+| Code | Commit `f561e8d` (`286ead8` before an author-only history rewrite on 2026-11-02): the corrected pipeline (archive replays dropped, triggers that would cross trade instead of resting, OFI windows restart at a book reset) |
 | Book, fills, positions, forecast, label | As in `sol-dec-2025-ladder.md` (Albers L4 rebuild, 10-min warm-up and gap resets; `trades_2025_12`; positions rolled forward from Dec 1; forecast columns missing on Dec 1-2; maker markout from the last pre-fill mid at 1 s (primary) and 10 s (secondary), `toxic = markout < -1 bp`) |
 | Reference | Binance USD-M ETHUSDT aggTrades, 2025-11-30 to 2025-12-31, feed latency 300 ms |
 | Margin tiers | ETH 25x below 100M USD notional, 15x above (`forced/margin_tiers.py`). A max-leverage position's liquidation sits 2.04% below entry (long) and 1.96% above (short). The forecaster's distance prior is fitted on earlier dates, as for SOL |

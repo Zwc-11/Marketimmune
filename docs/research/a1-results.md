@@ -1,7 +1,8 @@
 # A1 results: do priority fees predict toxic flow? (BTC, ETH, SOL, Apr 25 to Oct 31 2026)
 
-Pre-registered in `docs/preregistration/a1-speed-bids-2026.md`, committed as 7a9577c on
-2026-11-01, before any model was trained on a 2026 date. No deviations from its rules.
+Pre-registered in `docs/preregistration/a1-speed-bids-2026.md`, committed as 56ec53e on
+2026-11-01, before any model was trained on a 2026 date (the hash was 7a9577c until an
+author-only history rewrite on 2026-11-02; trees and dates unchanged). No deviations from its rules.
 - The execution-order fix to the trade-implied mid came before registration and is disclosed
   there.
 - One implementation change during the run: while BTC trained, `compare_rungs` was changed to

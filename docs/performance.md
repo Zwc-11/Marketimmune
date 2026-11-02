@@ -36,7 +36,7 @@ sequential forced-flow forecast, which carries state from day to day.
 
 Every module was rewritten to DeepInfer's conventions (ruff rule set and 140-column
 format, asserts for invariants, no fallback paths or compatibility options, one
-implementation per helper) and its hot paths re-timed. "Before" is commit `8f731c0`
+implementation per helper) and its hot paths re-timed. "Before" is commit `7035c0c`
 on the same 2 vCPU Linux VM; every output was compared on real Albers SOL data
 (December 2025) and is identical (max abs diff 0) unless noted.
 

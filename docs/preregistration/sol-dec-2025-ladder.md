@@ -90,7 +90,7 @@ H3 fails if the placebo is significant, whatever L3a shows.
 
 ### 2026-10-31: data bugs found after the registered run
 
-The registered run finished on 2026-10-31 (code `8f731c0`, Dec 12 excluded). Its
+The registered run finished on 2026-10-31 (code `7035c0c`, `8f731c0` before an author-only history rewrite on 2026-11-02; Dec 12 excluded). Its
 reports are kept unchanged in `eval/sol_dec_registered/`. Three data bugs were found
 afterwards, two of them *because of* those results, so everything below is post hoc:
 

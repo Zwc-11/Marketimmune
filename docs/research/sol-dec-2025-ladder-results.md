@@ -3,7 +3,7 @@
 Rules: `docs/preregistration/sol-dec-2025-ladder.md`. Two runs, scored with the same
 rules:
 
-- **Registered:** code `8f731c0`, Dec 12 excluded, reports in `eval/sol_dec_registered/`.
+- **Registered:** code `7035c0c`, Dec 12 excluded, reports in `eval/sol_dec_registered/`.
 - **Corrected:** the month rebuilt after the three data fixes in Deviations
   (2026-10-31), Dec 12 kept, reports in `eval/sol_dec_corrected/`.
 

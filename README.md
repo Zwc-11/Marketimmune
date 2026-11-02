@@ -50,7 +50,7 @@ The policy skips a fill when `p(regret) >= 0.30`; skipped fills count as 0 bps.
 - **Forward-only CV since v3.** The trainer now has one scheme, the rolling daily
   walk-forward: each fold tests one day and trains on the 7 days before it, minus
   a 60 s purge. Purged k-fold was removed; the committed report reproduces at
-  commit `8f731c0`.
+  commit `7035c0c`.
 - **Point-in-time features.** Every feature joins the latest book and asset
   context strictly before the fill. Each Gold partition carries a no-look-ahead
   check (features recomputed with the future deleted), and a training report is
@@ -140,10 +140,10 @@ Every pipeline command is `python -m marketimmune.cli.<command> --help`; the
 
 Needs the local Gold partitions under `data/gold/hyperliquid/training/SOL/`
 (produced by `python -m marketimmune.cli.backfill_day` from the requester-pays archive)
-and the trainer as of commit `8f731c0`, the last one with purged k-fold:
+and the trainer as of commit `7035c0c`, the last one with purged k-fold:
 
 ```powershell
-git checkout 8f731c0
+git checkout 7035c0c
 python -m pip install -e ".[training,aws,dev]"
 python -m marketimmune.cli.train --coin SOL --dates 20260527..20260531 `
   --holdout-date 20260601 --horizon 10s --iterations 150 --n-splits 5 `

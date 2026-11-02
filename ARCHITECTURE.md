@@ -98,7 +98,7 @@ applies it to a day of fills with one `searchsorted` per horizon, and
 rolling daily walk-forward. Each fold tests one UTC day and trains on the
 `--train-days` (default 7) days before it, ending `--purge-ms` (60 s) before the day
 starts; nothing after the test day is used. The committed SOL report was produced
-with purged k-fold, since removed (it reproduces at commit `8f731c0`); four of its
+with purged k-fold, since removed (it reproduces at commit `7035c0c`); four of its
 five folds trained on later days, so its headline number is the forward holdout
 (train May 27 to 31, score June 1), which is out of time.
 

@@ -10,7 +10,7 @@ export const COMMITTED_REPORT_PATH =
     'eval/markout_sol_10s/hyperliquid_markout_SOL_20260527_20260531_holdout_20260601.json';
 
 export const REPRODUCE_COMMAND =
-    'git checkout 8f731c0 && python -m marketimmune.cli.train --coin SOL --dates 20260527..20260531 ' +
+    'git checkout 7035c0c && python -m marketimmune.cli.train --coin SOL --dates 20260527..20260531 ' +
     '--holdout-date 20260601 --horizon 10s --iterations 150 --n-splits 5 --cv-scheme purged_kfold';
 
 interface FoldRow {
