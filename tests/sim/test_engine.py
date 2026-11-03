@@ -8,7 +8,7 @@ import pytest
 from marketimmune.sim import engine
 from marketimmune.sim.attribution import PX_SCALE, Costs, attribute_day
 from marketimmune.sim.engine import ADD, BID, CANCEL, FIFO, FILL, NO_QUOTE, RISK_AVERSE, DayBook, MakerResult, MakerSpec, simulate_day
-from marketimmune.sim.strategies import StaleQuotePuller, TouchQuoter
+from marketimmune.sim.strategies import QuantileBacker, StaleQuotePuller, TouchQuoter
 
 Row = tuple[int, list[tuple[int, float]], list[tuple[int, float]]]
 Event = tuple[int, int, bool, int, float, int, bool]  # ts, kind, is_ask, px, sz, added, alo
@@ -144,6 +144,15 @@ def test_touch_quoter_and_stale_rule() -> None:
     rule = StaleQuotePuller(s1, np.array([-3.0, np.nan]), np.array([0.0, -2.0]), threshold_bps=2.0)
     assert rule.quotes(0, 0, 100, 101, 0.0) == (NO_QUOTE, 101)
     assert rule.quotes(1, 0, 100, 101, 0.0) == (100, NO_QUOTE)
+
+
+def test_quantile_backer_steps_back_to_the_second_level() -> None:
+    s1 = TouchQuoter(max_position=2.0)
+    bid_q10, ask_q10 = np.array([-3.0, -3.0, np.nan]), np.array([0.0, -3.0, -3.0])
+    back = QuantileBacker(s1, bid_q10, ask_q10, 2.0, np.array([99, 0, 99]), np.array([102, 102, 102]))
+    assert back.quotes(0, 0, 100, 101, 0.0) == (99, 101)  # the bid steps back, the ask stays at the touch
+    assert back.quotes(1, 0, 100, 101, 0.0) == (NO_QUOTE, 102)  # a side showing one level stops quoting
+    assert back.quotes(2, 0, 100, 101, 2.0) == (NO_QUOTE, 102)  # NaN keeps the touch, but the position cap still pulls
 
 
 def test_chunked_event_lists_give_the_same_fills(monkeypatch: pytest.MonkeyPatch) -> None:

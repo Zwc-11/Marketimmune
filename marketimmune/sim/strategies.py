@@ -9,6 +9,7 @@ taker's wallet score), which are not known before a fill.
 
 from __future__ import annotations
 
+from array import array
 from dataclasses import dataclass
 
 import numpy as np
@@ -18,6 +19,7 @@ from marketimmune.sim.engine import NO_QUOTE, Strategy
 
 FloatArray = npt.NDArray[np.float64]
 BoolArray = npt.NDArray[np.bool_]
+IntArray = npt.NDArray[np.int64]
 
 
 @dataclass(slots=True)
@@ -64,3 +66,27 @@ class QuantilePuller(SidePuller):
 
     def __init__(self, base: Strategy, bid_q10: FloatArray, ask_q10: FloatArray, limit_bps: float) -> None:
         super().__init__(base, bid_q10 < -limit_bps, ask_q10 < -limit_bps)
+
+
+class QuantileBacker:
+    """S2/S3 that steps back instead of pulling: while the quote-time q10 of a side's next fill is
+    below ``-limit_bps``, that side quotes at the book's second-best price, behind the touch's
+    queue, and stops quoting only when the side shows a single level. ``bid2``/``ask2`` are the
+    second-best prices (ticks, 0 when missing) of each L2 row. NaN keeps quoting at the touch."""
+
+    def __init__(self, base: Strategy, bid_q10: FloatArray, ask_q10: FloatArray, limit_bps: float, bid2: IntArray, ask2: IntArray) -> None:
+        assert bid_q10.shape == ask_q10.shape == bid2.shape == ask2.shape, f"{bid_q10.shape=} {ask_q10.shape=} {bid2.shape=} {ask2.shape=}"
+        self.base = base
+        # The price each side steps back to, -1 where it stays at the touch. array("q") indexes at list
+        # speed in 8 bytes a row; lists of ints cost ~36 a row and ran the large ETH days out of 4 GB.
+        self.back_bid = array("q", np.where(bid_q10 < -limit_bps, bid2, -1).astype(np.int64).tobytes())
+        self.back_ask = array("q", np.where(ask_q10 < -limit_bps, ask2, -1).astype(np.int64).tobytes())
+
+    def quotes(self, row: int, ts: int, bid: int, ask: int, position: float) -> tuple[int, int]:
+        b, a = self.base.quotes(row, ts, bid, ask, position)
+        back_bid, back_ask = self.back_bid[row], self.back_ask[row]
+        if back_bid >= 0 and b != NO_QUOTE:
+            b = back_bid or NO_QUOTE
+        if back_ask >= 0 and a != NO_QUOTE:
+            a = back_ask or NO_QUOTE
+        return b, a

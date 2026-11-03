@@ -369,6 +369,102 @@ Daily PnL differences (challenger minus base, USD), stationary-bootstrap 95% int
 - **The models' gain over S1 replicates:** +$1.4k-1.8k a day on every day, under both queue
   models.
 
+## Stepping back instead of pulling (exploratory)
+
+`eval/sim_backoff_sol.json` and `eval/sim_backoff_eth.json` (`cli.pull_frontier --back-off`),
+Dec 8-31 (S3 from Dec 10), `fifo`, the same engine, costs and S1 as above.
+
+- `s2_back` and `s3_back` (`QuantileBacker`) use S2's and S3's q10 and the 2 bps limit. Where S2
+  would pull a side, they quote that side at the book's second-best price, behind the touch's
+  queue. They stop quoting a side only when it shows a single level.
+- The question: does the model's warning mean "move away from the touch" or "leave the book"?
+- Run after every result above, so exploratory. S1, S2 @ 2, S3 @ 2 and the placebo reproduce
+  the frontier rows exactly (same fills and PnL in both coins).
+
+| Coin | Maker | Fills | Spread | Adverse 1 s | Inventory | Total | Before fee | USD a day |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| SOL | S1 | 222,231 | +0.28 | -1.75 | -0.21 | -3.19 | -1.69 | -1,004 |
+| SOL | S2 @ 2 (pull) | 10,503 | +0.39 | -1.04 | -1.98 | -4.19 | -2.69 | -108 |
+| SOL | S2 @ 2, step back | 79,284 | +0.90 | -2.70 | +0.02 | -3.29 | -1.79 | -391 |
+| SOL | S3 @ 2, step back (Dec 10-31) | 73,110 | +0.86 | -2.53 | -0.16 | -3.34 | -1.84 | -408 |
+| SOL | shifted @ 2 | 100,524 | +0.24 | -2.02 | -0.08 | -3.38 | -1.88 | -476 |
+| ETH | S1 | 384,250 | +0.06 | -1.68 | -0.23 | -3.35 | -1.85 | -1,904 |
+| ETH | S2 @ 2 (pull) | 18,218 | +0.16 | -0.86 | +0.43 | -1.80 | -0.30 | -77 |
+| ETH | S2 @ 2, step back | 211,355 | +0.40 | -2.39 | -0.03 | -3.52 | -2.02 | -978 |
+| ETH | S3 @ 2, step back (Dec 10-31) | 179,490 | +0.37 | -2.24 | -0.06 | -3.44 | -1.94 | -958 |
+| ETH | shifted @ 2 | 182,858 | +0.04 | -1.92 | -0.16 | -3.56 | -2.06 | -905 |
+
+Stepping back minus pulling, daily PnL (USD), stationary-bootstrap 95% interval:
+
+| Model | SOL | Days better | ETH | Days better |
+|---|---|---:|---|---:|
+| S2 | -283 [-402, -175], DM p 6e-5 | 1/24 | -901 [-1,267, -572], DM p 9e-5 | 0/24 |
+| S3 | -300 [-439, -169], DM p 8e-4 | 0/22 | -791 [-1,120, -489], DM p 2e-4 | 0/22 |
+
+- **Stepping back loses more than pulling, on every day but one.** It keeps 36% (SOL) and 55%
+  (ETH) of S1's fills, and those fills lose.
+- **The second level's fills are the most adversely selected in this study.** Adverse selection
+  at 1 s is -2.24 to -2.70 bps per filled dollar, against -1.68 to -1.75 for S1 at the touch and
+  -0.86 to -1.04 for S2.
+  - The extra spread (+0.37 to +0.90 bps) pays back less than half of it.
+  - A quote one level back fills only once the touch level is gone, taken by a sweep or
+    cancelled, which is when the model expected a bad fill.
+- **Per filled dollar, stepping back is no better than pulling at uninformed times:** -3.29
+  against the placebo's -3.38 on SOL, -3.52 against -3.56 on ETH, at similar volume (not tested
+  formally).
+- **Reading:** the warning means "leave the book on that side", not "move away from the
+  touch". Stepping back beats S1 (+614 [474, 765] USD a day on SOL, +926 [716, 1,145] on ETH)
+  only because it trades less.
+
+## Fee tiers: the fee each maker needs to break even (`cli.fee_tiers`)
+
+`eval/sim_fee_tiers_sol.json` and `eval/sim_fee_tiers_eth.json`. A maker fee moves no quote and no
+fill, so every maker above is re-priced at each tier of Hyperliquid's perps schedule without a
+rerun (docs, Trading > Fees, read 2026-11-03):
+
+- 1.5 bp at the base tier;
+- 1.2, 0.8 and 0.4 bp above $5M, $25M and $100M of 14-day volume, and 0 above $500M;
+- rebates of 0.1, 0.2 and 0.3 bp above 0.5%, 1.5% and 3% of the venue's maker volume.
+
+Staking discounts are left out. Days are Dec 8-31 (S3 Dec 10-31), `fifo`, 200 ms. The break-even
+fee is the maker's PnL before fees per filled dollar; a negative value is the rebate it would need.
+Intervals resample days (stationary bootstrap, mean block 3 days). Volume is the maker's own
+notional over 14 days at $1,000 quotes, which sets its volume tier.
+
+| Coin | Maker | Fills | 14-day volume | Break-even fee (bps) | USD a day at 1.5 bp | at 0 bp | at the 0.3 bp rebate |
+|---|---|---:|---:|---|---|---|---|
+| SOL | S1 | 222,231 | $44M | -1.69 [-1.84, -1.51] | -1,004 [-1,279, -747] | -532 [-693, -381] | -437 [-577, -307] |
+| SOL | stale rule | 164,564 | $34M | -1.25 [-1.42, -1.05] | -661 [-834, -499] | -300 [-396, -211] | -228 [-309, -153] |
+| SOL | S2 @ 2 | 10,503 | $4M | -2.69 [-4.53, -0.79] | -108 [-161, -58] | -69 [-121, -20] | -61 [-113, -12] |
+| SOL | S2 @ 3 | 60,259 | $15M | -0.91 [-1.37, -0.50] | -260 [-317, -205] | -99 [-146, -54] | -66 [-113, -21] |
+| SOL | S3 @ 3 | 61,788 | $16M | -0.89 [-1.41, -0.43] | -276 [-331, -229] | -103 [-159, -52] | -69 [-125, -16] |
+| SOL | S2 @ 2, step back | 79,284 | $17M | -1.79 [-2.15, -1.44] | -391 [-521, -272] | -213 [-296, -141] | -177 [-250, -115] |
+| ETH | S1 | 384,250 | $80M | -1.85 [-1.96, -1.72] | -1,904 [-2,487, -1,371] | -1,051 [-1,389, -737] | -880 [-1,171, -608] |
+| ETH | stale rule | 335,951 | $70M | -1.64 [-1.72, -1.53] | -1,557 [-2,024, -1,129] | -812 [-1,074, -577] | -663 [-883, -466] |
+| ETH | S2 @ 2 | 18,218 | $6M | -0.30 [-0.97, +0.40] | -77 [-108, -44] | -13 [-40, +17] | -0 [-28, +31] |
+| ETH | S3 @ 2 | 29,950 | $9M | -1.03 [-2.13, -0.11] | -168 [-218, -112] | -68 [-126, -8] | -48 [-108, +13] |
+| ETH | S2 @ 3 | 131,173 | $31M | -1.06 [-1.30, -0.81] | -574 [-693, -472] | -238 [-297, -173] | -170 [-223, -111] |
+| ETH | S2 @ 2, step back | 211,355 | $39M | -2.02 [-2.19, -1.79] | -978 [-1,346, -647] | -562 [-791, -355] | -478 [-680, -297] |
+
+Every limit, placebo and model is in the JSON.
+
+- **No simulated maker makes money at any tier, the 0.3 bp rebate included.** No maker's daily
+  PnL interval lies above zero at any tier (`profitable_from` is empty for all of them).
+  - At the best rebate, the intervals that reach zero are ETH S2 @ 2 and S3 @ 2 and the
+    low-volume points: the models at 0.5 and 1 bps (300 to 2,600 fills in the month) and ETH's
+    placebo at 0.5 bps.
+- **A touch quoter needs a rebate of 1.7 bp (SOL) and 1.85 bp (ETH),** six times the largest on
+  the schedule. Its own volume ($44M and $80M a fortnight) earns the 0.8 bp tier, where it still
+  loses $784 and $1,506 a day.
+- **The closest to break-even is the pre-set strategy on ETH,** S2 @ 2: -0.30 bps [-0.97, +0.40]
+  before fees. It breaks even only at the 3% maker-share rebate, which a $6M-a-fortnight quoter
+  does not reach. At its own tier (base) it loses $77 a day [-108, -44].
+- **On SOL the best points are S2 and S3 @ 3,** at about -0.9 bps before fees: they would need a
+  0.9 bp rebate, three times the schedule's best.
+- **Reading:** the forecasts cut a touch quoter's losses by $0.9k-1.8k a day, but the gap to
+  profit is adverse selection, not fees. At 200 ms and $1,000 quotes, no fee tier on the schedule
+  closes it.
+
 ## Run
 
 ```
@@ -390,7 +486,15 @@ python -m marketimmune.cli.pull_frontier --coin SOL --dates 20251208..20251231 -
 python -m marketimmune.cli.pull_frontier --coin ETH --dates 20251208..20251231 --workers 2 --out eval/sim_frontier_eth.json
 ```
 
-Some ETH days need more than 4 GB, more than the VM has.
+Stepping back (`--back-off`) and the fee tiers, from the cached days and `eval/sim_<coin>.json`:
+
+```
+python -m marketimmune.cli.pull_frontier --coin SOL --dates 20251208..20251231 --limits 2 --models s2,s3 --back-off --day-dir data/gold/hyperliquid/sim_backoff --out eval/sim_backoff_sol.json
+python -m marketimmune.cli.fee_tiers --coin SOL --out eval/sim_fee_tiers_sol.json --inputs data/gold/hyperliquid/sim_frontier/SOL data/gold/hyperliquid/sim_backoff/SOL eval/sim_sol.json
+```
+
+`load_day` reads the L4 events one column at a time, so the largest ETH day (Dec 16, 32M events)
+peaks at 2.6 GB and every day runs on the 4 GB VM.
 
 ETH, the same three steps (`eval/quote_signals_eth.json`, `eval/sim_eth.json`):
 

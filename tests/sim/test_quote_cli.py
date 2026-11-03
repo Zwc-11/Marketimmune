@@ -143,11 +143,15 @@ def test_pull_frontier_limits_and_shifted_placebo(tmp_path: Path) -> None:
     bid[1] = -3.0
     pq.write_table(pa.table({"ts_ns": rows, "s2_q10_bid": bid, "s2_q10_ask": np.zeros(rows.size)}), path)
     out = tmp_path / "frontier.json"
-    argv = [*common, "--signals-dir", str(tmp_path / "signals"), "--limits", "2,5", "--delay-ms", "100"]
+    argv = [*common, "--signals-dir", str(tmp_path / "signals"), "--limits", "2,5", "--delay-ms", "100", "--back-off"]
     argv += ["--day-dir", str(tmp_path / "days"), "--out", str(out)]
     assert pull_frontier.main(argv) == 0
-    makers = json.loads(out.read_text())["makers"]
+    report = json.loads(out.read_text())
+    makers = report["makers"]
     assert makers["S1"]["fills"] == 1
     assert makers["s2@2"]["fills"] == 0 and makers["s2@5"]["fills"] == 1  # -3 is below -2, not below -5
     assert makers["s2_shifted@2"]["fills"] == 1 and "s3@2" not in makers
+    # the synthetic book shows one level, so stepping back stops quoting the bid as S2 does
+    assert makers["s2_back@2"]["fills"] == 0 and makers["s2_back@5"]["fills"] == 1
+    assert set(report["back_vs_pull"]) == {"s2_back@2", "s2_back@5"}
     assert (tmp_path / "days" / "SOL" / "20251201.json").exists()

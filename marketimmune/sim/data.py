@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pyarrow.parquet as pq
 
 from marketimmune.features.cex_gap import PriceSeries, cex_gap_features, read_binance_aggtrades_zip
@@ -31,20 +33,26 @@ def load_day(lake_root: Path, coin: str, date: str) -> DayBook:
     # NOTE: a block whose statuses straddle two hourly files (2025-12-01 06:59:59.826) gets a row
     # from each hour; the later one is the book after the whole block.
     last = np.append(ts[1:] != ts[:-1], True)
-    mbo = pq.read_table(layout.silver_mbo_path(coin, date))
+    mbo = pq.ParquetFile(layout.silver_mbo_path(coin, date))
+
+    def events(column: str) -> npt.NDArray[Any]:
+        # One column at a time: reading the whole table of a 30M-event ETH day peaked above 3.6 GB.
+        values: npt.NDArray[Any] = mbo.read(columns=[column])[column].to_numpy(zero_copy_only=False)
+        return values
+
     return DayBook(
         l2_ts=ts[last],
         bid_px=ticks("bid")[last],
         bid_sz=depth("bid", "sz")[last],
         ask_px=ticks("ask")[last],
         ask_sz=depth("ask", "sz")[last],
-        ev_ts=mbo["ts_ns"].to_numpy(),
-        ev_kind=mbo["kind"].to_numpy(),
-        ev_ask=mbo["is_ask"].to_numpy(zero_copy_only=False),
-        ev_px=mbo["px_ticks"].to_numpy(),
-        ev_sz=mbo["sz"].to_numpy(),
-        ev_added=mbo["added_ns"].to_numpy(),
-        ev_alo=mbo["alo"].to_numpy(zero_copy_only=False),
+        ev_ts=events("ts_ns"),
+        ev_kind=events("kind"),
+        ev_ask=events("is_ask"),
+        ev_px=events("px_ticks"),
+        ev_sz=events("sz"),
+        ev_added=events("added_ns"),
+        ev_alo=events("alo"),
     )
 
 

@@ -38,6 +38,21 @@ pre-registered before the held-out window is scored.
 | Outcome mode, `replica_cmds` extractor, signer recovery, episodes | Phase 1 (Nov 16 – Dec 13) |
 | E3 · E1 · E2 · signal + simulator | Phases 2–5 |
 
+## Status (2026-11-03): closed at a smaller scope
+
+The project was finished inside MarketImmune. What each part became:
+
+| Part | Outcome |
+| ---- | ------- |
+| Signal: do priority bids forecast toxicity beyond the CEX gap and wallet history? | Run as A1, pre-registered: **rejected** in all three coins (`docs/research/a1-results.md`). Its one trace, at 1 s, is re-tested on January 2027 (`docs/preregistration/jan-2027-confirmation.md`) |
+| Block-accurate simulator | Built in Python on the Albers L4 data and checked against hftbacktest (`marketimmune/sim/`, `docs/research/block-simulator.md`). December 2025 only |
+| E1a and E1b, cancel-first races | **Closed, not run.** They need the `replica_cmds` action log: 151 to 257 GiB of LZ4 a day on paid AWS in Tokyo, plus the Rust extractor and signer recovery, none of them built. v3's own use of that data (A2, missed races with fees) was cancelled when A1's gate failed, and lost cancel races were null as a markout feature in both December ladders (H3) |
+| E2, fee-rollout event study; E3, queue value | Not started; not part of this release |
+| `hl-replay` | Kept in `crates/`: the book and batch engine, property-tested |
+| Recorder | Written (`deploy/recorder/`), not deployed: the terms question in `docs/research/jurisdiction.md` is open |
+
+G0's answers stay in `docs/research/g0_probe_note.md` for anyone who reopens E1.
+
 ## Correctness
 
 - **Property tests** (`crates/hl-replay/tests/proptest_book.rs`): 2 × 1,024 random

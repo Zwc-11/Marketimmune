@@ -13,8 +13,12 @@ its volume. This asks two things at once, on the same days and book:
   trades a similar volume with no information. S2 beating it at the same limit is the model's
   value; S2 matching it means pulling alone did the work.
 
+``--back-off`` adds ``<model>_back`` at each limit: the same signal, but a side steps back to the
+book's second-best price instead of pulling (``QuantileBacker``), so it keeps earning spread on the
+flow that reaches past the touch. ``back_vs_pull`` compares the two at each limit.
+
 Engine, costs and S1 are ``simulate_quotes``'s; each day's rows are kept in ``--day-dir`` and
-reused, and ``--max-days`` bounds a call.
+reused (a run with other makers needs its own ``--day-dir``), and ``--max-days`` bounds a call.
 """
 
 from __future__ import annotations
@@ -37,7 +41,7 @@ from marketimmune.sim.data import load_day
 from marketimmune.sim.engine import FIFO, MakerSpec, Strategy, simulate_day
 from marketimmune.sim.pnl import compare_policies
 from marketimmune.sim.signals import quote_signals_path
-from marketimmune.sim.strategies import QuantilePuller, TouchQuoter
+from marketimmune.sim.strategies import QuantileBacker, QuantilePuller, TouchQuoter
 from marketimmune.utils import parse_date_spec, split_csv
 
 logger = init_logger(__name__)
@@ -51,6 +55,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--signals-dir", type=Path, default=Path("data/gold/hyperliquid/quote_signals"))
     parser.add_argument("--limits", default="0.5,1,2,3,5", help="pull when q10 < -limit (bps)")
     parser.add_argument("--models", default="s2,s3")
+    parser.add_argument("--back-off", action="store_true", help="also run each model stepping back to the second level instead of pulling")
     parser.add_argument("--queue", default=FIFO)
     parser.add_argument("--delay-ms", type=float, default=200.0)
     parser.add_argument("--quote-usd", type=float, default=1_000.0)
@@ -88,6 +93,10 @@ def run_day(args: argparse.Namespace, date: str) -> list[dict[str, Any]]:
                 strategies[limit_name(model, limit)] = QuantilePuller(s1, q10[0], q10[1], limit)
                 if model == "s2":
                     strategies[limit_name("s2_shifted", limit)] = QuantilePuller(s1, np.roll(q10[0], half), np.roll(q10[1], half), limit)
+                if args.back_off:
+                    strategies[limit_name(f"{model}_back", limit)] = QuantileBacker(
+                        s1, q10[0], q10[1], limit, book.bid_px[:, 1], book.ask_px[:, 1]
+                    )
     specs = [MakerSpec(name, strategy, args.queue, qty) for name, strategy in strategies.items()]
     results = simulate_day(book, specs, delay_ns=round(args.delay_ms * 1e6))
     costs = Costs(args.maker_fee_bps, args.taker_fee_bps, round(args.horizon_s * 1e9))
@@ -126,11 +135,16 @@ def report(args: argparse.Namespace, frame: pd.DataFrame) -> dict[str, Any]:
         "makers": {name: summarise(g) for name, g in by.items()},
         "vs_S1": {name: compare_policies(by["S1"], g) for name, g in by.items() if name != "S1"},
         "s2_vs_shifted": {},
+        "back_vs_pull": {},
     }
     for limit in (float(x) for x in split_csv(args.limits)):
         a, b = limit_name("s2", limit), limit_name("s2_shifted", limit)
         if a in by and b in by:
             out["s2_vs_shifted"][f"{limit:g}"] = compare_policies(by[b], by[a])
+        for model in split_csv(args.models):
+            pull, back = limit_name(model, limit), limit_name(f"{model}_back", limit)
+            if pull in by and back in by:
+                out["back_vs_pull"][back] = compare_policies(by[pull], by[back])
     return out
 
 

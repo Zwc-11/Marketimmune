@@ -254,7 +254,21 @@ Oct 9.
   that varies by coin and horizon, so only calibrated scores are compared.
 - **The crash timeline uses the trade-implied mid, not the mark.**
 
-## Next
+## Closed (2026-11-03)
+
+Forced flow is closed as a toxicity signal for this project. Every place it was tested, it added
+nothing a maker can use:
+
+- **As a markout feature** (L3b, forecast liquidations), it came back null in both December
+  ladders. On ETH, where it was confirmatory, H4 had a Holm p of 0.15 on Brier and 0.95 on pinball
+  (`docs/research/eth-dec-2025-ladder-results.md`).
+- **As a 60 s forecaster,** v2 beats v1 in both coins but not persistence on its own (above).
+- **In the simulator,** S3 (S2 plus the race and forced-flow columns) is level with S2 on SOL,
+  -23 USD a day [-71, +24], and worse on ETH, -84 [-146, -11] (`docs/research/block-simulator.md`).
+- **The fixes need data the archive does not have.** Snapshots exist only for Oct 8-12 and
+  Dec 15-31, 2025, and the cross-coin roll below needs them for every coin an account holds.
+
+What would reopen it, in order:
 
 1. Roll accounts across coins. Snapshots and node fills for BTC and the large alts would let
    cross accounts be priced as portfolios. That is the error the checks above point at.
