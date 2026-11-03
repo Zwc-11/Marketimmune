@@ -179,6 +179,54 @@ Cells: mean daily improvement [bootstrap 95%], days improved / days, DM p. Bold:
 
 Cells: mean of daily mean 1 s markout from the pre-fill mid, bps (share of fills); columns: blocks since a fee-paying taker hit the same side.
 
+### 1s horizon, the same rules (secondary)
+
+- `fees_beyond_cex_gap_and_wallet`: False
+- `gate_a1_passes`: False
+- `replication_a3_coins`: 3
+- `replication_a4_coins`: 3
+
+| Test | Coin | Held | Brier ×1e-3 | pinball τ=0.1, bps |
+|---|---|---|---|---|
+| A1: `l3_fee` vs `l2_trade`, cex_move | BTC | no | -0.392 [-1.197, +0.376], 30/60, p 0.32 (Holm 0.32), placebo min p 0.098 | +0.003 [-0.004, +0.010], 29/60, p 0.43 (Holm 1), placebo min p 0.47 |
+| A1: `l3_fee` vs `l2_trade`, cex_move | ETH | no | **+1.142 [+0.319, +1.991], 41/60, p 0.012 (Holm 0.036), placebo min p 0.18** | -0.009 [-0.019, +0.000], 29/60, p 0.092 (Holm 0.46), placebo min p 0.013 |
+| A1: `l3_fee` vs `l2_trade`, cex_move | SOL | no | +0.578 [-0.138, +1.291], 34/60, p 0.13 (Holm 0.27), placebo min p 0.34 | +0.004 [-0.002, +0.012], 31/60, p 0.27 (Holm 1), placebo min p 0.081 |
+| A2: `l3_fee` vs `l2_trade`, all | BTC | no | +0.476 [+0.244, +0.697], 47/60, p 0.00012 (Holm 0.00075), placebo min p 0.098 | **+0.001 [+0.000, +0.002], 40/60, p 0.002 (Holm 0.012), placebo min p 0.47** |
+| A2: `l3_fee` vs `l2_trade`, all | ETH | no | **+0.509 [+0.236, +0.782], 36/60, p 0.00029 (Holm 0.0015), placebo min p 0.18** | -0.000 [-0.001, +0.001], 34/60, p 0.91 (Holm 1), placebo min p 0.013 |
+| A2: `l3_fee` vs `l2_trade`, all | SOL | no | **+0.510 [+0.204, +0.790], 43/60, p 0.0018 (Holm 0.0072), placebo min p 0.34** | +0.001 [-0.002, +0.004], 37/60, p 0.57 (Holm 1), placebo min p 0.081 |
+| A3: `l1_trade` vs `l0_trade`, all | BTC | yes | **+21.675 [+20.169, +23.228], 60/60, p <1e-4 (Holm <1e-4)** | **+0.044 [+0.040, +0.047], 60/60, p <1e-4 (Holm <1e-4)** |
+| A3: `l1_trade` vs `l0_trade`, all | ETH | yes | **+25.742 [+23.366, +28.161], 60/60, p <1e-4 (Holm <1e-4)** | **+0.066 [+0.058, +0.074], 59/60, p <1e-4 (Holm <1e-4)** |
+| A3: `l1_trade` vs `l0_trade`, all | SOL | yes | **+26.852 [+25.122, +28.516], 60/60, p <1e-4 (Holm <1e-4)** | **+0.059 [+0.052, +0.066], 60/60, p <1e-4 (Holm <1e-4)** |
+| A4: `l2_trade` vs `l1_trade`, all | BTC | yes | **+10.192 [+8.146, +12.170], 58/60, p <1e-4 (Holm <1e-4)** | **+0.024 [+0.021, +0.027], 60/60, p <1e-4 (Holm <1e-4)** |
+| A4: `l2_trade` vs `l1_trade`, all | ETH | yes | **+10.888 [+9.562, +12.456], 60/60, p <1e-4 (Holm <1e-4)** | **+0.026 [+0.022, +0.029], 60/60, p <1e-4 (Holm <1e-4)** |
+| A4: `l2_trade` vs `l1_trade`, all | SOL | yes | **+14.168 [+12.904, +15.416], 60/60, p <1e-4 (Holm <1e-4)** | **+0.041 [+0.031, +0.053], 60/60, p <1e-4 (Holm <1e-4)** |
+
+Cells: mean daily improvement [bootstrap 95%], days improved / days, DM p. Bold: the cell meets the rule.
+
+### 60s horizon, the same rules (secondary)
+
+- `fees_beyond_cex_gap_and_wallet`: False
+- `gate_a1_passes`: False
+- `replication_a3_coins`: 3
+- `replication_a4_coins`: 2
+
+| Test | Coin | Held | Brier ×1e-3 | pinball τ=0.1, bps |
+|---|---|---|---|---|
+| A1: `l3_fee` vs `l2_trade`, cex_move | BTC | no | -1.119 [-2.513, +0.258], 26/60, p 0.12 (Holm 0.72), placebo min p 0.047 | -0.015 [-0.031, +0.002], 23/60, p 0.081 (Holm 0.48), placebo min p 0.047 |
+| A1: `l3_fee` vs `l2_trade`, cex_move | ETH | no | -0.641 [-1.736, +0.509], 28/60, p 0.28 (Holm 1), placebo min p 0.21 | +0.003 [-0.016, +0.023], 27/60, p 0.78 (Holm 1), placebo min p 0.096 |
+| A1: `l3_fee` vs `l2_trade`, cex_move | SOL | no | +0.942 [-0.515, +2.511], 31/60, p 0.24 (Holm 1), placebo min p 0.012 | -0.006 [-0.035, +0.021], 29/60, p 0.64 (Holm 1), placebo min p 0.087 |
+| A2: `l3_fee` vs `l2_trade`, all | BTC | no | +0.058 [-0.204, +0.325], 30/60, p 0.69 (Holm 1), placebo min p 0.047 | -0.002 [-0.004, +0.001], 27/60, p 0.32 (Holm 1), placebo min p 0.047 |
+| A2: `l3_fee` vs `l2_trade`, all | ETH | no | -0.220 [-0.568, +0.102], 29/60, p 0.21 (Holm 1), placebo min p 0.21 | +0.003 [-0.002, +0.008], 30/60, p 0.32 (Holm 1), placebo min p 0.096 |
+| A2: `l3_fee` vs `l2_trade`, all | SOL | no | +0.143 [-0.227, +0.512], 29/60, p 0.45 (Holm 1), placebo min p 0.012 | -0.002 [-0.009, +0.005], 30/60, p 0.53 (Holm 1), placebo min p 0.087 |
+| A3: `l1_trade` vs `l0_trade`, all | BTC | yes | **+6.422 [+5.461, +7.484], 60/60, p <1e-4 (Holm <1e-4)** | **+0.026 [+0.023, +0.030], 59/60, p <1e-4 (Holm <1e-4)** |
+| A3: `l1_trade` vs `l0_trade`, all | ETH | yes | **+5.688 [+4.883, +6.502], 60/60, p <1e-4 (Holm <1e-4)** | **+0.036 [+0.027, +0.044], 53/60, p <1e-4 (Holm <1e-4)** |
+| A3: `l1_trade` vs `l0_trade`, all | SOL | yes | **+6.365 [+5.510, +7.265], 60/60, p <1e-4 (Holm <1e-4)** | **+0.044 [+0.035, +0.053], 57/60, p <1e-4 (Holm <1e-4)** |
+| A4: `l2_trade` vs `l1_trade`, all | BTC | yes | **+1.228 [+0.728, +1.774], 45/60, p <1e-4 (Holm 0.00042)** | **+0.006 [+0.003, +0.009], 46/60, p 0.00016 (Holm 0.0013)** |
+| A4: `l2_trade` vs `l1_trade`, all | ETH | no | **+0.940 [+0.536, +1.342], 42/60, p <1e-4 (Holm 0.00012)** | +0.006 [+0.001, +0.012], 39/60, p 0.031 (Holm 0.22) |
+| A4: `l2_trade` vs `l1_trade`, all | SOL | yes | **+1.482 [+1.039, +1.942], 51/60, p <1e-4 (Holm <1e-4)** | **+0.021 [+0.014, +0.029], 42/60, p <1e-4 (Holm <1e-4)** |
+
+Cells: mean daily improvement [bootstrap 95%], days improved / days, DM p. Bold: the cell meets the rule.
+
 ## Runs
 
 | Coin | Model | Rung | Tested days | Rows tested | Leakage-safe |

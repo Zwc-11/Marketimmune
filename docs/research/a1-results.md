@@ -152,9 +152,27 @@ improvement of the fee rung over `l2_trade` [95%], with the DM p.
   - At τ = 0.9 the wallet score's gain is small: +0.002 to +0.003 bps, on 38-41 days; SOL
     p 0.11. The wallet score is about the loss tail, not the gain tail.
 
-**The 1 s and 60 s horizons** have not been run: `scripts/run_a1_secondary.ps1 -WithHorizons`
-retrains the whole ladder twice, which is roughly twice A1's compute. They are secondary and
-cannot change the verdicts above.
+**The 1 s and 60 s horizons** (`eval/a1/h1s/`, `eval/a1/h60s/`; `run_a1_secondary.ps1
+-WithHorizons`, run 2026-11-03). The whole ladder retrained at each horizon and scored by the same
+rules; secondary, so they cannot change the verdicts above. Tables in `eval/a1/a1_tables.md`.
+
+| Test | 1 s | 10 s (primary) | 60 s |
+|---|---|---|---|
+| A1/A2: fees beyond the gap and wallet | 0/3 coins | 0/3 | 0/3 |
+| A3: CEX gap | 3/3 | 3/3 | 3/3 |
+| A4: wallet score | 3/3 | 3/3 | 2/3 (ETH fails pinball, Holm 0.22) |
+
+- **Fees leave a trace at 1 s, on one metric only.** Brier, all fills: +0.48 to +0.51 ×1e-3 per
+  day in every coin (Holm 0.00075 to 0.0072; BTC misses the rule because its placebo has p 0.098),
+  about 2% of what the CEX gap adds at the same horizon. Pinball at τ = 0.1 shows it only for BTC
+  (+0.001 bps). No coin passes both metrics, and at 60 s nothing is left. This matches the
+  lead-time curve: what a fee says is gone within a few hundred milliseconds to a few seconds.
+  This trace was found here, so it is not a result: it is re-tested on its own, on a month no
+  model has seen (`docs/preregistration/jan-2027-confirmation.md`, J3).
+- **The gap holds at every horizon; the wallet score fades faster.** The gap's Brier gain is
+  21.7-26.9 ×1e-3 at 1 s and 5.7-6.4 at 60 s; the wallet score's is 10.2-14.2 at 1 s and 0.9-1.5
+  at 60 s. Relative to the gap, the wallet score is worth 0.42-0.53 of it at 1 s, 0.24-0.28 at
+  10 s and 0.17-0.23 at 60 s: who the taker is matters most in the first second.
 
 ## Limits
 

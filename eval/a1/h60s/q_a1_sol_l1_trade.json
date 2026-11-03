@@ -1,0 +1,551 @@
+{
+  "coin": "SOL",
+  "rung": "l1_trade",
+  "model": "quantile",
+  "horizon": "60s",
+  "tested_days": 77,
+  "rows_tested": 6843896,
+  "leakage_safe": true,
+  "oof_predictions": "eval\\a1\\h60s\\q_a1_sol_l1_trade.oof.parquet",
+  "days": [
+    {
+      "date": "20260506",
+      "seed": 42,
+      "leakage_safe": true,
+      "rows": 572272,
+      "seconds": 7.5
+    },
+    {
+      "date": "20260513",
+      "seed": 43,
+      "leakage_safe": true,
+      "rows": 990418,
+      "seconds": 9.9
+    },
+    {
+      "date": "20260520",
+      "seed": 44,
+      "leakage_safe": true,
+      "rows": 759911,
+      "seconds": 8.3
+    },
+    {
+      "date": "20260527",
+      "seed": 45,
+      "leakage_safe": true,
+      "rows": 664664,
+      "seconds": 6.7
+    },
+    {
+      "date": "20260603",
+      "seed": 46,
+      "leakage_safe": true,
+      "rows": 802808,
+      "seconds": 8.3
+    },
+    {
+      "date": "20260610",
+      "seed": 47,
+      "leakage_safe": true,
+      "rows": 1179265,
+      "seconds": 12.0
+    },
+    {
+      "date": "20260617",
+      "seed": 48,
+      "leakage_safe": true,
+      "rows": 632959,
+      "seconds": 6.8
+    },
+    {
+      "date": "20260624",
+      "seed": 49,
+      "leakage_safe": true,
+      "rows": 792738,
+      "seconds": 8.2
+    },
+    {
+      "date": "20260701",
+      "seed": 50,
+      "leakage_safe": true,
+      "rows": 1165574,
+      "seconds": 11.3
+    },
+    {
+      "date": "20260708",
+      "seed": 51,
+      "leakage_safe": true,
+      "rows": 992300,
+      "seconds": 10.1
+    },
+    {
+      "date": "20260715",
+      "seed": 52,
+      "leakage_safe": true,
+      "rows": 640518,
+      "seconds": 6.6
+    },
+    {
+      "date": "20260722",
+      "seed": 53,
+      "leakage_safe": true,
+      "rows": 478013,
+      "seconds": 4.9
+    },
+    {
+      "date": "20260729",
+      "seed": 54,
+      "leakage_safe": true,
+      "rows": 510524,
+      "seconds": 5.1
+    },
+    {
+      "date": "20260805",
+      "seed": 55,
+      "leakage_safe": true,
+      "rows": 475040,
+      "seconds": 5.2
+    },
+    {
+      "date": "20260812",
+      "seed": 56,
+      "leakage_safe": true,
+      "rows": 450146,
+      "seconds": 4.8
+    },
+    {
+      "date": "20260819",
+      "seed": 57,
+      "leakage_safe": true,
+      "rows": 460544,
+      "seconds": 4.7
+    },
+    {
+      "date": "20260826",
+      "seed": 58,
+      "leakage_safe": true,
+      "rows": 1303713,
+      "seconds": 13.2
+    },
+    {
+      "date": "20260901",
+      "seed": 59,
+      "leakage_safe": true,
+      "rows": 1194200,
+      "seconds": 12.0
+    },
+    {
+      "date": "20260902",
+      "seed": 60,
+      "leakage_safe": true,
+      "rows": 1073163,
+      "seconds": 10.8
+    },
+    {
+      "date": "20260903",
+      "seed": 61,
+      "leakage_safe": true,
+      "rows": 1048854,
+      "seconds": 10.7
+    },
+    {
+      "date": "20260904",
+      "seed": 62,
+      "leakage_safe": true,
+      "rows": 877288,
+      "seconds": 9.2
+    },
+    {
+      "date": "20260905",
+      "seed": 63,
+      "leakage_safe": true,
+      "rows": 720887,
+      "seconds": 7.9
+    },
+    {
+      "date": "20260906",
+      "seed": 64,
+      "leakage_safe": true,
+      "rows": 736280,
+      "seconds": 8.0
+    },
+    {
+      "date": "20260907",
+      "seed": 65,
+      "leakage_safe": true,
+      "rows": 687324,
+      "seconds": 7.6
+    },
+    {
+      "date": "20260908",
+      "seed": 66,
+      "leakage_safe": true,
+      "rows": 640051,
+      "seconds": 7.3
+    },
+    {
+      "date": "20260909",
+      "seed": 67,
+      "leakage_safe": true,
+      "rows": 605939,
+      "seconds": 6.1
+    },
+    {
+      "date": "20260910",
+      "seed": 68,
+      "leakage_safe": true,
+      "rows": 586611,
+      "seconds": 6.0
+    },
+    {
+      "date": "20260911",
+      "seed": 69,
+      "leakage_safe": true,
+      "rows": 585088,
+      "seconds": 6.0
+    },
+    {
+      "date": "20260912",
+      "seed": 70,
+      "leakage_safe": true,
+      "rows": 546220,
+      "seconds": 5.7
+    },
+    {
+      "date": "20260913",
+      "seed": 71,
+      "leakage_safe": true,
+      "rows": 559452,
+      "seconds": 5.7
+    },
+    {
+      "date": "20260914",
+      "seed": 72,
+      "leakage_safe": true,
+      "rows": 548549,
+      "seconds": 5.5
+    },
+    {
+      "date": "20260915",
+      "seed": 73,
+      "leakage_safe": true,
+      "rows": 601197,
+      "seconds": 5.7
+    },
+    {
+      "date": "20260916",
+      "seed": 74,
+      "leakage_safe": true,
+      "rows": 611888,
+      "seconds": 6.5
+    },
+    {
+      "date": "20260917",
+      "seed": 75,
+      "leakage_safe": true,
+      "rows": 605914,
+      "seconds": 6.6
+    },
+    {
+      "date": "20260918",
+      "seed": 76,
+      "leakage_safe": true,
+      "rows": 682375,
+      "seconds": 6.9
+    },
+    {
+      "date": "20260919",
+      "seed": 77,
+      "leakage_safe": true,
+      "rows": 656241,
+      "seconds": 7.0
+    },
+    {
+      "date": "20260920",
+      "seed": 78,
+      "leakage_safe": true,
+      "rows": 710720,
+      "seconds": 7.5
+    },
+    {
+      "date": "20260921",
+      "seed": 79,
+      "leakage_safe": true,
+      "rows": 795378,
+      "seconds": 8.1
+    },
+    {
+      "date": "20260922",
+      "seed": 80,
+      "leakage_safe": true,
+      "rows": 829225,
+      "seconds": 8.7
+    },
+    {
+      "date": "20260923",
+      "seed": 81,
+      "leakage_safe": true,
+      "rows": 837660,
+      "seconds": 8.5
+    },
+    {
+      "date": "20260924",
+      "seed": 82,
+      "leakage_safe": true,
+      "rows": 861799,
+      "seconds": 8.9
+    },
+    {
+      "date": "20260925",
+      "seed": 83,
+      "leakage_safe": true,
+      "rows": 927163,
+      "seconds": 9.2
+    },
+    {
+      "date": "20260926",
+      "seed": 84,
+      "leakage_safe": true,
+      "rows": 848947,
+      "seconds": 9.2
+    },
+    {
+      "date": "20260927",
+      "seed": 85,
+      "leakage_safe": true,
+      "rows": 857175,
+      "seconds": 8.8
+    },
+    {
+      "date": "20260928",
+      "seed": 86,
+      "leakage_safe": true,
+      "rows": 875727,
+      "seconds": 8.9
+    },
+    {
+      "date": "20260929",
+      "seed": 87,
+      "leakage_safe": true,
+      "rows": 818194,
+      "seconds": 8.5
+    },
+    {
+      "date": "20260930",
+      "seed": 88,
+      "leakage_safe": true,
+      "rows": 813846,
+      "seconds": 8.3
+    },
+    {
+      "date": "20261001",
+      "seed": 89,
+      "leakage_safe": true,
+      "rows": 762065,
+      "seconds": 8.0
+    },
+    {
+      "date": "20261002",
+      "seed": 90,
+      "leakage_safe": true,
+      "rows": 771465,
+      "seconds": 7.9
+    },
+    {
+      "date": "20261003",
+      "seed": 91,
+      "leakage_safe": true,
+      "rows": 671171,
+      "seconds": 7.4
+    },
+    {
+      "date": "20261004",
+      "seed": 92,
+      "leakage_safe": true,
+      "rows": 642418,
+      "seconds": 7.0
+    },
+    {
+      "date": "20261005",
+      "seed": 93,
+      "leakage_safe": true,
+      "rows": 622202,
+      "seconds": 6.8
+    },
+    {
+      "date": "20261006",
+      "seed": 94,
+      "leakage_safe": true,
+      "rows": 571265,
+      "seconds": 6.2
+    },
+    {
+      "date": "20261007",
+      "seed": 95,
+      "leakage_safe": true,
+      "rows": 581143,
+      "seconds": 5.6
+    },
+    {
+      "date": "20261008",
+      "seed": 96,
+      "leakage_safe": true,
+      "rows": 626056,
+      "seconds": 5.8
+    },
+    {
+      "date": "20261009",
+      "seed": 97,
+      "leakage_safe": true,
+      "rows": 621894,
+      "seconds": 6.8
+    },
+    {
+      "date": "20261010",
+      "seed": 98,
+      "leakage_safe": true,
+      "rows": 546976,
+      "seconds": 6.5
+    },
+    {
+      "date": "20261011",
+      "seed": 99,
+      "leakage_safe": true,
+      "rows": 553866,
+      "seconds": 6.3
+    },
+    {
+      "date": "20261012",
+      "seed": 100,
+      "leakage_safe": true,
+      "rows": 612620,
+      "seconds": 6.4
+    },
+    {
+      "date": "20261013",
+      "seed": 101,
+      "leakage_safe": true,
+      "rows": 657654,
+      "seconds": 7.1
+    },
+    {
+      "date": "20261014",
+      "seed": 102,
+      "leakage_safe": true,
+      "rows": 713303,
+      "seconds": 7.5
+    },
+    {
+      "date": "20261015",
+      "seed": 103,
+      "leakage_safe": true,
+      "rows": 744565,
+      "seconds": 7.5
+    },
+    {
+      "date": "20261016",
+      "seed": 104,
+      "leakage_safe": true,
+      "rows": 702210,
+      "seconds": 7.1
+    },
+    {
+      "date": "20261017",
+      "seed": 105,
+      "leakage_safe": true,
+      "rows": 676949,
+      "seconds": 7.3
+    },
+    {
+      "date": "20261018",
+      "seed": 106,
+      "leakage_safe": true,
+      "rows": 707157,
+      "seconds": 7.5
+    },
+    {
+      "date": "20261019",
+      "seed": 107,
+      "leakage_safe": true,
+      "rows": 729495,
+      "seconds": 7.7
+    },
+    {
+      "date": "20261020",
+      "seed": 108,
+      "leakage_safe": true,
+      "rows": 702147,
+      "seconds": 7.4
+    },
+    {
+      "date": "20261021",
+      "seed": 109,
+      "leakage_safe": true,
+      "rows": 678745,
+      "seconds": 7.0
+    },
+    {
+      "date": "20261022",
+      "seed": 110,
+      "leakage_safe": true,
+      "rows": 635233,
+      "seconds": 6.9
+    },
+    {
+      "date": "20261023",
+      "seed": 111,
+      "leakage_safe": true,
+      "rows": 573046,
+      "seconds": 5.8
+    },
+    {
+      "date": "20261024",
+      "seed": 112,
+      "leakage_safe": true,
+      "rows": 538904,
+      "seconds": 5.3
+    },
+    {
+      "date": "20261025",
+      "seed": 113,
+      "leakage_safe": true,
+      "rows": 533780,
+      "seconds": 5.4
+    },
+    {
+      "date": "20261026",
+      "seed": 114,
+      "leakage_safe": true,
+      "rows": 528122,
+      "seconds": 5.4
+    },
+    {
+      "date": "20261027",
+      "seed": 115,
+      "leakage_safe": true,
+      "rows": 506831,
+      "seconds": 5.3
+    },
+    {
+      "date": "20261029",
+      "seed": 116,
+      "leakage_safe": true,
+      "rows": 476402,
+      "seconds": 4.6
+    },
+    {
+      "date": "20261030",
+      "seed": 117,
+      "leakage_safe": true,
+      "rows": 530834,
+      "seconds": 5.7
+    },
+    {
+      "date": "20261031",
+      "seed": 118,
+      "leakage_safe": true,
+      "rows": 515084,
+      "seconds": 6.0
+    }
+  ]
+}
