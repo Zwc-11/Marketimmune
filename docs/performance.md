@@ -4,6 +4,69 @@ A pass over the markout pipeline's hot paths, from archive labels to the browser
 The rule was "same inputs, same report": every change is measured, and the
 end-to-end training report is compared field by field against the original code.
 
+## Pass 4 (2026-10-31): the full-month rerun
+
+The corrected SOL run (rebuild of every stage, then 8 classifier and 8 quantile rungs on
+8 cores) spent about 13 min after the L2 stage, 1 to 1.5 min per classifier rung and
+6.5 to 8 min per quantile rung. Two changes, both measured on real data, with
+identical outputs:
+
+- **TreeSHAP only where it is read.** `train_quantile` computed the tau=0.5 model's
+  contributions for every rung, but only `decompose --oof` reads them, and only for
+  `l3_book`. TreeSHAP walks every root-to-leaf path of every tree for every test row
+  (trees here are about 11 deep), so on one real fold (`l0_book`, 853K training rows,
+  120K test rows, 300 trees, 2 vCPU) it took 64 s against 38 s for the three fits.
+  It is now `--contrib`, off by default. With it off the quantile and label columns
+  are equal to the old output; with it on the whole file is equal. Expected effect on
+  the month: the 7 rungs without `--contrib` take about half as long.
+- **Status decoding overlaps the replay.** The `.tar.xz` decode and gunzip of the next
+  hour run in a thread (`utils.prefetch`; lzma and isal release the GIL) while the
+  current hour replays, and `--diff-workers` defaults to 4. Per hour on one VM core:
+  xz + gunzip 0.49 s, diff parse 1.68 s, replay 1.05 s. The main thread used to do
+  decode + replay (1.6 s an hour) with two diff workers at 0.84 s; it now does the
+  replay alone (1.1 s), the decode thread 0.49 s and four diff workers 0.42 s, so a
+  machine with 6 free cores spends about 1.1 s an hour instead of 1.6 s (about 14 min
+  instead of 20 for the month). Silver L2, order events and the validation JSON for
+  2025-12-01 hours 0 to 5 are equal to the old build.
+
+What is left is the replay itself (pure Python, about 1 s an hour) and the
+sequential forced-flow forecast, which carries state from day to day.
+
+## Pass 3 (2026-10-31): the whole codebase, DeepInfer conventions
+
+Every module was rewritten to DeepInfer's conventions (ruff rule set and 140-column
+format, asserts for invariants, no fallback paths or compatibility options, one
+implementation per helper) and its hot paths re-timed. "Before" is commit `7035c0c`
+on the same 2 vCPU Linux VM; every output was compared on real Albers SOL data
+(December 2025) and is identical (max abs diff 0) unless noted.
+
+| Stage | Before | After |
+|---|---:|---:|
+| Silver L2 + order events, 2025-12-01 hours 0 to 11 | 28.2 s | 16.8 s |
+| Gold stage for one day | 6.95 s | 4.86 s |
+| No-look-ahead check of a day's training rows | 1.77 to 2.00 s | 0.53 to 0.56 s |
+| CatBoost classifier, rung `l1_book`, Dec 1 to 9 (2 folds + final model) | 35.6 to 45.0 s | 14.7 to 14.9 s |
+| LightGBM quantile ladder, 3 taus + TreeSHAP contributions, one test day | 165.1 s | 67.8 s |
+| Positions, Dec 1 to 6 | 5.13 s | 2.07 s |
+| Forced-flow forecast, Dec 1 to 6 (5 forecast days + evaluation) | 53.5 s | 27.1 s |
+| Enrich (L2/L3 columns), Dec 1 to 6 | 15.4 s | 6.1 s |
+| Node fills parse + leg pairing, one multi-coin S3 hour | 3.73 s | 0.44 s |
+| Rust: LZ4 line reader / fixed-point price parse | 1.30 GiB/s / 25.7 ns | 1.67 GiB/s / 12.5 ns |
+
+- **Classifier:** `eval_metric="PRAUC"` computed PR-AUC on the training rows every
+  iteration without an eval set; dropping it leaves the model bit-identical.
+- **Quantile ladder:** one binned `lightgbm.Dataset` per fold is shared by the three
+  taus (`lgb.train`), and TreeSHAP runs on every core. Predictions equal
+  `LGBMRegressor` with the pre-registered settings.
+- **Forecaster:** only positions with a liquidation price are evaluated, all
+  horizons at once; sums stay one-dimensional per row so results are bitwise equal.
+- **S3 fills:** other coins are dropped before JSON parsing.
+- **Silver:** diff members are read by byte offset from a tar index, inflated in
+  1 MiB chunks, and keyed with sorted arrays instead of dicts.
+- **Intended change:** a jump of more than 30 s between Silver book rows (a reset at
+  a data gap) now restarts the OFI windows, so no window spans the gap. On real
+  data this changes 30 rows, all on 2025-12-12 just after its 35-minute gap.
+
 ## Pass 2 (2026-10-30): the v3 Albers path, the leakage check, the Rust book
 
 Measured on real data (Albers et al. SOL, 2025-12-01) on a 2 vCPU, 3 GB Linux VM,
@@ -24,8 +87,8 @@ three Albers stages.
 **Book diffs.** Each hourly diff member holds every coin, 1.6 GB of JSON. Lines are
 written with a fixed key order, so one regex over 16 MB inflated chunks reads the
 oid and size of a coin's `new` diffs without `json.loads`; a chunk where a line of
-that coin breaks the order falls back to JSON. python-isal (`pip install .[fast]`)
-inflates 2.3x faster than zlib. A worker process parses the next hours' diffs while
+that coin breaks the order fails an assert (no JSON fallback since pass 3).
+python-isal, a hard dependency since pass 3, inflates 2.3x faster than zlib. A worker process parses the next hours' diffs while
 the current hour replays (`--diff-workers`, DeepInfer's overlap of CPU scheduling
 with execution).
 

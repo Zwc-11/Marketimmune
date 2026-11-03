@@ -1,21 +1,12 @@
-"""Gate G0 probe: one day of ``replica_cmds`` and ``node_fills_by_block``.
+"""Gate G0 probe: one day of ``replica_cmds`` and ``node_fills_by_block`` -> ``eval/probe_<date>.json``.
 
-Run on the Tokyo spot instance (deploy/ec2_tokyo.md), where S3 -> EC2 transfer
-is free. It answers, and writes to ``eval/probe_<date>.json``:
-
-1. Are responses (``resps``) in ``replica_cmds``, and do they carry order ids?
-2. What one processed day costs (bytes, files, measured throughput, $).
-3. Which dates E1 can use (follows from 1).
-4. Is ``priorityGas`` present on BTC fills that day (the launch scan runs
-   ``python -m marketimmune.cli.find_first_priority_day first-priority`` over many days).
-
-Also recorded: whether ``grouping.p`` and the cancel ``f`` flag appear, the
-nonce-delay distribution, action-type counts, and height arithmetic.
-Raw examples (with addresses and signatures) go to ``data/logs/``, which is
-gitignored; the committed JSON holds counts and distributions only.
+Run on the Tokyo instance (deploy/ec2_tokyo.md), where S3 -> EC2 transfer is free. It
+answers (1) are responses (``resps``) in ``replica_cmds`` and do they carry order ids,
+(2) what one processed day costs, (3) which dates E1 can use and (4) whether ``priorityGas``
+is on BTC fills that day. The format is not confirmed yet, so the per-file counts read the
+records leniently. Raw examples (addresses, signatures) go to the gitignored ``data/logs/``.
 
     python -m marketimmune.cli.probe_s3_day --date 2025-12-15 --files 3 --usd-per-hour 0.35
-    python -m marketimmune.cli.probe_s3_day --local path/to/1191310000.lz4   # offline check
 """
 
 from __future__ import annotations
@@ -33,7 +24,9 @@ from typing import Any
 import numpy as np
 
 from marketimmune.config import RESULTS, paths
+from marketimmune.priority import fills as fills_mod
 from marketimmune.sources import hyperliquid_replica as replica
+from marketimmune.sources import hyperliquid_s3 as s3m
 
 MAX_DELAYS = 5_000_000  # cap memory for the delay sample
 
@@ -75,9 +68,7 @@ def probe_file(path: Path, start: int, examples: dict[str, list[Any]] | None = N
         bnds = replica.bundles(rec)
         resps = replica.responses(rec)
         if resps is not None:
-            if len(resps) == len(bnds) and all(
-                len(r) == len(s) for r, (_, s) in zip(resps, bnds, strict=True)
-            ):
+            if len(resps) == len(bnds) and all(len(r) == len(s) for r, (_, s) in zip(resps, bnds, strict=True)):
                 resp_aligned += 1
             else:
                 resp_misaligned += 1
@@ -110,7 +101,7 @@ def probe_file(path: Path, start: int, examples: dict[str, list[Any]] | None = N
                         t = o.get("t", {})
                         c["tif"][str(t.get("limit", {}).get("tif") if "limit" in t else "trigger")] += 1
                         st = statuses[j] if j < len(statuses) else None
-                        kind = replica._status_kind(st) if st is not None else "none"
+                        kind = replica.status_kind(st) if st is not None else "none"
                         c["order_status"][str(kind)] += 1
                         if st is not None and replica.status_oid(st) is not None:
                             oid_linked += 1
@@ -213,16 +204,14 @@ def main(argv: list[str] | None = None) -> int:
         out.update({"mode": "local", "files": files, **verdicts(files)})
         tag = args.local.name
     else:
-        from marketimmune.priority import fills as fills_mod
-        from marketimmune.sources import hyperliquid_s3 as s3m
-
+        day = args.date.strftime("%Y%m%d")
         s3 = s3m.client()
-        objs = s3m.replica_day(s3, args.date)
+        objs = s3m.replica_day(s3, day)
         if not objs:
             print(f"no replica_cmds files found for {args.date}", file=sys.stderr)
             return 2
         total = sum(o.size for o in objs)
-        starts = [s3m.start_height(o.key) for o in objs]
+        starts = [s3m.file_number(o.key) for o in objs]
         steps = sorted({b - a for a, b in itertools.pairwise(starts)})
         idx = sorted({round(i * (len(objs) - 1) / max(args.files - 1, 1)) for i in range(args.files)})
         files, dl_secs = [], 0.0
@@ -232,7 +221,7 @@ def main(argv: list[str] | None = None) -> int:
             t0 = time.perf_counter()
             s3m.download(s3, o.key, local)
             dl_secs += time.perf_counter() - t0
-            r = probe_file(local, s3m.start_height(o.key), examples)
+            r = probe_file(local, s3m.file_number(o.key), examples)
             r["key"] = o.key
             files.append(r)
         sampled = sum(f["bytes_compressed"] for f in files)
@@ -264,14 +253,14 @@ def main(argv: list[str] | None = None) -> int:
             }
         )
         # Fills: size for the day and priorityGas on BTC in sampled hours.
-        fobjs = s3m.fills_day(s3, args.date)
+        fobjs = s3m.fills_day(s3, day)
         fsum: dict[str, Any] = {"files": len(fobjs), "bytes_compressed": sum(o.size for o in fobjs)}
-        hours = [o for o in fobjs if int(o.key.rsplit("/", 1)[-1].removesuffix(".lz4")) in args.fill_hours]
+        hours = [o for o in fobjs if s3m.file_number(o.key) in args.fill_hours]
         prio_btc = 0
         for o in hours:
             local = args.scratch / o.key.replace("/", "_")
             s3m.download(s3, o.key, local)
-            df = fills_mod.read_lz4(local)
+            df = fills_mod.read_lz4(local, contains='"priorityGas"')
             prio_btc += df.filter((df["coin"] == "BTC") & (df["priority_gas"].fill_null(0) > 0)).height
         fsum["sampled_hours"] = [o.key for o in hours]
         fsum["btc_fills_with_priority_gas"] = prio_btc

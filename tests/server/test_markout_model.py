@@ -1,5 +1,3 @@
-"""Tests for promoted markout model dashboard health payloads."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -34,6 +32,7 @@ class FakeScorer:
             "training_rows": 100,
             "pr_auc": 0.55,
             "brier": 0.22,
+            "baseline_comparison": {"event_ofi": {"markout_lift_bps": 0.02}},
             "holdout_split": {
                 "n_rows": 20,
                 "pr_auc": 0.56,
@@ -73,10 +72,10 @@ def test_promoted_markout_model_health_reports_loaded_artifact(
         FakeSettings(tmp_path, model, calibrator, report),
     )
 
-    payload = markout_model_service.promoted_markout_model_health(
-        samples=3,
-        loader=lambda _model, _calibrator, _report: FakeScorer(),
+    monkeypatch.setattr(
+        markout_model_service.HyperliquidMarkoutScorer, "load", staticmethod(lambda _model, _calibrator, _report: FakeScorer())
     )
+    payload = markout_model_service.promoted_markout_model_health(samples=3)
 
     assert payload["available"] is True
     assert payload["model_name"] == "catboost_markout_SOL_10s"
@@ -88,7 +87,8 @@ def test_promoted_markout_model_health_reports_loaded_artifact(
     assert payload["smoke_prediction"]["action"] == "quote"
     assert payload["smoke_latency"]["p95_ms"] == 0.2
     assert payload["artifacts"]["model"]["path"] == "model.cbm"
-    assert payload["cv_scheme"] == "purged_kfold"  # legacy report without cv_scheme
+    assert payload["cv_scheme"] == "purged_kfold"  # the promoted report predates cv_scheme
+    assert payload["baseline_comparison"]["event_ofi"]["markout_lift_bps"] == 0.02
 
 
 def test_promoted_markout_model_health_reports_missing_artifacts(

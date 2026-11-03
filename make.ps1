@@ -1,7 +1,7 @@
 # Windows twin of the Makefile: .\make.ps1 <target>
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("install", "lint", "typecheck", "test", "coverage", "rust-test", "bench", "frontend-test", "frontend-build", "server", "ci")]
+    [ValidateSet("install", "format", "lint", "typecheck", "test", "coverage", "rust-test", "bench", "frontend-test", "frontend-build", "server", "ci")]
     [string]$Target = "ci"
 )
 
@@ -14,8 +14,9 @@ function Run([string]$Exe, [string[]]$Arguments) {
 }
 
 switch ($Target) {
-    "install" { Run $Python @("-m", "pip", "install", "-e", ".[training,server,aws,fast,dev]") }
-    "lint" { Run $Python @("-m", "ruff", "check", "."); Run $Python @("scripts/check_line_limit.py") }
+    "install" { Run $Python @("-m", "pip", "install", "-e", ".[training,server,aws,dev]") }
+    "format" { Run $Python @("-m", "ruff", "check", "--fix", "."); Run $Python @("-m", "ruff", "format", "."); Run "cargo" @("fmt", "--all") }
+    "lint" { Run $Python @("-m", "ruff", "check", "."); Run $Python @("-m", "ruff", "format", "--check", "."); Run $Python @("scripts/check_line_limit.py") }
     "typecheck" { Run $Python @("scripts/typecheck.py") }
     "test" { Run $Python @("-m", "pytest") }
     "coverage" { Run $Python @("-m", "coverage", "run", "-m", "pytest"); Run $Python @("-m", "coverage", "report") }

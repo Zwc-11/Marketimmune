@@ -1,10 +1,13 @@
-import { useServerApi } from '../data/serverApi';
 import { SYMBOL } from '../config';
+import { useServerApi } from '../data/serverApi';
+import type { FeedStatus } from '../market/feed';
 import { useMarket, useNow } from '../market/useMarket';
 import StatusMark, { type StatusMarkStatus } from './reactbits/StatusMark';
 
-function feedMark(status: string, ageMs: number | null): { mark: StatusMarkStatus; text: string } {
-    if (status === 'live' && ageMs !== null && ageMs > 15_000) {
+const STALE_MS = 15_000;
+
+function feedMark(status: FeedStatus, ageMs: number | null): { mark: StatusMarkStatus; text: string } {
+    if (status === 'live' && ageMs !== null && ageMs > STALE_MS) {
         return { mark: 'failed', text: `No messages for ${Math.round(ageMs / 1000)} s` };
     }
     if (status === 'live') return { mark: 'done', text: 'Hyperliquid stream live' };
@@ -13,24 +16,29 @@ function feedMark(status: string, ageMs: number | null): { mark: StatusMarkStatu
 }
 
 export function StatusBar() {
-    const feed = useMarket((s) => s.feed);
+    const status = useMarket((s) => s.status);
+    const lastMessageAt = useMarket((s) => s.lastMessageAt);
     const model = useMarket((s) => s.model);
     const api = useServerApi();
     const now = useNow();
-    const age = feed.lastMessageAt === null ? null : now - feed.lastMessageAt;
-    const { mark, text } = feedMark(feed.status, age);
+    const age = lastMessageAt === null ? null : now - lastMessageAt;
+    const { mark, text } = feedMark(status, age);
 
     return (
         <footer className="statusbar" aria-label="Connection status">
             <span className="status-item">
-                <StatusMark status={mark} size={12} strokeWidth={2} doneColor="var(--bid)" errorColor="var(--ask)" />
+                <StatusMark status={mark} />
                 {text}
             </span>
             <span className="status-item faint">{SYMBOL}</span>
-            {age !== null && <span className="status-item faint num">Last message {Math.max(0, Math.round(age / 100) / 10).toFixed(1)} s ago</span>}
+            {age !== null && (
+                <span className="status-item faint num">
+                    Last message {Math.max(0, Math.round(age / 100) / 10).toFixed(1)} s ago
+                </span>
+            )}
             <span className="status-item">
                 {model.state === 'ready'
-                    ? `Model ${model.meta.model_name ?? 'loaded'} (${model.treeCount} trees)`
+                    ? `Model ${model.name ?? 'loaded'} (${model.treeCount} trees)`
                     : model.state === 'loading'
                       ? 'Loading model artifact'
                       : 'No web model artifact; fills are labelled but not scored'}

@@ -1,12 +1,11 @@
 import { integer } from '../lib/format';
-import type { TapeFill } from '../lib/regret';
+import type { ResolvedFill } from '../lib/regret';
 import { useMarket } from '../market/useMarket';
 
 const CELLS = 100;
 
-function cellClass(fill: TapeFill | undefined): string {
-    if (!fill) return 'cell';
-    const base = fill.regret ? 'cell regret' : (fill.markoutBps ?? 0) >= 0 ? 'cell gain' : 'cell small-loss';
+function cellClass(fill: ResolvedFill): string {
+    const base = fill.regret ? 'cell regret' : fill.markoutBps >= 0 ? 'cell gain' : 'cell small-loss';
     return fill.action === 'withhold' ? `${base} withheld` : base;
 }
 
@@ -17,19 +16,25 @@ function cellClass(fill: TapeFill | undefined): string {
  */
 export function RegretMatrix() {
     const resolved = useMarket((s) => s.resolved);
-    const recent = resolved.slice(0, CELLS);
-    const ordered = [...recent].reverse();
-    const cells = Array.from({ length: CELLS }, (_, i) => ordered[i]);
-    const regret = recent.filter((f) => f.regret).length;
-    const gain = recent.filter((f) => !f.regret && (f.markoutBps ?? 0) >= 0).length;
-    const withheld = recent.filter((f) => f.action === 'withhold').length;
+    const shown = Math.min(CELLS, resolved.length);
+    const cells = [];
+    let regret = 0;
+    let gain = 0;
+    let withheld = 0;
+    // `resolved` is newest first; walk it backwards so the oldest lands top-left.
+    for (let i = shown - 1; i >= 0; i -= 1) {
+        const fill = resolved[i];
+        if (fill.regret) regret += 1;
+        else if (fill.markoutBps >= 0) gain += 1;
+        if (fill.action === 'withhold') withheld += 1;
+        cells.push(<span key={fill.id} className={cellClass(fill)} />);
+    }
+    for (let i = shown; i < CELLS; i += 1) cells.push(<span key={`empty-${i}`} className="cell" />);
 
     return (
-        <figure className="matrix" aria-label={`Last ${recent.length} resolved fills: ${regret} regretted`}>
+        <figure className="matrix" aria-label={`Last ${shown} resolved fills: ${regret} regretted`}>
             <div className="matrix-grid" aria-hidden="true">
-                {cells.map((fill, i) => (
-                    <span key={fill?.id ?? `empty-${i}`} className={cellClass(fill)} />
-                ))}
+                {cells}
             </div>
             <figcaption className="matrix-legend">
                 <span className="matrix-title">Last {CELLS} resolved fills</span>
@@ -39,7 +44,7 @@ export function RegretMatrix() {
                 <span><i className="swatch gain" />Kept, maker gained</span>
                 <span className="num">{integer(gain)}</span>
                 <span><i className="swatch small-loss" />Kept, under the fee</span>
-                <span className="num">{integer(recent.length - regret - gain)}</span>
+                <span className="num">{integer(shown - regret - gain)}</span>
                 {withheld > 0 && (
                     <>
                         <span><i className="swatch withheld" />Model would withhold</span>

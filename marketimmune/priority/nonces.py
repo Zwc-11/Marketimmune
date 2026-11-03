@@ -16,8 +16,10 @@ from dataclasses import dataclass
 
 import polars as pl
 
+from marketimmune.config import load
 
-@dataclass(frozen=True)
+
+@dataclass(frozen=True, slots=True)
 class ClockFilter:
     min_actions: int = 500
     delay_lo_ms: int = 0
@@ -28,8 +30,7 @@ class ClockFilter:
 
     @classmethod
     def from_config(cls) -> ClockFilter:
-        from marketimmune.config import load
-
+        """The ``clock_signer`` block of ``configs/episodes.yaml``."""
         return cls(**load("episodes")["clock_signer"])
 
 
@@ -54,9 +55,7 @@ def signer_latency(acts: pl.LazyFrame, f: ClockFilter | None = None) -> pl.LazyF
             share_in_range=in_range.mean(),
         )
         .with_columns(
-            is_clock=(pl.col("n") >= f.min_actions)
-            & (pl.col("share_in_range") >= f.min_share_in_range)
-            & (pl.col("iqr_ms") < f.max_iqr_ms)
+            is_clock=(pl.col("n") >= f.min_actions) & (pl.col("share_in_range") >= f.min_share_in_range) & (pl.col("iqr_ms") < f.max_iqr_ms)
         )
     )
 

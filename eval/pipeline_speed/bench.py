@@ -1,8 +1,9 @@
 """Time the markout pipeline's hot paths on a synthetic panel shaped like the SOL run.
 
 The real Gold partitions are local-only, so this generates the same shapes instead:
-724,150 fill rows over five days, a 91-point threshold grid, a 400K-snapshot L2 day,
-190K fills to label, and a 150-tree depth-6 model. Every stage is timed through the
+724,150 fill rows over twelve days (rolling daily folds: seven training days, five tested
+days), a 91-point threshold grid, a 400K-snapshot L2 day, 190K fills to label, and a
+150-tree depth-6 model. Every stage is timed through the
 public API the trainer uses, and the JSON it writes is what docs/performance.md
 quotes.
 
@@ -15,14 +16,10 @@ import argparse
 import json
 import platform
 import statistics
-import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-
-# A standalone script: make the repo importable without an install.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import numpy as np
 
@@ -42,8 +39,8 @@ from marketimmune.models.evaluation import (
 from marketimmune.serving.oblivious_trees import ObliviousEnsemble, ObliviousTree
 from marketimmune.sources.hyperliquid_l2_archive import BookSnapshot, L2Level
 from marketimmune.sources.hyperliquid_node_fills import NodeFill
+from marketimmune.utils import DAY_MS
 
-DAY_MS = 86_400_000
 T0 = 1_779_840_000_000.0
 GRID = tuple(round(0.05 + 0.01 * i, 10) for i in range(91))
 
@@ -59,38 +56,24 @@ def timed(fn: Callable[[], Any], repeats: int) -> tuple[float, Any]:
     return statistics.median(samples), result
 
 
-def evaluation_stages(rng: np.random.Generator, rows: int, repeats: int) -> dict[str, float]:
-    ts = np.sort(T0 + rng.uniform(0, 5 * DAY_MS, rows)).round()
+def evaluation_stages(rng: np.random.Generator, rows: int, days: int, repeats: int) -> dict[str, float]:
+    ts = np.sort(T0 + rng.uniform(0, days * DAY_MS, rows)).round()
     labels = rng.random(rows) < 0.45
     probs = np.clip(rng.beta(2, 3, rows) + 0.12 * labels, 0, 1)
     markouts = rng.normal(0.4, 3.0, rows) - 2.5 * labels
     out: dict[str, float] = {}
-    for scheme in ("purged_kfold", "walk_forward"):
-        out[f"temporal_folds_{scheme}"], _ = timed(
-            lambda scheme=scheme: temporal_fold_arrays(
-                ts, n_splits=5, purge_ms=60_000, embargo_ms=60_000, scheme=scheme
-            ),
-            repeats,
-        )
+    out["temporal_folds_rolling_daily"], folds = timed(lambda: temporal_fold_arrays(ts, purge_ms=60_000), repeats)
     out["fold_local_thresholds"], (thresholds, _) = timed(
-        lambda: fold_local_markout_thresholds(
-            ts, probs, markouts, n_splits=5, purge_ms=60_000, embargo_ms=60_000,
-            threshold_grid=GRID, min_quote_rate=0.2, max_quote_rate=0.95,
-            scheme="purged_kfold",
-        ),
+        lambda: fold_local_markout_thresholds(probs, markouts, folds=folds, threshold_grid=GRID, min_quote_rate=0.2, max_quote_rate=0.95),
         repeats,
     )
     out["select_threshold"], _ = timed(
-        lambda: select_markout_threshold(
-            probs, markouts, GRID, min_quote_rate=0.2, max_quote_rate=0.95
-        ),
+        lambda: select_markout_threshold(probs, markouts, GRID, min_quote_rate=0.2, max_quote_rate=0.95),
         repeats,
     )
     out["evaluate_oof_report"], _ = timed(
         lambda: evaluate_markout_predictions(
-            ts, labels, probs, markouts, model_name="bench", n_splits=5, purge_ms=60_000,
-            embargo_ms=60_000, decision_threshold=None, decision_thresholds=thresholds,
-            scheme="purged_kfold",
+            labels, probs, markouts, model_name="bench", folds=folds, thresholds=thresholds, purge_ms=60_000, leakage_safe=True
         ),
         repeats,
     )
@@ -104,42 +87,40 @@ def feature_stages(rng: np.random.Generator, snapshots: int, fills: int) -> dict
     sizes = rng.uniform(1, 50, (snapshots, 2))
     l2_rows = [
         {
-            "coin": "SOL", "ts_ms": float(l2_ts[i]), "mid": float(mid[i]),
-            "spread_bps": float(spread[i] / mid[i] * 1e4), "microprice": float(mid[i]),
-            "top_imbalance": 0.0, "bid_px": float(mid[i] - spread[i] / 2),
-            "ask_px": float(mid[i] + spread[i] / 2), "bid_sz": float(sizes[i, 0]),
+            "coin": "SOL",
+            "ts_ms": float(l2_ts[i]),
+            "mid": float(mid[i]),
+            "spread_bps": float(spread[i] / mid[i] * 1e4),
+            "microprice": float(mid[i]),
+            "top_imbalance": 0.0,
+            "bid_px": float(mid[i] - spread[i] / 2),
+            "ask_px": float(mid[i] + spread[i] / 2),
+            "bid_sz": float(sizes[i, 0]),
             "ask_sz": float(sizes[i, 1]),
         }
         for i in range(snapshots)
     ]
     fill_ts = np.sort(T0 + rng.uniform(0, DAY_MS, fills)).round()
-    label_rows = [
-        {"coin": "SOL", "ts_ms": int(fill_ts[i]), "px": 150.0, "sz": 1.0, "maker_side": 1}
-        for i in range(fills)
-    ]
+    label_rows = [{"coin": "SOL", "ts_ms": int(fill_ts[i]), "px": 150.0, "sz": 1.0, "maker_side": 1} for i in range(fills)]
     asset_rows = [
-        {"coin": "SOL", "ts_ms": T0 + k * 60_000, "basis_bps": 0.5, "funding": 1e-5,
-         "open_interest": 1e6, "premium": 1e-4}
+        {"coin": "SOL", "ts_ms": T0 + k * 60_000, "basis_bps": 0.5, "funding": 1e-5, "open_interest": 1e6, "premium": 1e-4}
         for k in range(1_440)
     ]
     books = [
         BookSnapshot(
-            ts_ms=int(l2_ts[i]), coin="SOL",
+            ts_ms=int(l2_ts[i]),
+            coin="SOL",
             bids=(L2Level(px=float(mid[i] - 0.01), sz=10.0, n=1),),
             asks=(L2Level(px=float(mid[i] + 0.01), sz=12.0, n=1),),
         )
         for i in range(snapshots)
     ]
     node_fills = [
-        NodeFill(coin="SOL", ts_ms=int(fill_ts[i]), px=150.0, sz=1.0,
-                 side="B" if i % 2 else "A", crossed=bool(i % 3))
-        for i in range(fills)
+        NodeFill(coin="SOL", ts_ms=int(fill_ts[i]), px=150.0, sz=1.0, side="B" if i % 2 else "A", crossed=bool(i % 3)) for i in range(fills)
     ]
     out: dict[str, float] = {}
     out["l2_rows_with_ofi"], _ = timed(lambda: l2_rows_with_ofi(l2_rows), 1)
-    out["training_rows_asof_join"], _ = timed(
-        lambda: build_hyperliquid_training_rows(label_rows, l2_rows, asset_rows), 1
-    )
+    out["training_rows_asof_join"], _ = timed(lambda: build_hyperliquid_training_rows(label_rows, l2_rows, asset_rows), 1)
     out["gold_markout_labels"], _ = timed(lambda: build_markout_gold_rows(node_fills, books), 1)
     out["leakage_check_200_fills"], report = timed(
         lambda: verify_training_rows_no_lookahead(label_rows, l2_rows, asset_rows, sample=200), 1
@@ -171,6 +152,7 @@ def scoring_stages(rng: np.random.Generator, rows: int, repeats: int) -> dict[st
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--rows", type=int, default=724_150)
+    parser.add_argument("--days", type=int, default=12)
     parser.add_argument("--snapshots", type=int, default=400_000)
     parser.add_argument("--fills", type=int, default=190_000)
     parser.add_argument("--repeats", type=int, default=3)
@@ -180,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
     rng = np.random.default_rng(args.seed)
 
     stages: dict[str, float] = {}
-    stages.update(evaluation_stages(rng, args.rows, args.repeats))
+    stages.update(evaluation_stages(rng, args.rows, args.days, args.repeats))
     stages.update(feature_stages(rng, args.snapshots, args.fills))
     stages.update(scoring_stages(rng, 100_000, args.repeats))
     payload = {

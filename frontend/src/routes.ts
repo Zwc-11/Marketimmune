@@ -12,18 +12,8 @@ export const PAGES: PageDef[] = [
     { id: 'model', path: '/model', label: 'Model', title: 'Markout model report' },
 ];
 
-// Hash routes from the previous dashboard keep working (bookmarks, Django links).
-const LEGACY: Record<string, PageId> = {
-    '/command': 'terminal',
-    '/live': 'terminal',
-    '/risk': 'terminal',
-    '/models': 'model',
-};
-
+/** Any hash that is not a page (or a sub-path of one) opens the terminal. */
 export function pageForHash(hash: string): PageDef {
-    const path = hash.replace(/^#/, '').replace(/\/+$/, '') || '/terminal';
-    const direct = PAGES.find((page) => path === page.path || path.startsWith(`${page.path}/`));
-    if (direct) return direct;
-    const legacy = Object.entries(LEGACY).find(([prefix]) => path.startsWith(prefix));
-    return PAGES.find((page) => page.id === legacy?.[1]) ?? PAGES[0];
+    const path = hash.replace(/^#/, '').replace(/\/+$/, '');
+    return PAGES.find((page) => path === page.path || path.startsWith(`${page.path}/`)) ?? PAGES[0];
 }

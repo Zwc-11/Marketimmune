@@ -10,8 +10,7 @@ publish = false
 
 [lib]
 name = "hl_replay"
-crate-type = ["cdylib", "rlib"]
-
+crate-type = ["cdylib"]
 
 [dependencies]
 replay = { package = "hl-replay", path = "../hl-replay" }

@@ -1,100 +1,109 @@
-// Slices served by the Django API (server/): promoted-model health, scored fills
-// and backfill jobs. All optional: the terminal and model report work without it.
+// The optional Django API (server/api/views.py): promoted-model health, scored Gold
+// fills and backfill jobs. Read-only GETs, polled; the terminal and the model report
+// work without it. Response types list only the fields the UI reads.
 
-import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
-} from 'react';
-import {
-    ApiError,
-    fetchHyperliquidBackfillJobs,
-    fetchMarkoutFillDecisions,
-    fetchMarkoutModelHealth,
-    probeApi,
-} from '../api';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { SERVER_POLL_MS } from '../config';
-import type {
-    HyperliquidBackfillJobPayload,
-    MarkoutFillDecisionPayload,
-    MarkoutModelHealth,
-} from '../types';
 
-export type ApiStatus = 'checking' | 'online' | 'offline';
+const HEALTH_URL = '/api/markout-model/health/';
+const DECISIONS_URL = '/api/markout-model/decisions/';
+const BACKFILLS_URL = '/api/hyperliquid/backfill-jobs/';
+
+interface MarkoutModelHealth {
+    available: boolean;
+    message?: string;
+    model_name?: string;
+    dataset_label?: string;
+    cv_scheme?: string;
+    decision_threshold?: number | null;
+    smoke_latency?: { p50_ms: number; p95_ms: number };
+}
+
+interface MarkoutFillDecision {
+    decision_id: string;
+    ts_ms: number;
+    px: number;
+    sz: number;
+    maker_side: number;
+    calibrated_score: number;
+    action: string;
+    markout_bps: number | null;
+    toxic: boolean | null;
+    top_features: string[];
+}
+
+interface MarkoutFillDecisionPayload {
+    available: boolean;
+    message: string;
+    decisions: MarkoutFillDecision[];
+}
+
+export interface HyperliquidBackfillJob {
+    job_id: string;
+    status: 'running' | 'succeeded' | 'failed' | 'planned';
+    coin: string;
+    date: string;
+    book_snapshots: number;
+    fills: number;
+    training_rows: number;
+    message: string;
+    duration_ms: number;
+}
+
+interface HyperliquidBackfillJobPayload {
+    jobs: HyperliquidBackfillJob[];
+}
 
 interface ServerData {
-    status: ApiStatus;
+    status: 'checking' | 'online' | 'offline';
+    /** Each slice is null when its request failed. */
     model: MarkoutModelHealth | null;
     decisions: MarkoutFillDecisionPayload | null;
     backfills: HyperliquidBackfillJobPayload | null;
-    failures: string[];
-    refreshedAt: number | null;
 }
 
-interface ServerValue extends ServerData {
-    refresh: () => Promise<void>;
+const EMPTY: ServerData = { status: 'checking', model: null, decisions: null, backfills: null };
+const OFFLINE: ServerData = { ...EMPTY, status: 'offline' };
+
+const Context = createContext<ServerData | null>(null);
+
+/** Django is down when the dev proxy answers 503 (vite.config.ts), a static host 404s, or fetch fails. */
+async function apiIsUp(): Promise<boolean> {
+    const response = await fetch(HEALTH_URL, { method: 'HEAD' }).catch(() => null);
+    return response !== null && (response.ok || response.status === 405);
 }
 
-const EMPTY: ServerData = {
-    status: 'checking',
-    model: null,
-    decisions: null,
-    backfills: null,
-    failures: [],
-    refreshedAt: null,
-};
+async function getJson<T>(url: string): Promise<T> {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+    return (await response.json()) as T;
+}
 
-const Context = createContext<ServerValue | null>(null);
-const LABELS = ['Model health', 'Scored fills', 'Backfills'];
+async function load(): Promise<ServerData> {
+    if (!(await apiIsUp())) return OFFLINE;
+    const [model, decisions, backfills] = await Promise.allSettled([
+        getJson<MarkoutModelHealth>(HEALTH_URL),
+        getJson<MarkoutFillDecisionPayload>(DECISIONS_URL),
+        getJson<HyperliquidBackfillJobPayload>(BACKFILLS_URL),
+    ]);
+    const value = <T,>(result: PromiseSettledResult<T>) => (result.status === 'fulfilled' ? result.value : null);
+    return { status: 'online', model: value(model), decisions: value(decisions), backfills: value(backfills) };
+}
 
 export function ServerApiProvider({ children }: { children: ReactNode }) {
-    const [data, setData] = useState<ServerData>(EMPTY);
-
-    const refresh = useCallback(async () => {
-        if (!(await probeApi())) {
-            setData({ ...EMPTY, status: 'offline', refreshedAt: Date.now() });
-            return;
-        }
-        const results = await Promise.allSettled([
-            fetchMarkoutModelHealth(),
-            fetchMarkoutFillDecisions(),
-            fetchHyperliquidBackfillJobs(),
-        ]);
-        const value = <T,>(index: number): T | null => {
-            const result = results[index];
-            return result.status === 'fulfilled' ? (result.value as T) : null;
-        };
-        setData({
-            status: 'online',
-            model: value<MarkoutModelHealth>(0),
-            decisions: value<MarkoutFillDecisionPayload>(1),
-            backfills: value<HyperliquidBackfillJobPayload>(2),
-            failures: results.flatMap((result, index) =>
-                result.status === 'rejected'
-                    ? [`${LABELS[index]}: ${result.reason instanceof ApiError ? result.reason.message : 'unavailable'}`]
-                    : [],
-            ),
-            refreshedAt: Date.now(),
-        });
-    }, []);
-
+    const [data, setData] = useState(EMPTY);
     useEffect(() => {
-        void refresh();
+        const refresh = () => void load().then(setData);
+        refresh();
         const timer = window.setInterval(() => {
-            if (!document.hidden) void refresh();
+            if (!document.hidden) refresh();
         }, SERVER_POLL_MS);
         return () => window.clearInterval(timer);
-    }, [refresh]);
-
-    const value = useMemo<ServerValue>(() => ({ ...data, refresh }), [data, refresh]);
-    return <Context.Provider value={value}>{children}</Context.Provider>;
+    }, []);
+    return <Context.Provider value={data}>{children}</Context.Provider>;
 }
 
-export function useServerApi(): ServerValue {
+export function useServerApi(): ServerData {
     const value = useContext(Context);
     if (!value) throw new Error('useServerApi must be used inside ServerApiProvider');
     return value;

@@ -3,11 +3,10 @@
     python -m marketimmune.cli.build_albers_fills --coin SOL --dates 20251201..20251231
 
 Reads ``trades_2025_12.tar`` (hourly gz JSON lines, all coins) by seek and writes
-``silver/hyperliquid/fills/<COIN>/<COIN>-<date>.parquet`` with maker and taker
-wallets, oids and start positions. ``liquidation`` is set when the taker oid is a
-forced-liquidation order in that date's Silver order events (written by
-``build_albers_silver.py``; run that first, or every row says ``False``).
-Albers trades carry no fees, so the fee columns are null.
+``silver/hyperliquid/fills/<COIN>/<COIN>-<date>.parquet`` with maker and taker wallets,
+oids and start positions; exact repeats of a match are dropped. ``liquidation`` is set when the taker oid is a
+forced-liquidation order in that date's Silver order events, so ``build_albers_silver``
+runs first. Albers trades carry no fees, so the fee columns are null.
 """
 
 from __future__ import annotations
@@ -21,29 +20,28 @@ from typing import Any
 
 import pyarrow.parquet as pq
 
-from marketimmune.cli._train_data import parse_date_spec
 from marketimmune.lake.tables import HyperliquidLakeLayout, write_silver_fills
+from marketimmune.logger import init_logger
 from marketimmune.sources.albers_l4 import albers_trades_member_to_matches, gunzip
 from marketimmune.sources.hyperliquid_node_fills import MatchFill
+from marketimmune.utils import parse_date_spec
+
+logger = init_logger(__name__)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--coin", default="SOL")
     parser.add_argument("--dates", default="20251201")
-    parser.add_argument(
-        "--albers-dir", type=Path, default=Path("data/bronze/albers")
-    )
+    parser.add_argument("--albers-dir", type=Path, default=Path("data/bronze/albers"))
     parser.add_argument("--lake-root", type=Path, default=Path("data"))
     return parser.parse_args(argv)
 
 
-def liquidation_oids(layout: HyperliquidLakeLayout, coin: str, date: str) -> set[int] | None:
+def liquidation_oids(layout: HyperliquidLakeLayout, coin: str, date: str) -> set[int]:
     path = layout.silver_order_events_path(coin, date)
-    if not path.exists():
-        return None
-    table = pq.read_table(path, columns=["kind", "oid"]).to_pydict()
-    return {o for k, o in zip(table["kind"], table["oid"], strict=True) if k == "liquidation"}
+    assert path.exists(), f"{path} is missing: run build_albers_silver for {date} first"
+    return set(pq.read_table(path, columns=["oid"], filters=[("kind", "==", "liquidation")])["oid"].to_pylist())
 
 
 def build(args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -52,37 +50,39 @@ def build(args: argparse.Namespace) -> list[dict[str, Any]]:
     summaries: list[dict[str, Any]] = []
     t0 = time.perf_counter()
     with tarfile.open(args.albers_dir / "trades_2025_12.tar", mode="r:") as tar:
-        names = {m.name for m in tar.getmembers() if m.isfile()}
+        members = {m.name: m for m in tar.getmembers() if m.isfile()}
         for date in parse_date_spec(args.dates):
-            liq = liquidation_oids(layout, coin, date)
+            hours = [members[name] for hour in range(24) if (name := f"{date}/{hour}.gz") in members]
+            if not hours:
+                continue
+            liquidations = liquidation_oids(layout, coin, date)
             matches: list[MatchFill] = []
-            for hour in range(24):
-                name = f"{date}/{hour}.gz"
-                if name not in names:
-                    continue
-                handle = tar.extractfile(name)
+            for member in hours:
+                handle = tar.extractfile(member)
                 assert handle is not None
-                raw = gunzip(handle.read())
-                matches.extend(albers_trades_member_to_matches(raw, coin, liq or set()))
+                matches += albers_trades_member_to_matches(gunzip(handle.read()), coin, liquidations)
             if not matches:
                 continue
-            matches.sort(key=lambda m: m.ts_ms)
+            # NOTE: the trades files repeat windows like the status files do (drop_replayed);
+            # an exact copy of a match (same oids, sizes, start positions) is never a second trade.
+            unique = list(dict.fromkeys(matches))
+            duplicates, matches = len(matches) - len(unique), sorted(unique, key=lambda m: m.ts_ms)
             write = write_silver_fills(layout, coin=coin, date=date, fills=matches)
             summary = {
                 "date": date,
                 "matches": len(matches),
+                "duplicates_dropped": duplicates,
                 "liquidation_matches": sum(m.liquidation for m in matches),
-                "liquidation_source": "order_events" if liq is not None else "missing",
                 "path": str(write.path),
                 "elapsed_s": round(time.perf_counter() - t0, 1),
             }
             summaries.append(summary)
-            print(json.dumps(summary), flush=True)
+            logger.info(json.dumps(summary))
     return summaries
 
 
 def main(argv: list[str] | None = None) -> int:
-    build(parse_args(argv))
+    print(json.dumps(build(parse_args(argv)), indent=2))
     return 0
 
 

@@ -1,5 +1,6 @@
 import { STATS_WINDOW_MS } from '../config';
-import { bps, fixed, integer, percent, signed, yyyymmdd } from '../lib/format';
+import { bps, fixed, integer, percent, signed } from '../lib/format';
+import type { TapeFill } from '../lib/regret';
 import { COMMITTED } from '../lib/report';
 import { useMarket } from '../market/useMarket';
 import { Stat } from './Panel';
@@ -12,8 +13,7 @@ const EXPORT_COMMAND =
 function LatestDecision() {
     const model = useMarket((s) => s.model);
     const tape = useMarket((s) => s.tape);
-    const latest = tape.find((fill) => fill.score !== null) ?? null;
-    const threshold = model.state === 'ready' ? (model.meta.decision_threshold ?? 0.5) : null;
+    const latest = tape.find((fill): fill is TapeFill & { score: number } => fill.score !== null);
     const action = latest?.action ?? null;
 
     return (
@@ -26,32 +26,20 @@ function LatestDecision() {
                 <>
                     <div className="guard-score">
                         <span className="muted">p(regret) of the last fill</span>
-                        <span className={action === 'withhold' ? 'down' : 'fg'}>
-                            {latest?.score != null ? (
-                                <Counter
-                                    value={latest.score}
-                                    decimals={3}
-                                    duration={0.25}
-                                    bounce={0}
-                                    motionBlur={false}
-                                    intro={false}
-                                    fontSize={20}
-                                    fontWeight={500}
-                                    textColor="currentColor"
-                                />
+                        <span className={action === 'withhold' ? 'down' : undefined}>
+                            {latest ? (
+                                <Counter value={latest.score} decimals={3} duration={0.25} stagger={0.04} fade={0.3} fontSize={20} />
                             ) : (
                                 '–'
                             )}
                         </span>
                     </div>
                     <div className="score-rail" aria-hidden="true">
-                        <span className="score-threshold" style={{ left: `${(threshold ?? 0) * 100}%` }} />
-                        {latest?.score != null && (
-                            <span className="score-dot" style={{ left: `${latest.score * 100}%` }} />
-                        )}
+                        <span className="score-threshold" style={{ left: `${model.threshold * 100}%` }} />
+                        {latest && <span className="score-dot" style={{ left: `${latest.score * 100}%` }} />}
                     </div>
                     <p className="guard-note faint">
-                        Withhold when p ≥ {fixed(threshold, 2)}. Features are rebuilt in the browser
+                        Withhold when p ≥ {fixed(model.threshold, 2)}. Features are rebuilt in the browser
                         from the live book; their cadence can differ from the training archive.
                     </p>
                 </>
@@ -113,12 +101,9 @@ function LiveStats() {
 
 function CommittedBenchmark() {
     const report = COMMITTED;
-    const holdoutDay = yyyymmdd(report.holdout.dates[0] ?? '');
-    const first = yyyymmdd(report.partition_rows[0]?.date ?? '');
-    const last = yyyymmdd(report.partition_rows[report.partition_rows.length - 1]?.date ?? '');
     return (
         <section className="guard-section" aria-label="Committed benchmark">
-            <h3 className="guard-heading">Held-out day {holdoutDay}</h3>
+            <h3 className="guard-heading">Held-out day {report.holdoutDay}</h3>
             <p className="guard-lead">
                 <span className="guard-lead-value up num">{signed(report.holdoutLiftVsBaselineBps, 3)} bps</span>
                 <span className="muted">per fill over the order-flow baseline, on a day the model never saw</span>
@@ -128,7 +113,7 @@ function CommittedBenchmark() {
                 <Stat label="Brier" value={fixed(report.holdout.brier, 3)} />
                 <Stat label="Lift vs quoting all" value={bps(report.holdout.markout_lift_bps, 3)} tone="up" />
                 <Stat label="Quote rate" value={percent(report.holdout.quote_rate)} />
-                <Stat label="Training fills" value={integer(report.training_rows)} hint={`${first} to ${last}`} />
+                <Stat label="Training fills" value={integer(report.training_rows)} hint={`${report.trainFirstDay} to ${report.trainLastDay}`} />
                 <Stat label="Holdout fills" value={integer(report.holdout.n_rows)} />
             </div>
             <a className="text-link" href="#/model">

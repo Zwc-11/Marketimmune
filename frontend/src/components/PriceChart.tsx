@@ -13,7 +13,7 @@ import {
     type UTCTimestamp,
 } from 'lightweight-charts';
 import { useEffect, useRef } from 'react';
-import { CANDLE_INTERVALS, type CandleInterval } from '../config';
+import { CANDLE_INTERVALS, SYMBOL, type CandleInterval } from '../config';
 import { marketFeed, type CandleBar } from '../market/feed';
 import { useMarket } from '../market/useMarket';
 
@@ -24,6 +24,7 @@ const COLORS = {
     text: '#67737f',
     rule: '#222a33',
 };
+const MAX_MARKERS = 40;
 
 function volumeBar(bar: CandleBar) {
     return {
@@ -52,11 +53,11 @@ export function PriceChart() {
     const history = useMarket((s) => s.candles);
     const last = useMarket((s) => s.lastCandle);
     const resolved = useMarket((s) => s.resolved);
-    const decimals = useMarket((s) => s.feed.priceDecimals);
+    const decimals = useMarket((s) => s.priceDecimals);
 
+    // Effects run in order, so the chart and its series exist before any data effect.
     useEffect(() => {
-        if (!host.current) return;
-        const api = createChart(host.current, {
+        const api = createChart(host.current!, {
             autoSize: true,
             layout: {
                 background: { type: ColorType.Solid, color: 'transparent' },
@@ -93,42 +94,41 @@ export function PriceChart() {
     }, []);
 
     useEffect(() => {
-        candles.current?.applyOptions({
+        candles.current!.applyOptions({
             priceFormat: { type: 'price', precision: decimals, minMove: 10 ** -decimals },
         });
     }, [decimals]);
 
     useEffect(() => {
-        candles.current?.setData(history.map(candle));
-        volume.current?.setData(history.map(volumeBar));
-        if (history.length) chart.current?.timeScale().scrollToRealTime();
+        candles.current!.setData(history.map(candle));
+        volume.current!.setData(history.map(volumeBar));
+        if (history.length) chart.current!.timeScale().scrollToRealTime();
     }, [history]);
 
     useEffect(() => {
         if (!last) return;
-        candles.current?.update(candle(last));
-        volume.current?.update(volumeBar(last));
+        candles.current!.update(candle(last));
+        volume.current!.update(volumeBar(last));
     }, [last]);
 
     useEffect(() => {
         const bucket = CANDLE_INTERVALS[interval] / 1000;
-        const marks: SeriesMarker<Time>[] = resolved
-            .filter((fill) => fill.action === 'withhold')
-            .slice(0, 40)
-            .map(
-                (fill): SeriesMarker<Time> => ({
-                    time: (Math.floor(fill.time / 1000 / bucket) * bucket) as UTCTimestamp,
-                    position: fill.makerSide === 1 ? 'belowBar' : 'aboveBar',
-                    shape: 'circle',
-                    size: 0.6,
-                    color: fill.regret ? COLORS.down : COLORS.text,
-                }),
-            )
-            .sort((a, b) => Number(a.time) - Number(b.time));
-        markers.current?.setMarkers(marks);
+        const marks: SeriesMarker<Time>[] = [];
+        for (const fill of resolved) {
+            if (fill.action !== 'withhold') continue;
+            marks.push({
+                time: (Math.floor(fill.time / 1000 / bucket) * bucket) as UTCTimestamp,
+                position: fill.makerSide === 1 ? 'belowBar' : 'aboveBar',
+                shape: 'circle',
+                size: 0.6,
+                color: fill.regret ? COLORS.down : COLORS.text,
+            });
+            if (marks.length === MAX_MARKERS) break;
+        }
+        markers.current!.setMarkers(marks.sort((a, b) => Number(a.time) - Number(b.time)));
     }, [resolved, interval]);
 
-    return <div ref={host} className="chart-host" aria-label={`SOL-PERP ${interval} candles`} role="img" />;
+    return <div ref={host} className="chart-host" aria-label={`${SYMBOL} ${interval} candles`} role="img" />;
 }
 
 export function ChartIntervals() {

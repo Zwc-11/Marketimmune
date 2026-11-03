@@ -4,8 +4,9 @@
 //! cancels of filled orders and duplicate order ids) are applied batch by batch
 //! to both implementations. After every batch they must agree on every status,
 //! every fill and the full order-by-order book, and the slab book must pass its
-//! structural checks: uncrossed, cached level totals equal to the sum of their
-//! orders, and each successful cancel removing exactly the order it named.
+//! structural checks (which panic; proptest catches and shrinks a panic like any
+//! failure): uncrossed, cached level totals equal to the sum of their orders, and
+//! each successful cancel removing exactly the order it named.
 
 use hl_replay::{
     Action, BatchOut, Book, EngineConfig, Fill, Lots, Oid, Op, Side, Status, Stp, Tick, Tif, UserId,
@@ -212,7 +213,7 @@ fn run(batches: Vec<Vec<Spec>>, stp: Stp) -> Result<(), TestCaseError> {
         let mut cancellable: Vec<Oid> = actions
             .iter()
             .filter_map(|a| match a.op {
-                Op::Cancel { oid } if book.order(oid).is_some() => Some(oid),
+                Op::Cancel { oid } if book.contains(oid) => Some(oid),
                 _ => None,
             })
             .collect();
@@ -229,7 +230,7 @@ fn run(batches: Vec<Vec<Spec>>, stp: Stp) -> Result<(), TestCaseError> {
         prop_assert_eq!(&out.matched.fills, &fills);
         prop_assert_eq!(&out.matched.stp_canceled, &expired);
         prop_assert_eq!(book.snapshot(), reference.snapshot());
-        prop_assert!(book.check_invariants().is_ok(), "{:?}", book.check_invariants());
+        book.check_invariants();
         prop_assert!(!book.is_crossed(), "book crossed after a batch");
 
         let gtc_in_batch: Vec<Oid> = actions
@@ -245,11 +246,7 @@ fn run(batches: Vec<Vec<Spec>>, stp: Stp) -> Result<(), TestCaseError> {
             if let Status::Canceled { .. } = s {
                 prop_assert!(cancellable.contains(&oid), "cancel {} removed an order it cannot reach", oid);
                 let reused = actions.iter().any(|b| matches!(b.op, Op::Order { oid: o, .. } if o == oid));
-                prop_assert!(
-                    reused || book.order(oid).is_none(),
-                    "cancel {} left its order on the book",
-                    oid
-                );
+                prop_assert!(reused || !book.contains(oid), "cancel {} left its order on the book", oid);
                 prop_assert!(!removed.contains(&oid), "order {} removed twice", oid);
                 removed.push(oid);
             } else if gtc_in_batch.contains(&oid) && !resting_before.contains(&oid) {

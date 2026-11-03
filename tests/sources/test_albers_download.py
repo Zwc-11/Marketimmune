@@ -5,6 +5,7 @@ import http.server
 import itertools
 import json
 import threading
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -38,7 +39,7 @@ class RangeHandler(http.server.BaseHTTPRequestHandler):
 
 
 @pytest.fixture
-def server():  # type: ignore[no-untyped-def]
+def server() -> Iterator[str]:
     httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), RangeHandler)
     t = threading.Thread(target=httpd.serve_forever, daemon=True)
     t.start()
@@ -54,9 +55,7 @@ def test_split_covers_file() -> None:
     assert alb.split(1000, 8) == [(0, 1000)]
 
 
-def test_segmented_download_resumes_and_verifies(
-    tmp_path: Path, server: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_segmented_download_resumes_and_verifies(tmp_path: Path, server: str, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(alb, "MIN_SEGMENT", 64 * 1024)
     rf = alb.RemoteFile("blob.bin", len(BLOB), hashlib.md5(BLOB).hexdigest(), server)
     # Simulate an interrupted earlier run: a plan with 4 segments, two partly done.
@@ -80,10 +79,7 @@ def test_bad_md5_is_kept_aside(tmp_path: Path, server: str) -> None:
 
 
 def test_manifest_keeps_rows_from_earlier_sets(tmp_path: Path) -> None:
-    index = {
-        k: alb.RemoteFile(k, 1, "0" * 32, f"http://x/{k}")
-        for k in ("README.md", "sol_orders_202512.tar.xz", "trades_2025_12.tar")
-    }
+    index = {k: alb.RemoteFile(k, 1, "0" * 32, f"http://x/{k}") for k in ("README.md", "sol_orders_202512.tar.xz", "trades_2025_12.tar")}
     (tmp_path / "sol_orders_202512.tar.xz").write_bytes(b"x")
     (tmp_path / "sol_orders_202512.tar.xz.md5ok").write_text("0" * 32)
     alb.write_manifest(tmp_path, index, ["README.md", "sol_orders_202512.tar.xz"])

@@ -40,10 +40,6 @@
     overflow: auto;
 }
 
-.panel-body.scroll {
-    overflow: auto;
-}
-
 .area-chart .panel-body {
     overflow: hidden;
     padding: 4px 0 0 4px;
@@ -94,12 +90,6 @@
     border-color: transparent;
 }
 
-.chip-warn {
-    color: var(--warn);
-    background: var(--warn-soft);
-    border-color: transparent;
-}
-
 .empty {
     display: flex;
     flex-direction: column;
@@ -146,46 +136,6 @@ code {
     text-decoration: underline dotted var(--fg-3);
     text-underline-offset: 3px;
     cursor: help;
-}
-
-/* ---- Buttons: tactile, the press is felt not animated ----------------- */
-
-.button-primary,
-.button-quiet {
-    height: 30px;
-    padding: 0 14px;
-    border-radius: 8px;
-    font-size: var(--fs-m);
-    font-weight: 500;
-    transition: transform 80ms var(--ease), background-color 120ms var(--ease);
-}
-
-.button-primary {
-    color: var(--cta-ink);
-    background: var(--cta);
-    box-shadow:
-        inset 0 -2px 0 rgba(0, 0, 0, 0.18),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6);
-}
-
-.button-quiet {
-    color: var(--fg);
-    background: var(--ink-2);
-    box-shadow:
-        inset 0 -2px 0 rgba(0, 0, 0, 0.35),
-        0 0 0 1px var(--rule-strong);
-}
-
-.button-primary:active:not(:disabled),
-.button-quiet:active:not(:disabled) {
-    transform: scale(0.97);
-}
-
-.button-primary:disabled {
-    cursor: not-allowed;
-    background: var(--ink-3);
-    color: var(--fg-3);
-    box-shadow: none;
 }
 
 .text-link {
@@ -338,7 +288,8 @@ code {
     position: relative;
     background-repeat: no-repeat;
     background-position: right;
-    background-size: var(--depth) 100%;
+    /* Cumulative depth: --total on the row over the deepest --max on the table. */
+    background-size: calc(var(--total) / var(--max) * 100%) 100%;
 }
 
 .book-row.bid {
@@ -633,14 +584,6 @@ code {
 
 .grid-table tbody tr:hover td {
     background: var(--ink-2);
-}
-
-.grid-table.selectable tbody tr {
-    cursor: pointer;
-}
-
-.grid-table.selectable tbody tr[aria-selected='true'] td {
-    background: var(--ink-3);
 }
 
 .grid-table th[scope='row'] {

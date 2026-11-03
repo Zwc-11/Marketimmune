@@ -1,0 +1,129 @@
+{
+  "coin": "SOL",
+  "dates": "20251201..20251211,20251213..20251231",
+  "kind": "realised_by_regime",
+  "cex_bps": 2.0,
+  "1s": {
+    "horizon": "1s",
+    "fills": 2940282,
+    "notional_usd": 9692275077.228298,
+    "spread_usd": 2051949.8778664293,
+    "adverse_usd": -1999298.556641051,
+    "regimes": {
+      "quiet": {
+        "fill_share": 0.7734023471218067,
+        "notional_share": 0.737811121327542,
+        "adverse_share": 0.6702202234426063,
+        "spread_bps": 1.5326074062037243,
+        "adverse_bps": -1.8738043899167207,
+        "net_usd": -243992.29489382613
+      },
+      "stale": {
+        "fill_share": 0.10925652709502014,
+        "notional_share": 0.1203918882728296,
+        "adverse_share": 0.1704587485560926,
+        "spread_bps": 6.231735117914376,
+        "adverse_bps": -2.9206128428957268,
+        "net_usd": 386365.3547573788
+      },
+      "forced": {
+        "fill_share": 0.09499701049083047,
+        "notional_share": 0.11477950732685299,
+        "adverse_share": 0.09232690662454787,
+        "spread_bps": 1.2672584746293327,
+        "adverse_bps": -1.659265371834865,
+        "net_usd": -43609.76997959928
+      },
+      "stale+forced": {
+        "fill_share": 0.022344115292342707,
+        "notional_share": 0.027017483072775565,
+        "adverse_share": 0.06699412137675327,
+        "spread_bps": 3.3540436524661024,
+        "adverse_bps": -5.114977513212847,
+        "net_usd": -46111.96865857509
+      }
+    }
+  },
+  "10s": {
+    "horizon": "10s",
+    "fills": 2940059,
+    "notional_usd": 9691774980.265001,
+    "spread_usd": 2051907.9042921579,
+    "adverse_usd": -2207707.727544908,
+    "regimes": {
+      "quiet": {
+        "fill_share": 0.7734116900375129,
+        "notional_share": 0.7378112560004544,
+        "adverse_share": 0.6326786574698955,
+        "spread_bps": 1.532647692895458,
+        "adverse_bps": -1.9533324430728374,
+        "net_usd": -300819.07253994
+      },
+      "stale": {
+        "fill_share": 0.10923828399362054,
+        "notional_share": 0.12038443685510514,
+        "adverse_share": 0.19357080787947842,
+        "spread_bps": 6.232318728248957,
+        "adverse_bps": -3.662754179414669,
+        "net_usd": 299801.08461304073
+      },
+      "forced": {
+        "fill_share": 0.09500421590178973,
+        "notional_share": 0.11478542996570705,
+        "adverse_share": 0.09722566187269369,
+        "spread_bps": 1.2672584746293327,
+        "adverse_bps": -1.9294449786921934,
+        "net_usd": -73666.56385802181
+      },
+      "stale+forced": {
+        "fill_share": 0.022345810067076886,
+        "notional_share": 0.02701887717873326,
+        "adverse_share": 0.07652487277793237,
+        "spread_bps": 3.3540436524661024,
+        "adverse_bps": -6.451691233053664,
+        "net_usd": -81115.27146782912
+      }
+    }
+  },
+  "60s": {
+    "horizon": "60s",
+    "fills": 2939144,
+    "notional_usd": 9687885168.453701,
+    "spread_usd": 2050974.2623539655,
+    "adverse_usd": -2069598.6606244366,
+    "regimes": {
+      "quiet": {
+        "fill_share": 0.773393205640826,
+        "notional_share": 0.7377744233497475,
+        "adverse_share": 0.5966866012737788,
+        "spread_bps": 1.5322784892204988,
+        "adverse_bps": -1.7277457870934743,
+        "net_usd": -139709.74086063704
+      },
+      "stale": {
+        "fill_share": 0.10922023555157556,
+        "notional_share": 0.12036433323342324,
+        "adverse_share": 0.2046569109020186,
+        "spread_bps": 6.234359940963777,
+        "adverse_bps": -3.632333803837091,
+        "net_usd": 303415.9810280949
+      },
+      "forced": {
+        "fill_share": 0.09503379215172852,
+        "notional_share": 0.11483151780773677,
+        "adverse_share": 0.11237934533306425,
+        "spread_bps": 1.2672584746293327,
+        "adverse_bps": -2.0906558344218746,
+        "net_usd": -91600.86140916843
+      },
+      "stale+forced": {
+        "fill_share": 0.022352766655869872,
+        "notional_share": 0.02702972560909246,
+        "adverse_share": 0.08627714249113846,
+        "spread_bps": 3.3540436524661024,
+        "adverse_bps": -6.8188520567855715,
+        "net_usd": -90729.77702876073
+      }
+    }
+  }
+}

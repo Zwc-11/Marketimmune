@@ -7,19 +7,16 @@ import { marketFeed, type MarketSnapshot } from './feed';
  * when that slice did not change in a flush.
  */
 export function useMarket<T>(selector: (snapshot: MarketSnapshot) => T): T {
-    return useSyncExternalStore(
-        marketFeed.subscribe,
-        () => selector(marketFeed.getSnapshot()),
-        () => selector(marketFeed.getSnapshot()),
-    );
+    const select = () => selector(marketFeed.getSnapshot());
+    return useSyncExternalStore(marketFeed.subscribe, select, select);
 }
 
-/** A clock for "age" readouts; ticks independently of feed traffic. */
-export function useNow(intervalMs = 1_000): number {
-    const [now, setNow] = useState(() => Date.now());
+/** A 1 s clock for "age" readouts; ticks independently of feed traffic. */
+export function useNow(): number {
+    const [now, setNow] = useState(Date.now);
     useEffect(() => {
-        const timer = window.setInterval(() => setNow(Date.now()), intervalMs);
+        const timer = window.setInterval(() => setNow(Date.now()), 1_000);
         return () => window.clearInterval(timer);
-    }, [intervalMs]);
+    }, []);
     return now;
 }

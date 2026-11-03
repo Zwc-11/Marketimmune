@@ -1,1 +1,1 @@
-"""Train and evaluate markout models: cross-validation splits, metrics, calibration, promotion."""
+"""Markout models: rolling daily folds, out-of-fold evaluation, quantile ladder and rung tests."""

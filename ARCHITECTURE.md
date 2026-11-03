@@ -22,7 +22,7 @@ flowchart LR
 
     subgraph model["features, models, serving"]
         FEAT["features/training_rows.py<br/>as-of book, OFI 1s/5s/10s, fees;<br/>features/cex_gap.py"]
-        CV["models/cross_validation.py<br/>rolling_daily, walk_forward, purged_kfold"]
+        CV["models/cross_validation.py<br/>rolling daily walk-forward"]
         CB["cli/train.py<br/>CatBoost + isotonic, OOF thresholds"]
         REP["eval/markout_sol_10s/*.json<br/>committed report"]
         EXP["cli/export_web_model.py<br/>compact oblivious-tree JSON"]
@@ -94,16 +94,13 @@ applies it to a day of fills with one `searchsorted` per horizon, and
 
 ## Validation
 
-`marketimmune/models/cross_validation.py` implements three schemes on index arrays:
-
-- `rolling_daily` (default): each fold tests one day and trains on the `--train-days`
-  days before it, minus the purge.
-- `walk_forward`: `n_splits + 1` time blocks, fold `k` tests
-  block `k + 1` and trains only on rows before `test_start - purge`.
-- `purged_kfold`: `n_splits` blocks, train on everything outside
-  `[test_start - purge, test_end + embargo]`. The committed SOL report was produced
-  this way; four of its five folds train on later days. Its headline number is the
-  forward holdout (train May 27 to 31, score June 1), which is out of time.
+`marketimmune/models/cross_validation.py` has one scheme, on index arrays: the
+rolling daily walk-forward. Each fold tests one UTC day and trains on the
+`--train-days` (default 7) days before it, ending `--purge-ms` (60 s) before the day
+starts; nothing after the test day is used. The committed SOL report was produced
+with purged k-fold, since removed (it reproduces at commit `7035c0c`); four of its
+five folds trained on later days, so its headline number is the forward holdout
+(train May 27 to 31, score June 1), which is out of time.
 
 The skip threshold is selected per fold from that fold's training-side out-of-fold
 predictions, and the deployment threshold from all training out-of-fold rows; the
@@ -118,8 +115,10 @@ holdout day never influences either.
 | `marketimmune/lake/gold.py` | Markout labels for a day of fills, one `searchsorted` per horizon |
 | `marketimmune/lake/backfill.py` | One requester-pays day from S3 to Gold |
 | `marketimmune/labels/` | The regret label and the point-in-time (no look-ahead) checks |
-| `marketimmune/features/` | Vectorized OFI windows, as-of feature join, CEX gap |
-| `marketimmune/models/` | Temporal splits, evaluation, calibration, promotion policy |
+| `marketimmune/features/` | Vectorized OFI windows, as-of feature join, CEX gap, ladder columns L2 to L3 |
+| `marketimmune/forced/` | Position book from fills, forced-flow forecaster, its evaluation, margin tiers |
+| `marketimmune/models/` | Walk-forward folds, evaluation and calibration, quantile ladder, DM / MCS, decomposition |
+| `marketimmune/sim/` | Maker PnL under quoting policies (fill filter) |
 | `marketimmune/serving/` | CatBoost scorer, CatBoost-free oblivious-tree evaluator, Gold scoring |
 | `marketimmune/priority/` | Priority-fee fills and nonce-based arrival times |
 | `marketimmune/cli/` | Commands; each is `python -m marketimmune.cli.<name>` |

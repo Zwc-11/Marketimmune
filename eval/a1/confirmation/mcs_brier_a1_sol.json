@@ -1,0 +1,57 @@
+{
+  "loss": "brier",
+  "files": [
+    "eval\\a1\\a1_sol_l0_trade.oof.parquet",
+    "eval\\a1\\a1_sol_l1_trade.oof.parquet",
+    "eval\\a1\\a1_sol_l2_trade.oof.parquet",
+    "eval\\a1\\a1_sol_l3_fee.oof.parquet",
+    "eval\\a1\\a1_sol_l3_fee_placebo.oof.parquet"
+  ],
+  "dates": "20260901..20261027,20261029..20261031",
+  "rows_common": 5013986,
+  "days": 60,
+  "alpha": 0.1,
+  "included": [
+    "a1_sol_l2_trade",
+    "a1_sol_l3_fee",
+    "a1_sol_l3_fee_placebo"
+  ],
+  "elimination_order": [
+    "a1_sol_l0_trade",
+    "a1_sol_l1_trade",
+    "a1_sol_l2_trade",
+    "a1_sol_l3_fee_placebo"
+  ],
+  "models": [
+    {
+      "name": "a1_sol_l3_fee",
+      "mean_loss": 0.1879008659555372,
+      "mcs_p_value": 1.0,
+      "in_mcs": true
+    },
+    {
+      "name": "a1_sol_l3_fee_placebo",
+      "mean_loss": 0.18794026281205634,
+      "mcs_p_value": 0.8888,
+      "in_mcs": true
+    },
+    {
+      "name": "a1_sol_l2_trade",
+      "mean_loss": 0.18796223328101697,
+      "mcs_p_value": 0.8888,
+      "in_mcs": true
+    },
+    {
+      "name": "a1_sol_l1_trade",
+      "mean_loss": 0.19478481240553494,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    },
+    {
+      "name": "a1_sol_l0_trade",
+      "mean_loss": 0.222902837684348,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    }
+  ]
+}

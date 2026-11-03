@@ -3,21 +3,22 @@
 //     markout_bps = s * (mid - p) / p * 1e4,  regretted when markout < -fee_bps
 // which is marketimmune.labels.markout.realized_markout_bps + is_toxic.
 
-export type MakerSide = 1 | -1;
-export type QuoteAction = 'quote' | 'withhold';
-
 export interface TapeFill {
     id: string;
     time: number;
     px: number;
     sz: number;
-    makerSide: MakerSide;
+    makerSide: 1 | -1;
     dueAt: number;
     score: number | null;
-    action: QuoteAction | null;
+    action: 'quote' | 'withhold' | null;
     markoutBps: number | null;
     regret: boolean | null;
-    resolvedAt: number | null;
+}
+
+export interface ResolvedFill extends TapeFill {
+    markoutBps: number;
+    regret: boolean;
 }
 
 export interface RegretStats {
@@ -38,8 +39,10 @@ export interface RegretStats {
 }
 
 export class RegretTracker {
+    /** Sorted by dueAt. */
     private pending: TapeFill[] = [];
-    private resolved: TapeFill[] = [];
+    /** Sorted by fill time; trimmed to the stats window. */
+    private readonly resolved: ResolvedFill[] = [];
 
     constructor(
         private readonly horizonMs: number,
@@ -47,14 +50,8 @@ export class RegretTracker {
         private readonly windowMs: number,
     ) {}
 
-    add(fill: Omit<TapeFill, 'dueAt' | 'markoutBps' | 'regret' | 'resolvedAt'>): TapeFill {
-        const entry: TapeFill = {
-            ...fill,
-            dueAt: fill.time + this.horizonMs,
-            markoutBps: null,
-            regret: null,
-            resolvedAt: null,
-        };
+    add(fill: Omit<TapeFill, 'dueAt' | 'markoutBps' | 'regret'>): TapeFill {
+        const entry: TapeFill = { ...fill, dueAt: fill.time + this.horizonMs, markoutBps: null, regret: null };
         // Fills arrive in time order; keep the queue sorted by dueAt regardless.
         let at = this.pending.length;
         while (at > 0 && this.pending[at - 1].dueAt > entry.dueAt) at -= 1;
@@ -63,14 +60,13 @@ export class RegretTracker {
     }
 
     /** Resolve every fill whose horizon has elapsed by this mid's timestamp. */
-    onMid(time: number, mid: number): TapeFill[] {
+    onMid(time: number, mid: number): ResolvedFill[] {
         let count = 0;
         while (count < this.pending.length && this.pending[count].dueAt <= time) count += 1;
         if (count === 0) return [];
-        const due = this.pending.splice(0, count);
-        const done = due.map((fill) => {
+        const done = this.pending.splice(0, count).map((fill): ResolvedFill => {
             const markoutBps = (fill.makerSide * (mid - fill.px)) / fill.px * 10_000;
-            return { ...fill, markoutBps, regret: markoutBps < -this.feeBps, resolvedAt: time };
+            return { ...fill, markoutBps, regret: markoutBps < -this.feeBps };
         });
         this.resolved.push(...done);
         this.trim(time);
@@ -88,35 +84,47 @@ export class RegretTracker {
         return dropped;
     }
 
+    /** One pass over the window, no allocation. */
     stats(now: number): RegretStats {
         this.trim(now);
-        const rows = this.resolved;
-        const scored = rows.filter((fill) => fill.action !== null);
-        const withheld = scored.filter((fill) => fill.action === 'withhold');
-        const regrets = rows.filter((fill) => fill.regret);
-        const scoredRegrets = scored.filter((fill) => fill.regret);
-        const quoteAll = mean(scored.map((fill) => fill.markoutBps ?? 0));
-        const policy = mean(
-            scored.map((fill) => (fill.action === 'withhold' ? 0 : (fill.markoutBps ?? 0))),
-        );
+        let regrets = 0;
+        let markoutSum = 0;
+        let scored = 0;
+        let scoredRegrets = 0;
+        let withheld = 0;
+        let withheldRegrets = 0;
+        let quoteAllSum = 0;
+        let policySum = 0;
+        for (const fill of this.resolved) {
+            markoutSum += fill.markoutBps;
+            if (fill.regret) regrets += 1;
+            if (fill.action === null) continue;
+            scored += 1;
+            quoteAllSum += fill.markoutBps;
+            if (fill.regret) scoredRegrets += 1;
+            if (fill.action === 'withhold') {
+                withheld += 1;
+                if (fill.regret) withheldRegrets += 1;
+            } else {
+                policySum += fill.markoutBps;
+            }
+        }
+        const resolved = this.resolved.length;
+        const quoteAll = scored ? quoteAllSum / scored : null;
+        const policy = scored ? policySum / scored : null;
         return {
             windowMs: this.windowMs,
-            resolved: rows.length,
+            resolved,
             pending: this.pending.length,
-            regretRate: rows.length ? regrets.length / rows.length : null,
-            meanMarkoutBps: mean(rows.map((fill) => fill.markoutBps ?? 0)),
-            scored: scored.length,
-            withheld: withheld.length,
+            regretRate: resolved ? regrets / resolved : null,
+            meanMarkoutBps: resolved ? markoutSum / resolved : null,
+            scored,
+            withheld,
             quoteAllBps: quoteAll,
             policyBps: policy,
             liftBps: quoteAll === null || policy === null ? null : policy - quoteAll,
-            withholdPrecision: withheld.length
-                ? withheld.filter((fill) => fill.regret).length / withheld.length
-                : null,
-            regretRecall: scoredRegrets.length
-                ? scoredRegrets.filter((fill) => fill.action === 'withhold').length /
-                  scoredRegrets.length
-                : null,
+            withholdPrecision: withheld ? withheldRegrets / withheld : null,
+            regretRecall: scoredRegrets ? withheldRegrets / scoredRegrets : null,
         };
     }
 
@@ -126,11 +134,4 @@ export class RegretTracker {
         while (drop < this.resolved.length && this.resolved[drop].time < cutoff) drop += 1;
         if (drop) this.resolved.splice(0, drop);
     }
-}
-
-function mean(values: number[]): number | null {
-    if (!values.length) return null;
-    let total = 0;
-    for (const value of values) total += value;
-    return total / values.length;
 }

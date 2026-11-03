@@ -1,0 +1,75 @@
+{
+  "loss": "pinball",
+  "tau": 0.1,
+  "files": [
+    "E:\\MarketImmune\\eval\\q_sol_dec_l0_book.oof.parquet",
+    "E:\\MarketImmune\\eval\\q_sol_dec_l1_book.oof.parquet",
+    "E:\\MarketImmune\\eval\\q_sol_dec_l2_book.oof.parquet",
+    "E:\\MarketImmune\\eval\\q_sol_dec_l3a_book.oof.parquet",
+    "E:\\MarketImmune\\eval\\q_sol_dec_l3b_book.oof.parquet",
+    "E:\\MarketImmune\\eval\\q_sol_dec_l3_book.oof.parquet",
+    "E:\\MarketImmune\\eval\\q_sol_dec_l3a_placebo_book.oof.parquet"
+  ],
+  "rows_common": 1806964,
+  "days": 21,
+  "alpha": 0.1,
+  "included": [
+    "q_sol_dec_l2_book",
+    "q_sol_dec_l3a_book",
+    "q_sol_dec_l3b_book",
+    "q_sol_dec_l3_book",
+    "q_sol_dec_l3a_placebo_book"
+  ],
+  "elimination_order": [
+    "q_sol_dec_l1_book",
+    "q_sol_dec_l0_book",
+    "q_sol_dec_l3a_book",
+    "q_sol_dec_l3a_placebo_book",
+    "q_sol_dec_l2_book",
+    "q_sol_dec_l3b_book"
+  ],
+  "models": [
+    {
+      "name": "q_sol_dec_l3_book",
+      "mean_loss": 0.3650025456336799,
+      "mcs_p_value": 1.0,
+      "in_mcs": true
+    },
+    {
+      "name": "q_sol_dec_l3b_book",
+      "mean_loss": 0.36968132726832925,
+      "mcs_p_value": 0.3962,
+      "in_mcs": true
+    },
+    {
+      "name": "q_sol_dec_l3a_book",
+      "mean_loss": 0.4160841813942892,
+      "mcs_p_value": 0.1872,
+      "in_mcs": true
+    },
+    {
+      "name": "q_sol_dec_l3a_placebo_book",
+      "mean_loss": 0.42308949696282205,
+      "mcs_p_value": 0.3962,
+      "in_mcs": true
+    },
+    {
+      "name": "q_sol_dec_l2_book",
+      "mean_loss": 0.4251229052837181,
+      "mcs_p_value": 0.3962,
+      "in_mcs": true
+    },
+    {
+      "name": "q_sol_dec_l1_book",
+      "mean_loss": 0.46845206091809094,
+      "mcs_p_value": 0.0022,
+      "in_mcs": false
+    },
+    {
+      "name": "q_sol_dec_l0_book",
+      "mean_loss": 0.6009166708946148,
+      "mcs_p_value": 0.0022,
+      "in_mcs": false
+    }
+  ]
+}

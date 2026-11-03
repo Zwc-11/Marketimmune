@@ -7,7 +7,7 @@ the browser, see ``frontend/src/lib/obliviousTrees.ts``) evaluates without the
 CatBoost runtime.
 
 The compact artifact written by :func:`compact_from_catboost_json` is what the web
-terminal loads. ``tests/models/test_oblivious_trees.py`` pins parity with
+terminal loads. ``tests/serving/test_oblivious_trees.py`` pins parity with
 ``CatBoostClassifier.predict_proba``.
 """
 
@@ -86,11 +86,13 @@ class ObliviousEnsemble:
             splits = tree["splits"]
             if any(split.get("split_type", "FloatFeature") != "FloatFeature" for split in splits):
                 raise ValueError("only float-feature splits are supported")
-            trees.append(ObliviousTree(
-                features=tuple(int(split["float_feature_index"]) for split in splits),
-                borders=tuple(float(split["border"]) for split in splits),
-                leaves=tuple(float(value) for value in tree["leaf_values"]),
-            ))
+            trees.append(
+                ObliviousTree(
+                    features=tuple(int(split["float_feature_index"]) for split in splits),
+                    borders=tuple(float(split["border"]) for split in splits),
+                    leaves=tuple(float(value) for value in tree["leaf_values"]),
+                )
+            )
         scale, bias = _scale_and_bias(payload.get("scale_and_bias"))
         n_features = len(payload["features_info"]["float_features"])
         return cls(trees=tuple(trees), n_features=n_features, scale=scale, bias=bias)
@@ -136,9 +138,7 @@ class ObliviousEnsemble:
             for tree_id in range(len(self.trees)):
                 index = np.zeros(matrix.shape[0], dtype=np.int64)
                 for depth, feature in enumerate(self._features[tree_id]):
-                    index |= (matrix[:, feature] > self._borders[tree_id, depth]).astype(
-                        np.int64
-                    ) << depth
+                    index |= (matrix[:, feature] > self._borders[tree_id, depth]).astype(np.int64) << depth
                 total += self._leaves[tree_id, index]
         scores: FloatArray = self.scale * total + self.bias
         return scores
@@ -164,10 +164,7 @@ def compact_from_catboost_json(
         "feature_columns": list(feature_columns),
         "scale": ensemble.scale,
         "bias": ensemble.bias,
-        "trees": [
-            {"f": list(tree.features), "b": list(tree.borders), "v": list(tree.leaves)}
-            for tree in ensemble.trees
-        ],
+        "trees": [{"f": list(tree.features), "b": list(tree.borders), "v": list(tree.leaves)} for tree in ensemble.trees],
         **dict(metadata or {}),
     }
 

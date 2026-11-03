@@ -1,0 +1,58 @@
+{
+  "loss": "pinball",
+  "tau": 0.1,
+  "files": [
+    "eval\\a1\\q_a1_eth_l0_trade.oof.parquet",
+    "eval\\a1\\q_a1_eth_l1_trade.oof.parquet",
+    "eval\\a1\\q_a1_eth_l2_trade.oof.parquet",
+    "eval\\a1\\q_a1_eth_l3_fee.oof.parquet",
+    "eval\\a1\\q_a1_eth_l3_fee_placebo.oof.parquet"
+  ],
+  "dates": "20260901..20261027,20261029..20261031",
+  "rows_common": 9317352,
+  "days": 60,
+  "alpha": 0.1,
+  "included": [
+    "q_a1_eth_l2_trade",
+    "q_a1_eth_l3_fee",
+    "q_a1_eth_l3_fee_placebo"
+  ],
+  "elimination_order": [
+    "q_a1_eth_l0_trade",
+    "q_a1_eth_l1_trade",
+    "q_a1_eth_l2_trade",
+    "q_a1_eth_l3_fee_placebo"
+  ],
+  "models": [
+    {
+      "name": "q_a1_eth_l3_fee",
+      "mean_loss": 0.7712036440552912,
+      "mcs_p_value": 1.0,
+      "in_mcs": true
+    },
+    {
+      "name": "q_a1_eth_l3_fee_placebo",
+      "mean_loss": 0.7720945293688902,
+      "mcs_p_value": 0.658,
+      "in_mcs": true
+    },
+    {
+      "name": "q_a1_eth_l2_trade",
+      "mean_loss": 0.7731505808685217,
+      "mcs_p_value": 0.1802,
+      "in_mcs": true
+    },
+    {
+      "name": "q_a1_eth_l1_trade",
+      "mean_loss": 0.7900856475230519,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    },
+    {
+      "name": "q_a1_eth_l0_trade",
+      "mean_loss": 0.8573285644629699,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    }
+  ]
+}

@@ -6,36 +6,59 @@
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::Path;
+use std::str;
 
 use lz4_flex::frame::FrameDecoder;
 
-const BUF: usize = 1 << 20;
-
-/// Buffered line reader over any LZ4-frame stream.
-pub fn reader<R: Read>(inner: R) -> BufReader<FrameDecoder<R>> {
-    BufReader::with_capacity(BUF, FrameDecoder::new(inner))
+/// Line reader over any LZ4-frame stream. The decoder is itself a `BufRead` over
+/// each decompressed block, so wrapping it in a `BufReader` would only add a copy.
+pub fn reader<R: Read>(inner: R) -> FrameDecoder<R> {
+    FrameDecoder::new(inner)
 }
 
-/// Buffered line reader over an LZ4-frame file.
-pub fn open(path: &Path) -> io::Result<BufReader<FrameDecoder<File>>> {
-    Ok(reader(File::open(path)?))
+/// Line reader over an LZ4-frame file.
+pub fn open(path: &Path) -> io::Result<FrameDecoder<BufReader<File>>> {
+    Ok(reader(BufReader::new(File::open(path)?)))
 }
 
-/// Call `f(line_index, line)` for each line, reusing one buffer. The trailing
-/// newline is stripped. Returns the number of lines read.
+/// Call `f(line_index, line)` for each line, with the trailing `\n` or `\r\n` stripped.
+/// Returns the number of lines read.
+///
+/// Lines are passed straight out of the reader's buffer; only a line that straddles
+/// two buffer fills is copied. A line that is not UTF-8 is an `InvalidData` error.
 pub fn for_each_line<R: BufRead>(mut r: R, mut f: impl FnMut(u64, &str)) -> io::Result<u64> {
-    let mut buf = String::with_capacity(1 << 16);
-    let mut i = 0u64;
-    loop {
-        buf.clear();
-        if r.read_line(&mut buf)? == 0 {
-            return Ok(i);
-        }
-        let line = buf.strip_suffix('\n').unwrap_or(&buf);
-        let line = line.strip_suffix('\r').unwrap_or(line);
-        f(i, line);
+    let mut i = 0;
+    let mut emit = |line: &[u8]| {
+        let line = line.strip_suffix(b"\r").unwrap_or(line);
+        f(i, str::from_utf8(line).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?);
         i += 1;
+        io::Result::Ok(())
+    };
+    let mut carry = Vec::new();
+    loop {
+        let buf = r.fill_buf()?;
+        if buf.is_empty() {
+            break;
+        }
+        let mut rest = buf;
+        while let Some(nl) = memchr::memchr(b'\n', rest) {
+            if carry.is_empty() {
+                emit(&rest[..nl])?;
+            } else {
+                carry.extend_from_slice(&rest[..nl]);
+                emit(&carry)?;
+                carry.clear();
+            }
+            rest = &rest[nl + 1..];
+        }
+        carry.extend_from_slice(rest);
+        let n = buf.len();
+        r.consume(n);
     }
+    if !carry.is_empty() {
+        emit(&carry)?;
+    }
+    Ok(i)
 }
 
 /// Block height of line `i` (0-based) of a `replica_cmds` file named after
@@ -65,6 +88,29 @@ mod tests {
         assert_eq!(got[0], (0, "{\"i\":0}".to_string()));
         assert_eq!(got[999].1, "{\"i\":999}");
         assert_eq!(got[1000].1, "last-no-newline");
+    }
+
+    #[test]
+    fn lines_straddling_refills() {
+        // Reference: the old `read_line` loop, which stripped one `\n` and then one `\r`.
+        let text = format!("a\r\n\nbb\rb\r\r\n{}\n\u{e9}t\u{e9}\nlast\r", "x".repeat(300));
+        let want: Vec<&str> = text
+            .split_inclusive('\n')
+            .map(|l| l.strip_suffix('\n').unwrap_or(l))
+            .map(|l| l.strip_suffix('\r').unwrap_or(l))
+            .collect();
+        for cap in [1, 2, 3, 7, 64, 1 << 12] {
+            let mut got = Vec::new();
+            let n = for_each_line(BufReader::with_capacity(cap, text.as_bytes()), |i, l| {
+                assert_eq!(i as usize, got.len());
+                got.push(l.to_string());
+            })
+            .unwrap();
+            assert_eq!(got, want, "capacity {cap}");
+            assert_eq!(n as usize, want.len());
+        }
+        let err = for_each_line(&b"ok\n\xff\n"[..], |_, _| {}).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
     }
 
     #[test]

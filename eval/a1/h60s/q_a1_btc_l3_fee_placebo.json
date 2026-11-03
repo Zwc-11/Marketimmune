@@ -1,0 +1,551 @@
+{
+  "coin": "BTC",
+  "rung": "l3_fee_placebo",
+  "model": "quantile",
+  "horizon": "60s",
+  "tested_days": 77,
+  "rows_tested": 25063443,
+  "leakage_safe": true,
+  "oof_predictions": "eval\\a1\\h60s\\q_a1_btc_l3_fee_placebo.oof.parquet",
+  "days": [
+    {
+      "date": "20260506",
+      "seed": 42,
+      "leakage_safe": true,
+      "rows": 3892789,
+      "seconds": 39.1
+    },
+    {
+      "date": "20260513",
+      "seed": 43,
+      "leakage_safe": true,
+      "rows": 3219509,
+      "seconds": 30.9
+    },
+    {
+      "date": "20260520",
+      "seed": 44,
+      "leakage_safe": true,
+      "rows": 2843427,
+      "seconds": 27.3
+    },
+    {
+      "date": "20260527",
+      "seed": 45,
+      "leakage_safe": true,
+      "rows": 2556810,
+      "seconds": 24.1
+    },
+    {
+      "date": "20260603",
+      "seed": 46,
+      "leakage_safe": true,
+      "rows": 3768382,
+      "seconds": 34.0
+    },
+    {
+      "date": "20260610",
+      "seed": 47,
+      "leakage_safe": true,
+      "rows": 5912881,
+      "seconds": 58.1
+    },
+    {
+      "date": "20260617",
+      "seed": 48,
+      "leakage_safe": true,
+      "rows": 3090909,
+      "seconds": 29.6
+    },
+    {
+      "date": "20260624",
+      "seed": 49,
+      "leakage_safe": true,
+      "rows": 3189642,
+      "seconds": 29.7
+    },
+    {
+      "date": "20260701",
+      "seed": 50,
+      "leakage_safe": true,
+      "rows": 3941635,
+      "seconds": 38.9
+    },
+    {
+      "date": "20260708",
+      "seed": 51,
+      "leakage_safe": true,
+      "rows": 3459040,
+      "seconds": 35.0
+    },
+    {
+      "date": "20260715",
+      "seed": 52,
+      "leakage_safe": true,
+      "rows": 2615667,
+      "seconds": 26.5
+    },
+    {
+      "date": "20260722",
+      "seed": 53,
+      "leakage_safe": true,
+      "rows": 2216623,
+      "seconds": 22.5
+    },
+    {
+      "date": "20260729",
+      "seed": 54,
+      "leakage_safe": true,
+      "rows": 2307474,
+      "seconds": 22.6
+    },
+    {
+      "date": "20260805",
+      "seed": 55,
+      "leakage_safe": true,
+      "rows": 2157786,
+      "seconds": 21.1
+    },
+    {
+      "date": "20260812",
+      "seed": 56,
+      "leakage_safe": true,
+      "rows": 1740235,
+      "seconds": 17.4
+    },
+    {
+      "date": "20260819",
+      "seed": 57,
+      "leakage_safe": true,
+      "rows": 1971052,
+      "seconds": 17.2
+    },
+    {
+      "date": "20260826",
+      "seed": 58,
+      "leakage_safe": true,
+      "rows": 4034866,
+      "seconds": 40.5
+    },
+    {
+      "date": "20260901",
+      "seed": 59,
+      "leakage_safe": true,
+      "rows": 2766527,
+      "seconds": 26.7
+    },
+    {
+      "date": "20260902",
+      "seed": 60,
+      "leakage_safe": true,
+      "rows": 2598166,
+      "seconds": 25.1
+    },
+    {
+      "date": "20260903",
+      "seed": 61,
+      "leakage_safe": true,
+      "rows": 2751709,
+      "seconds": 25.8
+    },
+    {
+      "date": "20260904",
+      "seed": 62,
+      "leakage_safe": true,
+      "rows": 2739372,
+      "seconds": 26.0
+    },
+    {
+      "date": "20260905",
+      "seed": 63,
+      "leakage_safe": true,
+      "rows": 2409137,
+      "seconds": 24.5
+    },
+    {
+      "date": "20260906",
+      "seed": 64,
+      "leakage_safe": true,
+      "rows": 2397145,
+      "seconds": 24.0
+    },
+    {
+      "date": "20260907",
+      "seed": 65,
+      "leakage_safe": true,
+      "rows": 2361993,
+      "seconds": 23.5
+    },
+    {
+      "date": "20260908",
+      "seed": 66,
+      "leakage_safe": true,
+      "rows": 2340625,
+      "seconds": 22.9
+    },
+    {
+      "date": "20260909",
+      "seed": 67,
+      "leakage_safe": true,
+      "rows": 2341949,
+      "seconds": 22.3
+    },
+    {
+      "date": "20260910",
+      "seed": 68,
+      "leakage_safe": true,
+      "rows": 2293059,
+      "seconds": 21.8
+    },
+    {
+      "date": "20260911",
+      "seed": 69,
+      "leakage_safe": true,
+      "rows": 2152842,
+      "seconds": 20.6
+    },
+    {
+      "date": "20260912",
+      "seed": 70,
+      "leakage_safe": true,
+      "rows": 1883502,
+      "seconds": 19.5
+    },
+    {
+      "date": "20260913",
+      "seed": 71,
+      "leakage_safe": true,
+      "rows": 1903494,
+      "seconds": 18.9
+    },
+    {
+      "date": "20260914",
+      "seed": 72,
+      "leakage_safe": true,
+      "rows": 2098986,
+      "seconds": 20.2
+    },
+    {
+      "date": "20260915",
+      "seed": 73,
+      "leakage_safe": true,
+      "rows": 2362383,
+      "seconds": 21.4
+    },
+    {
+      "date": "20260916",
+      "seed": 74,
+      "leakage_safe": true,
+      "rows": 2403539,
+      "seconds": 23.6
+    },
+    {
+      "date": "20260917",
+      "seed": 75,
+      "leakage_safe": true,
+      "rows": 2299418,
+      "seconds": 22.7
+    },
+    {
+      "date": "20260918",
+      "seed": 76,
+      "leakage_safe": true,
+      "rows": 2425660,
+      "seconds": 23.4
+    },
+    {
+      "date": "20260919",
+      "seed": 77,
+      "leakage_safe": true,
+      "rows": 2259982,
+      "seconds": 23.3
+    },
+    {
+      "date": "20260920",
+      "seed": 78,
+      "leakage_safe": true,
+      "rows": 2400318,
+      "seconds": 24.2
+    },
+    {
+      "date": "20260921",
+      "seed": 79,
+      "leakage_safe": true,
+      "rows": 2862482,
+      "seconds": 26.0
+    },
+    {
+      "date": "20260922",
+      "seed": 80,
+      "leakage_safe": true,
+      "rows": 2895406,
+      "seconds": 28.3
+    },
+    {
+      "date": "20260923",
+      "seed": 81,
+      "leakage_safe": true,
+      "rows": 2878723,
+      "seconds": 27.1
+    },
+    {
+      "date": "20260924",
+      "seed": 82,
+      "leakage_safe": true,
+      "rows": 2926626,
+      "seconds": 28.1
+    },
+    {
+      "date": "20260925",
+      "seed": 83,
+      "leakage_safe": true,
+      "rows": 2975126,
+      "seconds": 28.8
+    },
+    {
+      "date": "20260926",
+      "seed": 84,
+      "leakage_safe": true,
+      "rows": 2665451,
+      "seconds": 28.3
+    },
+    {
+      "date": "20260927",
+      "seed": 85,
+      "leakage_safe": true,
+      "rows": 2642619,
+      "seconds": 26.7
+    },
+    {
+      "date": "20260928",
+      "seed": 86,
+      "leakage_safe": true,
+      "rows": 2748733,
+      "seconds": 27.1
+    },
+    {
+      "date": "20260929",
+      "seed": 87,
+      "leakage_safe": true,
+      "rows": 2405533,
+      "seconds": 24.3
+    },
+    {
+      "date": "20260930",
+      "seed": 88,
+      "leakage_safe": true,
+      "rows": 2421225,
+      "seconds": 22.8
+    },
+    {
+      "date": "20261001",
+      "seed": 89,
+      "leakage_safe": true,
+      "rows": 2267659,
+      "seconds": 21.2
+    },
+    {
+      "date": "20261002",
+      "seed": 90,
+      "leakage_safe": true,
+      "rows": 2272855,
+      "seconds": 21.3
+    },
+    {
+      "date": "20261003",
+      "seed": 91,
+      "leakage_safe": true,
+      "rows": 2069537,
+      "seconds": 20.5
+    },
+    {
+      "date": "20261004",
+      "seed": 92,
+      "leakage_safe": true,
+      "rows": 2124345,
+      "seconds": 21.5
+    },
+    {
+      "date": "20261005",
+      "seed": 93,
+      "leakage_safe": true,
+      "rows": 2262029,
+      "seconds": 21.9
+    },
+    {
+      "date": "20261006",
+      "seed": 94,
+      "leakage_safe": true,
+      "rows": 2186871,
+      "seconds": 21.9
+    },
+    {
+      "date": "20261007",
+      "seed": 95,
+      "leakage_safe": true,
+      "rows": 2244678,
+      "seconds": 21.2
+    },
+    {
+      "date": "20261008",
+      "seed": 96,
+      "leakage_safe": true,
+      "rows": 2279104,
+      "seconds": 21.6
+    },
+    {
+      "date": "20261009",
+      "seed": 97,
+      "leakage_safe": true,
+      "rows": 2227117,
+      "seconds": 22.7
+    },
+    {
+      "date": "20261010",
+      "seed": 98,
+      "leakage_safe": true,
+      "rows": 1941745,
+      "seconds": 20.6
+    },
+    {
+      "date": "20261011",
+      "seed": 99,
+      "leakage_safe": true,
+      "rows": 1980213,
+      "seconds": 19.9
+    },
+    {
+      "date": "20261012",
+      "seed": 100,
+      "leakage_safe": true,
+      "rows": 2079714,
+      "seconds": 20.5
+    },
+    {
+      "date": "20261013",
+      "seed": 101,
+      "leakage_safe": true,
+      "rows": 2071810,
+      "seconds": 20.6
+    },
+    {
+      "date": "20261014",
+      "seed": 102,
+      "leakage_safe": true,
+      "rows": 2123606,
+      "seconds": 20.2
+    },
+    {
+      "date": "20261015",
+      "seed": 103,
+      "leakage_safe": true,
+      "rows": 2228315,
+      "seconds": 20.9
+    },
+    {
+      "date": "20261016",
+      "seed": 104,
+      "leakage_safe": true,
+      "rows": 2113648,
+      "seconds": 19.9
+    },
+    {
+      "date": "20261017",
+      "seed": 105,
+      "leakage_safe": true,
+      "rows": 1989666,
+      "seconds": 20.0
+    },
+    {
+      "date": "20261018",
+      "seed": 106,
+      "leakage_safe": true,
+      "rows": 2114087,
+      "seconds": 19.9
+    },
+    {
+      "date": "20261019",
+      "seed": 107,
+      "leakage_safe": true,
+      "rows": 2225642,
+      "seconds": 21.6
+    },
+    {
+      "date": "20261020",
+      "seed": 108,
+      "leakage_safe": true,
+      "rows": 2227594,
+      "seconds": 21.6
+    },
+    {
+      "date": "20261021",
+      "seed": 109,
+      "leakage_safe": true,
+      "rows": 2209414,
+      "seconds": 20.7
+    },
+    {
+      "date": "20261022",
+      "seed": 110,
+      "leakage_safe": true,
+      "rows": 2261676,
+      "seconds": 21.7
+    },
+    {
+      "date": "20261023",
+      "seed": 111,
+      "leakage_safe": true,
+      "rows": 2092440,
+      "seconds": 19.7
+    },
+    {
+      "date": "20261024",
+      "seed": 112,
+      "leakage_safe": true,
+      "rows": 2047342,
+      "seconds": 19.9
+    },
+    {
+      "date": "20261025",
+      "seed": 113,
+      "leakage_safe": true,
+      "rows": 2101691,
+      "seconds": 21.0
+    },
+    {
+      "date": "20261026",
+      "seed": 114,
+      "leakage_safe": true,
+      "rows": 2168342,
+      "seconds": 21.3
+    },
+    {
+      "date": "20261027",
+      "seed": 115,
+      "leakage_safe": true,
+      "rows": 2138634,
+      "seconds": 20.9
+    },
+    {
+      "date": "20261029",
+      "seed": 116,
+      "leakage_safe": true,
+      "rows": 2052715,
+      "seconds": 18.9
+    },
+    {
+      "date": "20261030",
+      "seed": 117,
+      "leakage_safe": true,
+      "rows": 2164541,
+      "seconds": 19.8
+    },
+    {
+      "date": "20261031",
+      "seed": 118,
+      "leakage_safe": true,
+      "rows": 2051782,
+      "seconds": 20.6
+    }
+  ]
+}

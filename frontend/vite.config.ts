@@ -49,7 +49,6 @@ function quietApiWhenOffline(): Plugin {
 // any static host. Django is optional and only adds loop state and promoted-model health.
 export default defineConfig({
     plugins: [react(), quietApiWhenOffline()],
-    envDir: resolve(__dirname, '..'),
     server: {
         port: 5173,
         // The model page imports the committed benchmark report from ../eval.
@@ -68,7 +67,6 @@ export default defineConfig({
                 manualChunks: {
                     react: ['react', 'react-dom'],
                     charts: ['lightweight-charts'],
-                    motion: ['motion'],
                 },
             },
         },

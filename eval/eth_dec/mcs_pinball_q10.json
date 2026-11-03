@@ -1,0 +1,75 @@
+{
+  "loss": "pinball",
+  "tau": 0.1,
+  "files": [
+    "eval\\eth_dec\\q_eth_dec_l0_book.oof.parquet",
+    "eval\\eth_dec\\q_eth_dec_l1_book.oof.parquet",
+    "eval\\eth_dec\\q_eth_dec_l2_book.oof.parquet",
+    "eval\\eth_dec\\q_eth_dec_l3a_book.oof.parquet",
+    "eval\\eth_dec\\q_eth_dec_l3b_book.oof.parquet",
+    "eval\\eth_dec\\q_eth_dec_l3_book.oof.parquet",
+    "eval\\eth_dec\\q_eth_dec_l3a_placebo_book.oof.parquet"
+  ],
+  "rows_common": 4159841,
+  "days": 22,
+  "alpha": 0.1,
+  "included": [
+    "q_eth_dec_l2_book",
+    "q_eth_dec_l3a_book",
+    "q_eth_dec_l3b_book",
+    "q_eth_dec_l3_book",
+    "q_eth_dec_l3a_placebo_book"
+  ],
+  "elimination_order": [
+    "q_eth_dec_l0_book",
+    "q_eth_dec_l1_book",
+    "q_eth_dec_l3b_book",
+    "q_eth_dec_l2_book",
+    "q_eth_dec_l3_book",
+    "q_eth_dec_l3a_book"
+  ],
+  "models": [
+    {
+      "name": "q_eth_dec_l3a_placebo_book",
+      "mean_loss": 0.32906442833495214,
+      "mcs_p_value": 1.0,
+      "in_mcs": true
+    },
+    {
+      "name": "q_eth_dec_l3a_book",
+      "mean_loss": 0.3292905993331535,
+      "mcs_p_value": 0.7302,
+      "in_mcs": true
+    },
+    {
+      "name": "q_eth_dec_l2_book",
+      "mean_loss": 0.33018315785140245,
+      "mcs_p_value": 0.7302,
+      "in_mcs": true
+    },
+    {
+      "name": "q_eth_dec_l3_book",
+      "mean_loss": 0.33049114928686996,
+      "mcs_p_value": 0.7302,
+      "in_mcs": true
+    },
+    {
+      "name": "q_eth_dec_l3b_book",
+      "mean_loss": 0.3308014886266388,
+      "mcs_p_value": 0.6182,
+      "in_mcs": true
+    },
+    {
+      "name": "q_eth_dec_l1_book",
+      "mean_loss": 0.39580888049615637,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    },
+    {
+      "name": "q_eth_dec_l0_book",
+      "mean_loss": 0.5250040255138011,
+      "mcs_p_value": 0.0,
+      "in_mcs": false
+    }
+  ]
+}

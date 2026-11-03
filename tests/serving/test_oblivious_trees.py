@@ -51,9 +51,7 @@ def test_nan_features_go_left_like_catboost_min_mode() -> None:
 
 
 def test_compact_round_trip_and_metadata(tmp_path: Path) -> None:
-    compact = compact_from_catboost_json(
-        TINY_EXPORT, feature_columns=["a", "b"], metadata={"coin": "SOL"}
-    )
+    compact = compact_from_catboost_json(TINY_EXPORT, feature_columns=["a", "b"], metadata={"coin": "SOL"})
     path = tmp_path / "model.json"
     path.write_text(json.dumps(compact), encoding="utf-8")
 
@@ -136,9 +134,7 @@ def test_matches_catboost_predict_proba(tmp_path: Path) -> None:
     rng = np.random.default_rng(5)
     x = rng.normal(size=(3_000, 6))
     y = (x[:, 0] - 0.7 * x[:, 3] + rng.normal(size=3_000) > 0).astype(int)
-    model = catboost.CatBoostClassifier(
-        iterations=40, depth=5, verbose=False, random_seed=2, allow_writing_files=False
-    )
+    model = catboost.CatBoostClassifier(iterations=40, depth=5, verbose=False, random_seed=2, allow_writing_files=False)
     model.fit(x, y)
     exported = tmp_path / "m.json"
     model.save_model(str(exported), format="json")

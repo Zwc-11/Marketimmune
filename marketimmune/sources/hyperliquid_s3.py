@@ -1,25 +1,21 @@
-"""Requester-pays access to Hyperliquid's S3 buckets.
+"""Requester-pays access to Hyperliquid's S3 buckets (needs the ``aws`` extra).
 
-``hl-mainnet-node-data`` (ap-northeast-1) holds ``replica_cmds`` (every signed
-action, by block) and ``node_fills_by_block``. The requester pays for requests
-and transfer, so: list and stream from an instance in Tokyo, where transfer to
-EC2 in the same region is free, and download only compact Parquet.
+``hl-mainnet-node-data`` (ap-northeast-1) holds ``replica_cmds`` (every signed action, by
+block) and ``node_fills_by_block/hourly/<YYYYMMDD>/<H>.lz4``; ``hyperliquid-archive``
+(us-east-1) holds L2 books and asset contexts. The requester pays for requests and
+transfer, so list and stream from an instance in Tokyo, where transfer to EC2 in the same
+region is free, and download only compact Parquet.
 
-Layouts seen so far (confirm with :func:`discover`; the official bucket may differ
-from third-party copies):
-
-- ``replica_cmds/<start_time>/<YYYYMMDD>/<start_height>`` (node's own layout)
-  or ``replica_cmds/<YYYYMMDD>/<start_height>.lz4``. Each file holds 10,000
-  blocks; line ``i`` is block ``start_height + i + 1``.
-- ``node_fills_by_block/hourly/<YYYYMMDD>/<H>`` or ``node_fills_by_block/<YYYYMMDD>/<H>.lz4``.
+``replica_cmds`` has two layouts in the wild, both handled until the G0 probe settles which
+one the official bucket uses: ``replica_cmds/<start_time>/<YYYYMMDD>/<start_height>`` (the
+node's own) and ``replica_cmds/<YYYYMMDD>/<start_height>.lz4`` (third-party copies). Each
+file holds 10,000 blocks; line ``i`` is block ``start_height + i + 1``.
 """
 
 from __future__ import annotations
 
-import re
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -38,24 +34,33 @@ RP: dict[str, Any] = {"RequestPayer": "requester"}
 GET_PER_1000_USD = 0.00037
 EGRESS_INTERNET_USD_PER_GB = 0.114
 
-_DATE = re.compile(r"^\d{8}$")
-
 
 def client(region: str = NODE_REGION) -> S3Client:
+    # NOTE: imported here so the package and the server run without the aws extra.
     import boto3
+    from botocore.config import Config
 
-    return boto3.client("s3", region_name=region)
+    return boto3.client("s3", region_name=region, config=Config(retries={"max_attempts": 5, "mode": "standard"}))
 
 
-@dataclass(frozen=True)
+def fetcher(bucket: str, region: str) -> Callable[[str], bytes]:
+    """``key -> bytes`` GET for one bucket; boto3's standard mode retries throttles and 5xx."""
+    s3 = client(region)
+
+    def fetch(key: str) -> bytes:
+        return bytes(s3.get_object(Bucket=bucket, Key=key, **RP)["Body"].read())
+
+    return fetch
+
+
+@dataclass(frozen=True, slots=True)
 class Obj:
     key: str
     size: int
 
 
 def list_objects(s3: S3Client, prefix: str, bucket: str = NODE_BUCKET) -> Iterator[Obj]:
-    pages = s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix, **RP)
-    for page in pages:
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix, **RP):
         for o in page.get("Contents", []):
             yield Obj(o["Key"], int(o["Size"]))
 
@@ -63,53 +68,31 @@ def list_objects(s3: S3Client, prefix: str, bucket: str = NODE_BUCKET) -> Iterat
 def list_prefixes(s3: S3Client, prefix: str, bucket: str = NODE_BUCKET) -> list[str]:
     """Immediate sub-"directories" of ``prefix`` (which should end in ``/``)."""
     pages = s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix, Delimiter="/", **RP)
-    out: list[str] = []
-    for page in pages:
-        out.extend(p["Prefix"] for p in page.get("CommonPrefixes", []))
-    return out
+    return [p["Prefix"] for page in pages for p in page.get("CommonPrefixes", [])]
 
 
-def yyyymmdd(d: date) -> str:
-    return d.strftime("%Y%m%d")
+def file_number(key: str) -> int:
+    """``.../1191310000[.lz4]`` -> 1191310000 (a replica start height or a fills hour)."""
+    return int(key.rsplit("/", 1)[-1].removesuffix(".lz4"))
 
 
-def start_height(key: str) -> int:
-    """Start height encoded in a ``replica_cmds`` file name (``.../1191310000[.lz4]``)."""
-    name = key.rsplit("/", 1)[-1]
-    return int(name.removesuffix(".lz4"))
-
-
-def replica_day_prefixes(s3: S3Client, d: date) -> list[str]:
-    """Every prefix holding ``replica_cmds`` files for day ``d``, either layout."""
-    day = yyyymmdd(d)
+def replica_day(s3: S3Client, day: str) -> list[Obj]:
+    """All ``replica_cmds`` files for ``day`` (YYYYMMDD), either layout, sorted by start height."""
     top = list_prefixes(s3, "replica_cmds/")
-    if any(p.rstrip("/").rsplit("/", 1)[-1] == day for p in top):
-        return [f"replica_cmds/{day}/"]
-    out = []
-    for start_time in top:  # node layout: replica_cmds/<start_time>/<date>/
-        if f"{start_time}{day}/" in list_prefixes(s3, start_time):
-            out.append(f"{start_time}{day}/")
-    return out
+    if f"replica_cmds/{day}/" in top:
+        prefixes = [f"replica_cmds/{day}/"]
+    else:
+        prefixes = [f"{start}{day}/" for start in top if f"{start}{day}/" in list_prefixes(s3, start)]
+    return sorted((o for p in prefixes for o in list_objects(s3, p)), key=lambda o: file_number(o.key))
 
 
-def replica_day(s3: S3Client, d: date) -> list[Obj]:
-    """All ``replica_cmds`` files for a day, sorted by start height."""
-    objs = [o for p in replica_day_prefixes(s3, d) for o in list_objects(s3, p)]
-    return sorted(objs, key=lambda o: start_height(o.key))
-
-
-def fills_day(s3: S3Client, d: date) -> list[Obj]:
-    """``node_fills_by_block`` hourly files for a day, sorted by hour."""
-    day = yyyymmdd(d)
-    for prefix in (f"node_fills_by_block/hourly/{day}/", f"node_fills_by_block/{day}/"):
-        objs = list(list_objects(s3, prefix))
-        if objs:
-            return sorted(objs, key=lambda o: int(o.key.rsplit("/", 1)[-1].removesuffix(".lz4")))
-    return []
+def fills_day(s3: S3Client, day: str) -> list[Obj]:
+    """``node_fills_by_block`` hourly files for ``day`` (YYYYMMDD), sorted by hour."""
+    return sorted(list_objects(s3, f"node_fills_by_block/hourly/{day}/"), key=lambda o: file_number(o.key))
 
 
 def download(s3: S3Client, key: str, dest: Path, bucket: str = NODE_BUCKET) -> Path:
-    """Download one object (requester pays) unless an equal-size copy exists."""
+    """Download one object unless an equal-size copy exists."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     head = s3.head_object(Bucket=bucket, Key=key, **RP)
     if dest.exists() and dest.stat().st_size == head["ContentLength"]:

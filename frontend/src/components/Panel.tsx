@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 export function Panel({
     title,
@@ -6,27 +6,20 @@ export function Panel({
     className,
     children,
 }: {
-    title?: ReactNode;
+    title: ReactNode;
     actions?: ReactNode;
     className?: string;
     children: ReactNode;
 }) {
     return (
-        <section className={`panel ${className ?? ''}`}>
-            {(title || actions) && (
-                <header className="panel-head">
-                    {title && <h2 className="panel-title">{title}</h2>}
-                    {actions && <div className="panel-actions">{actions}</div>}
-                </header>
-            )}
+        <section className={className ? `panel ${className}` : 'panel'}>
+            <header className="panel-head">
+                <h2 className="panel-title">{title}</h2>
+                {actions && <div className="panel-actions">{actions}</div>}
+            </header>
             <div className="panel-body">{children}</div>
         </section>
     );
-}
-
-export interface TabDef<T extends string> {
-    id: T;
-    label: ReactNode;
 }
 
 /** Underlined text tabs, the venue convention for panel switching. */
@@ -36,18 +29,16 @@ export function Tabs<T extends string>({
     onChange,
     label,
 }: {
-    tabs: TabDef<T>[];
+    tabs: { id: T; label: string }[];
     value: T;
     onChange: (id: T) => void;
     label: string;
 }) {
-    const base = useId();
     return (
         <div className="tabs" role="tablist" aria-label={label}>
             {tabs.map((tab) => (
                 <button
                     key={tab.id}
-                    id={`${base}-${tab.id}`}
                     role="tab"
                     type="button"
                     className="tab"
@@ -76,14 +67,14 @@ export function Stat({
     hint,
     tone,
 }: {
-    label: ReactNode;
-    value: ReactNode;
+    label: string;
+    value: string;
     hint?: string;
-    tone?: 'up' | 'down' | 'warn';
+    tone?: 'up' | 'down';
 }) {
     return (
         <div className="stat" title={hint}>
-            <span className={`stat-label${hint ? ' has-hint' : ''}`}>{label}</span>
+            <span className={hint ? 'stat-label has-hint' : 'stat-label'}>{label}</span>
             <span className={`stat-value num ${tone ?? ''}`}>{value}</span>
         </div>
     );

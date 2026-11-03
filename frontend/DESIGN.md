@@ -21,8 +21,9 @@ dark, dense, numbers first, green and red with fixed meanings.
 - **designeer.xyz** (curated interface craft): translucent hairlines instead of
   grey borders, pill filters, tactile pressed buttons, slightly negative tracking
   on display type, dot-matrix data marks.
-- **React Bits** (`reactbits.dev`): four vendored components, each with a job
-  (see `frontend/src/components/reactbits/NOTICE.md`). No decorative backgrounds.
+- **React Bits** (`reactbits.dev`): three vendored components, each with a job,
+  trimmed to the props used (see `frontend/src/components/reactbits/NOTICE.md`).
+  No decorative backgrounds.
 
 ## Tokens (`frontend/src/styles/tokens.css`)
 
@@ -35,8 +36,6 @@ dark, dense, numbers first, green and red with fixed meanings.
 | `--fg` / `--fg-2` / `--fg-3` | `#e1e6eb` / `#9ea9b4` / `#67737f` | Text ladder |
 | `--bid` | `#1fb873` | Bids, maker gained, quote |
 | `--ask` | `#f0464f` | Asks, maker regretted, withhold |
-| `--warn` | `#e3a43b` | Sample data, decisions in the audit log |
-| `--cta` | `#f2f5f7` | The one primary button per view |
 
 Colour carries meaning only. The brand is monochrome so green and red stay loud.
 Dark only, like the venues.
@@ -90,9 +89,9 @@ Everything else stays quiet.
 
 ## Engineering rules
 
-- The feed (`src/market/feed.ts`) mutates private state per WebSocket message and
-  publishes one snapshot per animation frame. Slices keep identity until they
-  change; components select a slice with `useMarket(s => s.book)`.
+- The feed (`src/market/feed.ts`) replaces the snapshot slices a WebSocket message
+  changes and notifies subscribers once per animation frame. Slices keep identity
+  until they change; components select a slice with `useMarket(s => s.book)`.
 - Feature and model code in `src/lib/` mirrors Python and is pinned by
   `src/lib/parity.test.ts` against fixtures from
   `python -m marketimmune.cli.make_parity_fixtures`.

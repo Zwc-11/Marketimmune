@@ -2,12 +2,7 @@
 // maker fills with a 10 s markout horizon and a 1 bps fee hurdle
 // (marketimmune.labels.markout.MarkoutConfig); the live tape must use the same.
 
-function stringEnv(name: string, fallback: string): string {
-    const raw = import.meta.env[name] as string | undefined;
-    return raw === undefined || raw.trim() === '' ? fallback : raw.trim();
-}
-
-export const COIN = stringEnv('VITE_MARKETIMMUNE_COIN', 'SOL').toUpperCase();
+export const COIN = 'SOL';
 export const SYMBOL = `${COIN}-PERP`;
 
 export const HL_INFO_URL = 'https://api.hyperliquid.xyz/info';

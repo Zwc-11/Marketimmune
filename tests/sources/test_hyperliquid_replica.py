@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import lz4.frame
 import pytest
@@ -11,7 +12,7 @@ from tests.conftest import block_line, load_path
 SIG = {"r": "0x1", "s": "0x2", "v": 27}
 
 
-def order_action(asset: int, is_buy: bool, px: str, tif: str, prio: int | None) -> dict:
+def order_action(asset: int, is_buy: bool, px: str, tif: str, prio: int | None) -> dict[str, Any]:
     grouping: object = {"p": prio} if prio is not None else "na"
     return {
         "type": "order",
@@ -78,11 +79,7 @@ def write_file(tmp: Path, start: int, with_resps: bool) -> Path:
                             "status": "ok",
                             "response": {
                                 "type": "order",
-                                "data": {
-                                    "statuses": [
-                                        {"filled": {"oid": 950 + i, "totalSz": "0.1", "avgPx": "99.0"}}
-                                    ]
-                                },
+                                "data": {"statuses": [{"filled": {"oid": 950 + i, "totalSz": "0.1", "avgPx": "99.0"}}]},
                             },
                         },
                         "user": "0xsniper",
@@ -110,7 +107,6 @@ def write_file(tmp: Path, start: int, with_resps: bool) -> Path:
 
 def test_parse_time() -> None:
     assert replica.parse_time_ms("2025-12-15T12:00:00.123456789") == 1765800000123
-    assert replica.parse_time_ns("2025-12-15T12:00:00.123456789") == 1765800000123456789
     assert replica.parse_time_ms("2025-12-15T12:00:00") == 1765800000000
 
 

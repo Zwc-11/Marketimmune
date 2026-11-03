@@ -1,26 +1,21 @@
-"""``node_fills_by_block``: parse, dedupe legs, pair maker and taker, markouts.
+"""``node_fills_by_block`` as polars frames for the priority-fee study: parse, pair legs, markouts.
 
-Each line is one block: ``{"local_time", "block_time", "block_number",
-"events": [[user, fill], ...]}``. Every match appears twice, once per side;
-``crossed`` is true on the taker's leg. ``priorityGas`` (when present) is the
-taker's priority fee on that fill.
-
-CLI (runs on local bronze files):
-
-    python -m marketimmune.cli.find_first_priority_day first-priority --coin BTC \
-        data/bronze/node_fills_by_block
+Each line is one block: ``{"local_time", "block_time", "block_number", "events": [[user,
+fill], ...]}``. Every match appears twice, once per side; ``crossed`` is true on the taker's
+leg. ``priorityGas`` (when present) is the taker's priority fee on that fill. A forced fill
+carries ``liquidation = {"liquidatedUser", "markPx", "method"}``; ``method`` is ``"market"``
+(sent to the book) or ``"backstop"`` (taken over by the liquidator vault).
 """
 
 from __future__ import annotations
 
-import argparse
 import json
-import sys
-from collections.abc import Iterable, Iterator
+from collections.abc import Collection, Iterable, Iterator, Sequence
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+import lz4.frame
 import polars as pl
 
 FILL_SCHEMA: dict[str, Any] = {
@@ -45,6 +40,9 @@ FILL_SCHEMA: dict[str, Any] = {
     "cloid": pl.String,
     "twap_id": pl.Int64,
     "liquidation": pl.Boolean,
+    "liquidated_user": pl.String,
+    "liquidation_mark_px": pl.Float64,
+    "liquidation_method": pl.String,
     "builder_fee": pl.Float64,
     "priority_gas": pl.Float64,
 }
@@ -54,58 +52,73 @@ def _f(x: Any) -> float | None:
     return None if x is None else float(x)
 
 
-def rows(lines: Iterable[str]) -> Iterator[dict[str, Any]]:
-    """One dict per ``[user, fill]`` event."""
+def rows(lines: Iterable[str], coins: Collection[str] | None = None) -> Iterator[dict[str, Any]]:
+    """One dict per ``[user, fill]`` event (only ``coins``' when given: a block holds every coin's
+    fills, and a dict per leg is what costs memory)."""
     for line in lines:
-        if not line.strip():
-            continue
         blk = json.loads(line)
-        for user, f in blk.get("events", []):
+        for user, f in blk["events"]:
+            if coins is not None and f["coin"] not in coins:
+                continue
+            liq = f.get("liquidation") or {}
             yield {
-                "block_number": blk.get("block_number"),
-                "block_time": blk.get("block_time"),
-                "local_time": blk.get("local_time"),
+                "block_number": blk["block_number"],
+                "block_time": blk["block_time"],
+                "local_time": blk["local_time"],
                 "user": user,
                 "coin": f["coin"],
                 "px": float(f["px"]),
                 "sz": float(f["sz"]),
                 "side": f["side"],
-                "time_ms": f.get("time"),
-                "start_position": _f(f.get("startPosition")),
-                "dir": f.get("dir"),
-                "closed_pnl": _f(f.get("closedPnl")),
-                "hash": f.get("hash"),
-                "oid": f.get("oid"),
-                "crossed": f.get("crossed"),
-                "fee": _f(f.get("fee")),
-                "fee_token": f.get("feeToken"),
-                "tid": f.get("tid"),
+                "time_ms": f["time"],
+                "start_position": float(f["startPosition"]),
+                "dir": f["dir"],
+                "closed_pnl": float(f["closedPnl"]),
+                "hash": f["hash"],
+                "oid": f["oid"],
+                "crossed": f["crossed"],
+                "fee": float(f["fee"]),
+                "fee_token": f["feeToken"],
+                "tid": f["tid"],
                 "cloid": f.get("cloid"),
                 "twap_id": f.get("twapId"),
                 "liquidation": f.get("liquidation") is not None,
+                "liquidated_user": liq.get("liquidatedUser"),
+                "liquidation_mark_px": _f(liq.get("markPx")),
+                "liquidation_method": liq.get("method"),
                 "builder_fee": _f(f.get("builderFee")),
                 "priority_gas": _f(f.get("priorityGas")),
             }
 
 
 def parse(lines: Iterable[str]) -> pl.DataFrame:
-    df = pl.DataFrame(list(rows(lines)), schema=FILL_SCHEMA)
+    return to_frame(list(rows(lines)))
+
+
+def to_frame(records: Sequence[dict[str, Any]]) -> pl.DataFrame:
+    """``rows`` output as a typed frame (times parsed to UTC nanoseconds)."""
+    df = pl.DataFrame(records, schema=FILL_SCHEMA)
     return df.with_columns(
-        pl.col("block_time").str.to_datetime(time_unit="ns", time_zone="UTC", strict=False),
-        pl.col("local_time").str.to_datetime(time_unit="ns", time_zone="UTC", strict=False),
+        pl.col("block_time").str.to_datetime(time_unit="ns", time_zone="UTC"),
+        pl.col("local_time").str.to_datetime(time_unit="ns", time_zone="UTC"),
     )
 
 
-def read_lz4(path: Path) -> pl.DataFrame:
-    import lz4.frame
-
+def read_lz4(path: Path, contains: str = "") -> pl.DataFrame:
+    """One hourly file; ``contains`` keeps only the block lines holding that text, a cheap pre-filter before JSON."""
     with lz4.frame.open(path, "rt") as fh:
-        return parse(fh)
+        return parse(line for line in fh if contains in line)
 
 
-def dedupe_legs(df: pl.DataFrame) -> pl.DataFrame:
-    """One row per match: the taker's leg (``crossed = true``)."""
-    return df.filter(pl.col("crossed")).unique(subset=["coin", "tid"], keep="first", maintain_order=True)
+def execution_order(oid: str = "oid", side: str = "side") -> list[pl.Expr]:
+    """Sort keys that put a block's taker fills in execution order: by taker order id (orders
+    are numbered as they execute), then along each order's sweep (buys up the book, sells down).
+    The node lists a block's fills in neither order, and trade ids are not sequential. Checked
+    on SOL 2025-12-01: re-chaining each wallet's fills on ``start_position`` gives non-decreasing
+    taker oids in 98.8% of wallet-blocks with several taker orders, and the sweep order in
+    99.97% of multi-fill buy orders and 99.99% of sells; the file order gives the sweep in ~70%."""
+    sweep = pl.when(pl.col(side) == "B").then(pl.col("px")).otherwise(-pl.col("px"))
+    return [pl.col("block_number"), pl.col(oid), sweep]
 
 
 def pair_legs(df: pl.DataFrame) -> pl.DataFrame:
@@ -167,9 +180,7 @@ def markouts(pairs: pl.DataFrame, mids: pl.DataFrame, horizons_s: Iterable[float
     for h in horizons_s:
         tag = f"{h:g}s"
         shifted = out.with_columns(
-            (pl.col(t) + pl.duration(milliseconds=round(h * 1000), time_unit="ns"))
-            .dt.cast_time_unit("ns")
-            .alias("_t_h")
+            (pl.col(t) + pl.duration(milliseconds=round(h * 1000), time_unit="ns")).dt.cast_time_unit("ns").alias("_t_h")
         )
         shifted = shifted.sort("_t_h").join_asof(
             m.rename({"t": "_t_m", "mid": f"mid_{tag}"}),
@@ -181,9 +192,7 @@ def markouts(pairs: pl.DataFrame, mids: pl.DataFrame, horizons_s: Iterable[float
         )
         out = shifted.drop("_t_h", "_t_m").with_columns(
             (sigma * (pl.col(f"mid_{tag}") - pl.col("px")) / pl.col("mid_pre") * 1e4).alias(f"mo_{tag}"),
-            (sigma * (pl.col(f"mid_{tag}") - pl.col("mid_pre")) / pl.col("mid_pre") * 1e4).alias(
-                f"adv_{tag}"
-            ),
+            (sigma * (pl.col(f"mid_{tag}") - pl.col("mid_pre")) / pl.col("mid_pre") * 1e4).alias(f"adv_{tag}"),
         )
     return out.drop("_t_pre").sort(t)
 
@@ -197,25 +206,9 @@ def first_priority_day(days: Iterable[tuple[date, pl.DataFrame]], coin: str) -> 
     return None
 
 
-def _iter_local_days(root: Path) -> Iterator[tuple[date, pl.DataFrame]]:
+def local_days(root: Path, contains: str = "") -> Iterator[tuple[date, pl.DataFrame]]:
+    """``(day, fills)`` for every ``YYYYMMDD`` directory under ``root``, in date order."""
     for day_dir in sorted(p for p in root.rglob("*") if p.is_dir() and p.name.isdigit() and len(p.name) == 8):
         files = sorted(f for f in day_dir.iterdir() if f.is_file())
         if files:
-            yield datetime.strptime(day_dir.name, "%Y%m%d").date(), pl.concat([read_lz4(f) for f in files])
-
-
-def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="python -m marketimmune.cli.find_first_priority_day")
-    sub = ap.add_subparsers(dest="cmd", required=True)
-    fp = sub.add_parser("first-priority", help="first day priorityGas > 0 appears for a coin")
-    fp.add_argument("root", type=Path)
-    fp.add_argument("--coin", default="BTC")
-    args = ap.parse_args(argv)
-    if args.cmd == "first-priority":
-        d = first_priority_day(_iter_local_days(args.root), args.coin)
-        print(d.isoformat() if d else f"no priorityGas > 0 on {args.coin} in {args.root}")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+            yield datetime.strptime(day_dir.name, "%Y%m%d").date(), pl.concat([read_lz4(f, contains) for f in files])

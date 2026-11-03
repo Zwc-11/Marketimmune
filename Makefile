@@ -3,7 +3,7 @@ PYTHON ?= python
 COIN   ?= SOL
 DATES  ?= 20251201..20251231
 
-.PHONY: help install lint typecheck test coverage rust-test rust-lint bench wheel \
+.PHONY: help install format lint typecheck test coverage rust-test rust-lint bench wheel \
         frontend-test frontend-build server ci \
         download-albers download-binance albers-month train
 
@@ -11,10 +11,16 @@ help:  ## list targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-18s %s\n", $$1, $$2}'
 
 install:  ## editable install with training, server and dev extras
-	$(PYTHON) -m pip install -e ".[training,server,aws,fast,dev]"
+	$(PYTHON) -m pip install -e ".[training,server,aws,dev]"
 
-lint:  ## ruff + 1000-line limit
+format:  ## ruff fix + format, cargo fmt
+	$(PYTHON) -m ruff check --fix .
+	$(PYTHON) -m ruff format .
+	cargo fmt --all
+
+lint:  ## ruff + format check + 1000-line limit
 	$(PYTHON) -m ruff check .
+	$(PYTHON) -m ruff format --check .
 	$(PYTHON) scripts/check_line_limit.py
 
 typecheck:  ## mypy --strict on the package

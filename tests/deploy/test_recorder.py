@@ -59,9 +59,7 @@ def test_reconnects_logs_gaps_and_writes_every_message(tmp_path: Path) -> None:
     async def go() -> dict[str, int]:
         received: list[str] = []
         server, url = await _serve(n_msgs=5, drops=2, received=received)
-        feed = rec.Feed(
-            "fake", url, [{"method": "subscribe", "subscription": {"type": "trades", "coin": "BTC"}}]
-        )
+        feed = rec.Feed("fake", url, [{"method": "subscribe", "subscription": {"type": "trades", "coin": "BTC"}}])
         try:
             lines = await rec.record(tmp_path, [feed], max_seconds=4.0)
         finally:

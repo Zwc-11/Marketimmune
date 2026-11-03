@@ -13,14 +13,14 @@ export interface BookTop extends TopOfBookSizes {
     imbalance: number;
 }
 
-export interface AssetFeatures {
+interface AssetFeatures {
     basisBps: number;
     funding: number;
     openInterest: number;
     premium: number;
 }
 
-export interface FillInput {
+interface FillInput {
     px: number;
     sz: number;
     makerSide: 1 | -1;
