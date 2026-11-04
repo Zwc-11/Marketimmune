@@ -7,7 +7,10 @@ BTC, ETH and SOL perps: December 2025 from the Albers et al. L4 archive, April t
 2026 from Hyperliquid's node fills. Every number below is read from a committed report in
 `eval/`; the rules are in `docs/preregistration/` and the write-ups in `docs/research/`.
 
-![MarketImmune terminal: live SOL-PERP book, fill tape with the 10 s regret clock, and the quote guard](docs/images/terminal.png)
+![MarketImmune terminal, live: SOL-PERP book, fills settling on the 10 s regret clock, and the last 100 outcomes](docs/images/terminal.gif)
+
+20 seconds of the live terminal, recorded 2026-11-04
+([MP4](docs/images/terminal.mp4), [full-resolution still](docs/images/terminal.png)).
 
 ## Results
 
@@ -154,6 +157,8 @@ Each pre-registration states its exact label.
 
 `frontend/` is an exchange-style terminal (dark, dense, tabular, modelled on
 Hyperliquid and Phoenix) that runs with no backend:
+
+![MarketImmune terminal: live SOL-PERP book, fill tape with the 10 s regret clock, and the quote guard](docs/images/terminal.png)
 
 - **Live SOL-PERP market** straight from Hyperliquid's public WebSocket and REST
   API: 1m candles, order book with depth, mark, oracle, funding, open interest.
