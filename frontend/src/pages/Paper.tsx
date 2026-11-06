@@ -16,7 +16,14 @@ import { clockTime, fixed, integer, signed } from '../lib/format';
 
 const PRICE_COIN = 'BTC';
 const CHART_EXTRA = ['touch', 'zgap@0.25', 'kelly@0.5', 'reservation@1', 'hawkes@3'];
-const GROUP_LABEL = { candidate: 'Registered', control: 'Control', advanced: 'Exploratory', baseline: 'December', maker: 'Market maker' } as const;
+const GROUP_LABEL = {
+    candidate: 'Registered',
+    control: 'Control',
+    advanced: 'Exploratory',
+    baseline: 'December',
+    maker: 'Market maker',
+    wallets: 'Gap + wallets',
+} as const;
 
 function usd(value: number | null | undefined, decimals = 0): string {
     if (value === null || value === undefined || !Number.isFinite(value)) return '–';

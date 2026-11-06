@@ -146,10 +146,11 @@ export function registeredOf(state: PaperState): string[] {
 export function strategyGroup(
     name: string,
     registered: string[] = REGISTERED,
-): 'candidate' | 'control' | 'advanced' | 'baseline' | 'maker' {
+): 'candidate' | 'control' | 'advanced' | 'baseline' | 'maker' | 'wallets' {
     if (registered.includes(name)) return 'candidate';
     if (name === 'touch') return 'control';
     if (name.startsWith('mm@')) return 'maker';
+    if (name.startsWith('guard@')) return 'wallets';
     if (ADVANCED_PREFIXES.some((p) => name.startsWith(p))) return 'advanced';
     return 'baseline';
 }
