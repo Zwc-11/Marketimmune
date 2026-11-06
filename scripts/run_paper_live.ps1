@@ -13,8 +13,12 @@ $ErrorActionPreference = "Stop"
 Set-Location (Split-Path -Parent $PSScriptRoot)
 $Candidates = @($env:PYTHON, ".\.venv\Scripts\python.exe", "..\..\..\.venv\Scripts\python.exe") | Where-Object { $_ -and (Test-Path $_) }
 $Python = if ($Candidates) { @($Candidates)[0] } else { "python" }
-& $Python -c "import websockets, orjson" 2>$null
-if ($LASTEXITCODE -ne 0) { & $Python -m pip install "websockets>=15" "orjson>=3.10" }
+# find_spec prints nothing, so Windows PowerShell 5.1 does not turn a traceback into a stopping error
+& $Python -c "import importlib.util as u, sys; sys.exit(0 if u.find_spec('websockets') and u.find_spec('orjson') else 1)"
+if ($LASTEXITCODE -ne 0) {
+    & $Python -m pip install "websockets>=15" "orjson>=3.10"
+    if ($LASTEXITCODE -ne 0) { throw "pip could not install websockets and orjson into $Python" }
+}
 if (-not (Test-Path "frontend\dist\index.html")) { throw "frontend\dist is missing: run 'npm run build' in frontend\ first" }
 if (-not $Out) { $Out = "data\paper\live-" + (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmm") }
 
