@@ -107,8 +107,10 @@ From [`docs/research/paper-trading.md`](docs/research/paper-trading.md):
   quoter in 14-15 of 15 quarter-hours. It does not pass the registered rule: every interval
   includes zero.
 - **Its gain is position timing, not spread.** It quotes only the side the Coinbase lead leaves
-  safe, so its inventory leads Hyperliquid's next move. A longer registered run would have to
-  confirm it.
+  safe, so its inventory leads Hyperliquid's next move.
+- **A 24-hour confirmation is registered** ([registration](docs/preregistration/paper-confirmation-20261106.md)).
+  `scripts/run_paper_live.ps1` runs it and serves the web terminal's live Paper trading page at
+  `http://127.0.0.1:8765/#/paper`.
 
 ### 5. What is next, and what is closed
 
@@ -265,7 +267,7 @@ Every pipeline command is `python -m marketimmune.cli.<command> --help`; the
 | `quote_signals` / `simulate_quotes` | Quote-time model quantiles; the block simulator |
 | `hft_baseline` / `pull_frontier` | hftbacktest reconciliation; pull-limit frontier with a time-shifted placebo (`--back-off`: step back instead of pulling) |
 | `fee_tiers` | Every simulated maker's PnL at each Hyperliquid maker fee tier, and its break-even fee |
-| `paper_trade` / `paper_report` | Live paper trading on Hyperliquid (or a replay of a recorded night); its PnL by component |
+| `paper_trade` / `paper_report` | Live paper trading on Hyperliquid (or a replay of a recorded night), with the web terminal's Paper trading page (`--serve 8765 --web frontend/dist`); its PnL by component |
 
 ### Reproduce the results
 

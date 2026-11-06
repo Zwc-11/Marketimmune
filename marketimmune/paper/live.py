@@ -23,6 +23,7 @@ import orjson
 import websockets
 
 from marketimmune.logger import init_logger
+from marketimmune.paper.dashboard import Board
 from marketimmune.paper.engine import Engine
 from marketimmune.paper.events import STALE_TRADE_MS, CoinbaseBooks, parse_hl
 
@@ -121,15 +122,19 @@ async def cb_feed(engine: Engine, writer: RawWriter | None) -> None:
             backoff = min(backoff * 2, 30.0)
 
 
-async def run_live(engine: Engine, out: Path, seconds: float, raw: bool) -> None:
-    """Until ``seconds`` have passed or SIGINT / SIGTERM arrives; either way the run is written."""
+async def run_live(engine: Engine, out: Path, seconds: float, raw: bool, board: Board | None = None) -> bool:
+    """Until ``seconds`` have passed or SIGINT / SIGTERM arrives; either way the run is written by
+    the caller. Returns True when a signal stopped it. ``board`` is refreshed every tick."""
     writer = RawWriter(out / "raw") if raw else None
     feeds = [asyncio.create_task(hl_feed(engine, writer)), asyncio.create_task(cb_feed(engine, writer))]
     stop = time.monotonic() + seconds
     stopped = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stopped.set)
+        try:
+            loop.add_signal_handler(sig, stopped.set)
+        except NotImplementedError:  # Windows: no loop signal handlers; Ctrl+C still sets the event
+            signal.signal(sig, lambda *_: loop.call_soon_threadsafe(stopped.set))
     next_write = time.monotonic() + WRITE_S
     late = 0
     try:
@@ -137,6 +142,8 @@ async def run_live(engine: Engine, out: Path, seconds: float, raw: bool) -> None
             await asyncio.sleep(TICK_MS / 1000)
             t0 = time.perf_counter()
             engine.tick(now_ms())
+            if board is not None:
+                board.sample(now_ms())
             late += (time.perf_counter() - t0) > 0.05
             if time.monotonic() >= next_write:
                 next_write = time.monotonic() + WRITE_S
@@ -153,6 +160,7 @@ async def run_live(engine: Engine, out: Path, seconds: float, raw: bool) -> None
                 await f
         if writer is not None:
             writer.close()
+    return stopped.is_set()
 
 
 def raw_lines(root: Path) -> Iterator[tuple[int, str, bytes]]:

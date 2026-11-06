@@ -16,6 +16,19 @@ once 20 min of rows exist, a ridge regression of the next second's mid move (bps
 standardised features is refitted on all rows whose label is known. Each refit first scores the
 previous fit on the rows it has not seen (out-of-sample R^2), so the log is a walk-forward record.
 
+**Online estimators** (on the 100 ms grid, for the strategies in ``paper.strategies``):
+
+- ``sigma_1s``: the EWMA (half-life 5 min) standard deviation of the seen mid's 1 s log return, bps.
+- ``gap_sigma``: the same for the gap itself.
+- ``forecast``: the expected seen-mid move over the next 10 s, ``b * gap``. ``b`` is a
+  recursive least-squares slope with exponential forgetting (half-life 30 min) and a ridge
+  prior toward 0, fitted on each grid row's realised 10 s move. If the gap closes like an
+  Ornstein-Uhlenbeck process and Hyperliquid does a share ``beta`` of the closing, ``b`` estimates
+  ``beta * (1 - exp(-theta * 10 s))``.
+- ``intensity_ratio``: each side's taker-arrival intensity with an exponential (Hawkes) kernel,
+  ``lambda(t) = sum exp(-(t - t_i) / 2 s)`` over that side's trades, divided by its own 10-minute
+  EWMA. Above 1, trades are arriving in a burst.
+
 Times: ``local_ms`` is when a message arrived; ``t_ms`` is Hyperliquid's block time.
 """
 
@@ -44,6 +57,12 @@ WARMUP_ROWS = 12_000  # 20 min of 100 ms rows
 REFIT_MS = 600_000
 MAX_ROWS = 108_000  # 3 h
 RIDGE_LAMBDA = 1.0
+VOL_HALF_LIFE_MS = 300_000  # 1 s return variance and gap variance
+FORECAST_MS = 10_000  # the lead-lag forecast's horizon
+FORECAST_HALF_LIFE_MS = 1_800_000
+FORECAST_PRIOR = 2_000.0  # ridge prior on the forecast's slope, in gap bps^2 of grid rows
+HAWKES_DECAY_MS = 2_000
+HAWKES_BASE_HALF_LIFE_MS = 600_000
 FEATURES = ("gap", "ref_ret_1s", "ref_ret_5s", "hl_ret_1s", "hl_ret_5s", "imb_1s", "imb_5s", "tox_buy_5s", "tox_sell_5s", "spread")
 
 
@@ -156,6 +175,14 @@ class CoinState:
         self.fitted_ms = 0
         self.fit_log: list[dict[str, Any]] = []
         self._fit_upto = 0  # rows the current model was fitted on
+        self.var_1s: float | None = None
+        self.gap_var: float | None = None
+        self.fc_pending: deque[tuple[int, float, float]] = deque()  # grid ms, gap, seen mid
+        self.fc_sxx = 0.0
+        self.fc_sxy = 0.0
+        self.fc_ms = 0
+        self.hawkes: dict[int, tuple[float, int]] = {1: (0.0, 0), -1: (0.0, 0)}  # side -> intensity, local ms
+        self.hawkes_base: dict[int, float | None] = {1: None, -1: None}
 
     # --- events
     def on_top(self, ev: Top, local_ms: int) -> None:
@@ -173,6 +200,8 @@ class CoinState:
         self.depth = ev
 
     def on_trade(self, ev: Trade, local_ms: int) -> None:
+        side = 1 if ev.taker_buy else -1
+        self.hawkes[side] = (self.intensity(side, local_ms) + 1.0, local_ms)
         notional = ev.px * ev.sz
         self.flow.append((local_ms, notional if ev.taker_buy else -notional, notional, self.wallets.score(ev.taker)))
         mid = self.exch.at(ev.t_ms)
@@ -188,6 +217,55 @@ class CoinState:
         if self.top is None or self.sz_decimals is None:
             return None
         return tick_size(self.top.mid, self.sz_decimals)
+
+    # --- online estimators
+    def intensity(self, side: int, local_ms: int) -> float:
+        lam, t = self.hawkes[side]
+        return lam * math.exp(-max(local_ms - t, 0) / HAWKES_DECAY_MS)
+
+    def intensity_ratio(self, side: int, local_ms: int) -> float | None:
+        base = self.hawkes_base[side]
+        return self.intensity(side, local_ms) / base if base else None
+
+    @property
+    def sigma_1s(self) -> float | None:
+        return math.sqrt(self.var_1s) if self.var_1s is not None else None
+
+    @property
+    def gap_sigma(self) -> float | None:
+        return math.sqrt(self.gap_var) if self.gap_var is not None else None
+
+    @property
+    def forecast_slope(self) -> float:
+        return self.fc_sxy / (self.fc_sxx + FORECAST_PRIOR)
+
+    def forecast(self) -> float | None:
+        """Expected seen-mid move over the next 10 s, bps."""
+        gap = self.gap()
+        return None if gap is None else self.forecast_slope * gap
+
+    def _estimate(self, local_ms: int, gap: float) -> None:
+        a = 1.0 - math.exp(-math.log(2) * GRID_MS / VOL_HALF_LIFE_MS)
+        r = log_bps(self.view.at(local_ms), self.view.at(local_ms - 1_000))
+        self.var_1s = r * r if self.var_1s is None else self.var_1s + a * (r * r - self.var_1s)
+        self.gap_var = gap * gap if self.gap_var is None else self.gap_var + a * (gap * gap - self.gap_var)
+        mid = self.view.at(local_ms)
+        if mid is not None:
+            self.fc_pending.append((local_ms, gap, mid))
+        while self.fc_pending and self.fc_pending[0][0] + FORECAST_MS <= local_ms:
+            t0, g0, m0 = self.fc_pending.popleft()
+            if t0 + FORECAST_MS + 2 * GRID_MS < local_ms or mid is None:
+                continue  # a gap in the grid: no clean 10 s label
+            decay = math.exp(-math.log(2) * max(local_ms - self.fc_ms, 0) / FORECAST_HALF_LIFE_MS) if self.fc_ms else 1.0
+            y = log_bps(mid, m0)
+            self.fc_sxx = decay * self.fc_sxx + g0 * g0
+            self.fc_sxy = decay * self.fc_sxy + g0 * y
+            self.fc_ms = local_ms
+        b = 1.0 - math.exp(-math.log(2) * GRID_MS / HAWKES_BASE_HALF_LIFE_MS)
+        for side in (1, -1):
+            lam = self.intensity(side, local_ms)
+            base = self.hawkes_base[side]
+            self.hawkes_base[side] = lam if base is None else base + b * (lam - base)
 
     # --- features
     def raw_gap(self) -> float | None:
@@ -252,6 +330,7 @@ class CoinState:
         x = self.features(local_ms)
         if x is None:
             return
+        self._estimate(local_ms, x[0])
         self.rows.append(x)
         self.row_ms.append(local_ms)
         self.row_mid.append(self.top.mid)

@@ -54,6 +54,9 @@ dev = [
 where = ["."]
 include = ["marketimmune*"]
 
+[tool.setuptools.package-data]
+"marketimmune.paper" = ["dashboard.html"]
+
 [tool.ruff]
 line-length = 140
 target-version = "py312"

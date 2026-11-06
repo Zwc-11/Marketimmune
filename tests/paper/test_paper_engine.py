@@ -90,7 +90,11 @@ def test_cli_replays_a_recording(tmp_path: Path) -> None:
     w.close()
     assert [v for _, v, _ in raw_lines(raw)] == ["hl", "cb", "hl"]
     out = tmp_path / "replayed"
-    assert paper_trade.main(["--coins", "SOL", "--out", str(out), "--replay", str(raw), "--latency-ms", "100"]) == 0
+    strategies = "touch,gap@1,gap@2,model@0.5,model@1,improve,improve+gap@2,taker@6,taker@10"
+    assert (
+        paper_trade.main(["--coins", "SOL", "--out", str(out), "--replay", str(raw), "--latency-ms", "100", "--strategies", strategies])
+        == 0
+    )
     summary = json.loads((out / "summary.json").read_text())
     touch = next(r for r in summary["instances"] if r["strategy"] == "touch")
     assert touch["fills"] == 1 and touch["position_usd"] == pytest.approx(1_000.0)

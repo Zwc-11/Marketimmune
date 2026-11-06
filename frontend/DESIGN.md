@@ -80,7 +80,11 @@ Everything else stays quiet.
 ## Honesty rules
 
 - Live numbers come from Hyperliquid's public API; model numbers come from the
-  committed report in `eval/markout_sol_10s/` or the Django API. Nothing is simulated.
+  committed report in `eval/markout_sol_10s/` or the Django API. Nothing is simulated,
+  except on the Paper trading page.
+- **The Paper trading page** (`#/paper`) reads a local paper run (`cli.paper_trade --serve`).
+  Its fills are simulated against real trades, and its header says so: "simulated fills · no
+  order is sent". With no run on the machine it shows the command to start one.
 - With no exported model, fills are labelled but not scored, and the UI says so.
 - The sample immune-loop run appears only after "Show a sample run" and is badged
   "Sample run, not live output" on every view.

@@ -11,6 +11,7 @@ coin, on a new Hyperliquid top or a new Coinbase top.
 from __future__ import annotations
 
 import json
+from collections import deque
 from pathlib import Path
 from typing import Any
 
@@ -41,18 +42,28 @@ class Maker:
         self.orders: list[PaperOrder] = []
         self.current: dict[int, PaperOrder | None] = {1: None, -1: None}
         self.account = Account()
+        self.actions = 0  # orders sent plus cancels sent: what the venue's rate limit counts
+        self.sides = ""
+        self.events: deque[tuple[int, str, str]] = deque(maxlen=50)  # local ms, sides quoted, reason
 
     def decide(self, coin: CoinState, local_ms: int) -> None:
         bid, ask = self.quoter.quotes(coin, local_ms, self.account.position, self.max_position)
+        sides = "both" if bid is not None and ask is not None else "bid" if bid is not None else "ask" if ask is not None else "none"
+        if sides != self.sides:
+            self.sides = sides
+            self.events.append((local_ms, sides, self.quoter.reason(coin, local_ms)))
         for side, px in ((1, bid), (-1, ask)):
             cur = self.current[side]
             if cur is not None and (px is None or cur.px != px or cur.qty <= 0):
-                cur.t_cancel = min(cur.t_cancel, local_ms + self.latency_ms)
+                if cur.qty > 0:  # a filled order needs no cancel
+                    cur.t_cancel = min(cur.t_cancel, local_ms + self.latency_ms)
+                    self.actions += 1
                 cur = self.current[side] = None
             if px is not None and cur is None:
                 order = PaperOrder(side, px, self.qty, local_ms + self.latency_ms)
                 self.orders.append(order)
                 self.current[side] = order
+                self.actions += 1
 
     def on_top(self, ev: Top) -> None:
         self.orders = [o for o in self.orders if o.qty > 0 and o.t_cancel > ev.t_ms]
@@ -105,6 +116,7 @@ class Taker:
         self.pending: tuple[int, int] | None = None  # side, block ms it reaches the book
         self.entered_ms: int | None = None  # local ms the entry fill was seen
         self.account = Account()
+        self.actions = 0
 
     def decide(self, coin: CoinState, local_ms: int) -> None:
         if self.pending is not None:
@@ -113,8 +125,10 @@ class Taker:
             gap = coin.gap()
             if gap is not None and abs(gap) >= self.threshold_bps:
                 self.pending = (1 if gap > 0 else -1, local_ms + self.latency_ms)
+                self.actions += 1
         elif self.entered_ms is not None and local_ms - self.entered_ms >= self.hold_ms:
             self.pending = (-1 if self.account.position > 0 else 1, local_ms + self.latency_ms)
+            self.actions += 1
 
     def on_top(self, ev: Top, local_ms: int) -> None:
         if self.pending is None or ev.t_ms < self.pending[1]:
@@ -260,6 +274,7 @@ class Engine:
                     "fees": round(a.fees, 4),
                     "equity": round(a.equity(top.mid), 4) if top else 0.0,
                     "position_usd": round(a.position * top.mid, 2) if top else 0.0,
+                    "actions": inst.actions,
                 }
             )
         lags = {k: (np.percentile(v, [10, 50, 90]).round().tolist() if v else []) for k, v in self.lags.items()}

@@ -2,6 +2,7 @@
 
     python -m marketimmune.cli.paper_trade --out data/paper/20261106-0500 --hours 1.9 --state-dir data/paper/state
     python -m marketimmune.cli.paper_trade --out data/paper/replay --replay data/paper/20261106-0500/raw
+    python -m marketimmune.cli.paper_trade --out data/paper/live --hours 24 --segment-hours 2 --serve 8765   # then open http://127.0.0.1:8765/
 
 Writes ``summary.json`` every minute, and at the end ``fills.jsonl``, ``equity.jsonl``,
 ``mids.parquet`` and the raw messages under ``raw/``. ``--state-dir`` carries the model rows and the
@@ -16,10 +17,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import time
 import urllib.request
 from pathlib import Path
 
 from marketimmune.logger import init_logger
+from marketimmune.paper.dashboard import Board
 from marketimmune.paper.engine import Engine
 from marketimmune.paper.live import replay, run_live
 from marketimmune.paper.strategies import LIVE_STRATEGIES
@@ -66,28 +69,68 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--strategies", default=",".join(LIVE_STRATEGIES), help="touch, gap@<bps>, model@<bps>, improve, improve+gap@<bps>, taker@<bps>"
     )
+    parser.add_argument("--serve", type=int, default=0, help="serve the live view on http://127.0.0.1:<port>/ (live runs)")
+    parser.add_argument(
+        "--web", type=Path, default=None, help="the built web terminal (frontend/dist) to serve; its Paper page reads the run"
+    )
+    parser.add_argument("--segment-hours", type=float, default=None, help="split a live run into segments of this length under --out")
     args = parser.parse_args(argv)
-    engine = Engine(
+    if args.replay is not None:
+        engine = make_engine(args, args.out)
+        if args.state_dir is not None:
+            engine.load_state(args.state_dir)
+        retime = {k: int(v) for k, v in (kv.split("=") for kv in args.retime.split(",") if kv)}
+        replay(engine, args.replay, retime or None)
+        engine.write(args.out, final=True)
+        if args.state_dir is not None:
+            engine.save_state(args.state_dir)
+        return 0
+    asyncio.run(live(args))
+    return 0
+
+
+def make_engine(args: argparse.Namespace, out: Path) -> Engine:
+    return Engine(
         parse_symbol_spec(args.coins),
         latency_ms=args.latency_ms,
         quote_usd=args.quote_usd,
         max_quotes=args.max_quotes,
         maker_fee_bps=args.maker_fee_bps,
         taker_fee_bps=args.taker_fee_bps,
-        sz_decimals=sz_decimals(args.out, args.replay),
+        sz_decimals=sz_decimals(out, args.replay),
         strategies=split_csv(args.strategies),
     )
-    if args.state_dir is not None:
-        engine.load_state(args.state_dir)
-    if args.replay is not None:
-        retime = {k: int(v) for k, v in (kv.split("=") for kv in args.retime.split(",") if kv)}
-        replay(engine, args.replay, retime or None)
-    else:
-        asyncio.run(run_live(engine, args.out, args.hours * 3600, raw=not args.no_raw))
-    engine.write(args.out, final=True)
-    if args.state_dir is not None:
-        engine.save_state(args.state_dir)
-    return 0
+
+
+async def live(args: argparse.Namespace) -> None:
+    """One live run, or segments of ``--segment-hours`` under ``--out`` (``seg-<UTC start>``), each
+    written when it ends; the model rows and wallet scores carry through ``--state-dir``."""
+    state_dir = args.state_dir or (args.out / "state" if args.segment_hours else None)
+    board = Board()
+    server = await board.serve(args.serve, args.web) if args.serve else None
+    if server is not None:
+        logger.info(f"live view: http://127.0.0.1:{args.serve}/" + ("#/paper" if args.web else ""))
+    total = args.hours * 3600
+    started = time.monotonic()
+    try:
+        while (left := total - (time.monotonic() - started)) > 1:
+            out = args.out / time.strftime("seg-%Y%m%dT%H%M", time.gmtime()) if args.segment_hours else args.out
+            engine = make_engine(args, out)
+            if state_dir is not None and state_dir.exists():
+                engine.load_state(state_dir)
+            board.attach(engine)
+            seconds = min(left, args.segment_hours * 3600) if args.segment_hours else left
+            stopped = await run_live(engine, out, seconds, raw=not args.no_raw, board=board)
+            engine.write(out, final=True)
+            if state_dir is not None:
+                engine.save_state(state_dir)
+            board.close_segment(engine)
+            if stopped or not args.segment_hours:
+                break
+    finally:
+        if server is not None:
+            server.close()
+            await server.wait_closed()
 
 
 if __name__ == "__main__":

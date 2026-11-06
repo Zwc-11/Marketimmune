@@ -1,0 +1,118 @@
+/* Paper trading page: the live view of `cli.paper_trade --serve`. Same field, panels and table
+   rules as the terminal; green and red keep their meanings (bid / gain, ask / loss). */
+
+.paper {
+    display: grid;
+    gap: var(--gap);
+    padding: var(--gap) var(--gap) calc(var(--status-h) + var(--gap));
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    grid-template-areas:
+        'head head'
+        'equity leaders'
+        'live live'
+        'log tape';
+}
+
+.paper-head {
+    grid-area: head;
+    display: grid;
+    gap: var(--gap);
+}
+
+.paper-header .symbol-venue {
+    white-space: nowrap;
+}
+
+.paper-stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: var(--gap);
+}
+
+.paper-stats .stat {
+    background: var(--ink-1);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+}
+
+.paper-stats .stat-value {
+    font-size: var(--fs-xl);
+}
+
+.paper-equity {
+    grid-area: equity;
+}
+
+.paper-chart {
+    height: 340px;
+}
+
+.paper-leaders {
+    grid-area: leaders;
+}
+
+.paper-live {
+    grid-area: live;
+}
+
+.paper-log {
+    grid-area: log;
+}
+
+.paper-tape {
+    grid-area: tape;
+}
+
+.paper-leaders .panel-body,
+.paper-live .panel-body,
+.paper-log .panel-body,
+.paper-tape .panel-body {
+    overflow: auto;
+}
+
+.paper-log .panel-body,
+.paper-tape .panel-body {
+    max-height: 420px;
+}
+
+.paper-board tbody tr {
+    cursor: pointer;
+}
+
+.paper-board tbody tr:hover {
+    background: var(--ink-2);
+}
+
+.paper-board tbody tr.selected {
+    background: var(--ink-3);
+}
+
+.paper-board tbody tr:focus-visible {
+    outline: 1px solid var(--rule-strong);
+    outline-offset: -1px;
+}
+
+.swatch {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    margin-right: 8px;
+}
+
+.paper-why {
+    color: var(--fg-2);
+    white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .paper {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: 'head' 'equity' 'leaders' 'live' 'log' 'tape';
+    }
+
+    .paper-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

@@ -207,6 +207,54 @@ Notes:
 - Being in Tokyo helps the touch quoter by $128 an hour and leaves the candidates where they were.
   Their edge is the Coinbase lead, which a Tokyo maker sees later.
 
+## Strategies with more machinery (screen, exploratory)
+
+Built after the night, on estimators updated every 100 ms (`marketimmune/paper/signals.py`):
+
+- the gap's own volatility;
+- a recursive-least-squares forecast of Hyperliquid's next 10 s from the gap (an
+  Ornstein-Uhlenbeck closing, with exponential forgetting);
+- Hawkes-kernel taker intensities.
+
+They were screened on the night's whole recording, 4.71 hours replayed
+(`eval/paper/advanced_screen_20261106.json`), all of it already seen:
+
+| Strategy | Idea | Fills | bps per filled $ | USD/h [95%] |
+|---|---|---:|---:|---|
+| `zgap@0.25` | Pull on the gap in units of its volatility | 2,399 | +1.97 | +68 [-14, +160] |
+| `improve+gap@0.25` | The night's best, for reference | 2,327 | +1.91 | +65 [-11, +150] |
+| `hawkes@3` / `@2` | The best plus a pull while takers hit a side in a burst | 1,906 / 1,809 | +1.18 / +1.14 | +33 / +30 |
+| `zgap@0.5` | | 3,443 | +0.40 | +19 |
+| `reservation@1` / `@3` | Avellaneda-Stoikov reservation price with the forecast as drift; quote a side only past the fee | 249 / 263 | +1.20 / -0.16 | +5 / -1 |
+| `kelly@1` / `@0.5` | Mean-variance (Kelly-style) target position from the 10 s forecast; quote only toward it | 1,225 / 1,651 | -1.21 / -1.05 | -22 / -26 |
+| `touch` | Control | 18,028 | -3.34 | -665 |
+
+- **None beats the simple strategy by more than its noise.** `zgap@0.25` is the same strategy with
+  a per-coin threshold.
+- **The burst filter costs fills without removing the bad ones.**
+- **Sizing by the 10 s forecast loses.** It flattens when the forecast fades, which gives up the
+  minute-scale position timing where the gain was. A longer forecast horizon is the obvious
+  variant.
+- All of them run in the 24-hour confirmation as exploratory
+  (`docs/preregistration/paper-confirmation-20261106.md`).
+
+## Live view
+
+`--serve 8765 --web frontend/dist` serves the web terminal with a **Paper trading** page
+(`#/paper`), refreshed every second. `scripts/run_paper_live.ps1` starts it on Windows. The page
+shows:
+
+- each strategy's PnL, per hour and per filled dollar, with its fills, gross position and order
+  actions a minute (Hyperliquid's rate limit counts those);
+- the cumulative PnL curves;
+- per coin: the signals (gap, gap z, 10 s forecast, model, bursts), the selected strategy's live
+  bid and ask with the queue ahead, its position and PnL, and the reason for its quotes;
+- a log of each time it starts or stops quoting a side, with the reason.
+
+The live run measured order actions too: the makers send about 2,500-4,500 orders and cancels a
+minute over the nine coins. At $1,000 quotes their fills earn enough of Hyperliquid's per-address
+request budget (one request per dollar traded). At minimum size they would not.
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
