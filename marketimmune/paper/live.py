@@ -12,15 +12,19 @@ decision the live run made, in the same order.
 from __future__ import annotations
 
 import asyncio
+import calendar
 import contextlib
 import gzip
 import heapq
+import math
+import re
 import signal
 import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import websockets
 
 from marketimmune.logger import init_logger
@@ -230,15 +234,62 @@ def retimed(lines: Iterator[tuple[int, str, bytes]], retime: dict[str, int]) -> 
         yield sent * 1_000_000, v, r
 
 
-def replay(engine: Engine, root: Path, retime: dict[str, int] | None = None, until_ms: int | None = None) -> None:
+CB_STAMP = re.compile(rb'"timestamp":"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)\.(\d+)Z"')
+NETWORK_FLOOR_MS = 15.0  # the least Coinbase to here, as the cloud measured it (14-25 ms)
+
+
+def clock_offsets(root: Path) -> dict[int, float]:
+    """How far ahead of Coinbase's clock this machine's was, per UTC minute of the recording: the
+    least (receive time - Coinbase's message timestamp) in the minute, less ``NETWORK_FLOOR_MS``.
+    A clock that is ahead makes every order and cancel later against Hyperliquid's blocks."""
+    least: dict[int, float] = {}
+    for local_ns, venue, raw in raw_lines(root):
+        if venue != "cb":
+            continue
+        m = CB_STAMP.search(raw, 0, 160)
+        if m is None or b'"snapshot"' in raw[:200]:
+            continue
+        stamp = calendar.timegm(time.strptime(m.group(1).decode(), "%Y-%m-%dT%H:%M:%S")) * 1_000_000_000
+        stamp += int(m.group(2).decode().ljust(9, "0")[:9])
+        minute = local_ns // 60_000_000_000
+        d = (local_ns - stamp) / 1e6
+        if d < least.get(minute, math.inf):
+            least[minute] = d
+    return {k: v - NETWORK_FLOOR_MS for k, v in sorted(least.items())}
+
+
+def reclocked(lines: Iterator[tuple[int, str, bytes]], offsets: dict[int, float] | float) -> Iterator[tuple[int, str, bytes]]:
+    """``lines`` with their receive times put on the right clock: minus the offset (a constant, or
+    per minute from ``clock_offsets``, interpolated between minute midpoints, which keeps the order)."""
+    if not isinstance(offsets, dict):
+        shift = int(offsets * 1e6)
+        for local_ns, venue, raw in lines:
+            yield local_ns - shift, venue, raw
+        return
+    xs = np.asarray([(k * 60 + 30) * 1e9 for k in offsets], np.float64)
+    ys = np.asarray(list(offsets.values()), np.float64) * 1e6
+    for local_ns, venue, raw in lines:
+        yield local_ns - int(np.interp(local_ns, xs, ys)), venue, raw
+
+
+def replay(
+    engine: Engine,
+    root: Path,
+    retime: dict[str, int] | None = None,
+    until_ms: int | None = None,
+    clock: dict[int, float] | float | None = None,
+) -> None:
     """Feed a recorded run through ``engine`` in receive order (or ``retimed``); with ``until_ms``,
     only the messages received by then (to compare with a live run's ``summary.json``, whose
     ``last_ms`` it is). The engine ticks when the live run did if the recording kept its ticks (and
-    is not retimed), else every 100 ms of receive time."""
+    is not retimed), else every 100 ms of receive time. ``clock``: how far ahead this machine's clock
+    was (``clock_offsets``, or ms; negative to play a slow clock fast), taken off every receive time."""
     books = CoinbaseBooks()
     next_tick: int | None = None
     exact = retime is None and any(root.glob("tick-*.log.gz"))
     lines = raw_lines(root) if retime is None else retimed((x for x in raw_lines(root) if x[1] != "tick"), retime)
+    if clock is not None:
+        lines = reclocked(lines, clock)
     for local_ns, venue, raw in lines:
         local_ms = local_ns // 1_000_000
         if until_ms is not None and local_ms > until_ms:

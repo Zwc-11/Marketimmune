@@ -69,3 +69,15 @@ run.
   (`tests/paper/test_paper_journal.py`). The run that started at 16:06 UTC does not load it unless
   restarted. A restart to switch it on stops the run for under a minute; that gap is excluded and
   made up under **Length**, and the restart time is recorded here.
+- **Found 2026-11-06 at about 18:45 UTC: the run's clock was 223-345 ms fast.** Measured from
+  Coinbase's message timestamps (least receive delay per minute; 14-25 ms in the cloud), it drifted
+  +61 ms an hour and was slewed back by Windows from 18:09 (206 ms at 18:44). The engine times paper
+  orders on the local clock against Hyperliquid's block times, so orders and cancels reached the book
+  420-560 ms after each decision, not the registered 200 ms. The live PnL therefore does not measure
+  the registered setting (replays: `eval/paper/clock_and_market_20261106.json`).
+  - **Proposed scoring, for Caesar to decide before the result is seen:** replay the run's raw
+    recordings with each minute's offset taken off (`cli.paper_trade --replay ... --clock-offset
+    coinbase`), which restores 200 ms, and score the registered rule on that. Report the live
+    figures beside it. The recordings before the journal change have no tick times, so this replay
+    matches the live engine's fills to within 1-8% for the signal quoters, not exactly.
+  - Nothing in the run was changed.

@@ -28,7 +28,7 @@ from marketimmune.logger import init_logger
 from marketimmune.paper.dashboard import Board
 from marketimmune.paper.engine import Engine
 from marketimmune.paper.journal import Journal
-from marketimmune.paper.live import replay, run_live
+from marketimmune.paper.live import clock_offsets, replay, run_live
 from marketimmune.paper.strategies import LIVE_STRATEGIES
 from marketimmune.utils import parse_symbol_spec, split_csv
 
@@ -65,6 +65,12 @@ def main(argv: list[str] | None = None) -> int:
         help="replay as if elsewhere: hl=<ms after each block>,cb=<ms added to Coinbase's receive time>, e.g. hl=50,cb=70 for Tokyo",
     )
     parser.add_argument("--until-ms", type=int, default=None, help="replay only the messages received by this local ms")
+    parser.add_argument(
+        "--clock-offset",
+        default=None,
+        help="replay: how far ahead the recording machine's clock was, taken off every receive time: "
+        "'coinbase' to estimate it per minute from Coinbase's timestamps, or ms (negative plays a fast clock)",
+    )
     parser.add_argument("--latency-ms", type=int, default=200, help="decision to order (or cancel) in the book")
     parser.add_argument("--quote-usd", type=float, default=1_000.0)
     parser.add_argument("--max-quotes", type=int, default=5, help="per coin: the most quotes of position a strategy holds")
@@ -87,7 +93,13 @@ def main(argv: list[str] | None = None) -> int:
         if args.state_dir is not None:
             engine.load_state(args.state_dir)
         retime = {k: int(v) for k, v in (kv.split("=") for kv in args.retime.split(",") if kv)}
-        replay(engine, args.replay, retime or None, args.until_ms)
+        clock: dict[int, float] | float | None = None
+        if args.clock_offset == "coinbase":
+            clock = clock_offsets(args.replay)
+            logger.info(f"clock ahead of Coinbase by {min(clock.values()):.0f} to {max(clock.values()):.0f} ms over the recording")
+        elif args.clock_offset is not None:
+            clock = float(args.clock_offset)
+        replay(engine, args.replay, retime or None, args.until_ms, clock)
         engine.write(args.out, final=True)
         if args.state_dir is not None:
             engine.save_state(args.state_dir)

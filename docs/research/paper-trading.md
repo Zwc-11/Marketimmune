@@ -317,6 +317,39 @@ Ideas these point to, none tested: a hysteresis band on the pull threshold (fewe
 actions, queue kept); a position target from a forecast over 15 minutes rather than 10 s; holding
 the position longer when the lead still points its way (closing fills lose).
 
+## The 24-hour run's first hours: a fast clock and a choppy market (`eval/paper/clock_and_market_20261106.json`)
+
+From 16:06 to 18:06 UTC every strategy lost: the four candidates -$163 to -$212 an hour, against
++$16 to +$61 in the night's forward test, and `touch` -$834 against -$721. Two causes, measured.
+
+- **Caesar's PC clock was 223-345 ms fast.** On that machine Coinbase messages arrived at least
+  238-360 ms after Coinbase stamped them; in the cloud the night before, 14-25 ms. The gap grew in a
+  straight line, +61 ms an hour (a quartz clock left unsynced), and from 18:09 Windows slewed it back
+  (206 ms at 18:44). Hyperliquid's minimum delay moved by the same amount. So the dashboard's 612 ms
+  Hyperliquid delay is about 340 ms of real delay (the cloud's) plus the clock.
+  - The engine times paper orders on the local clock against Hyperliquid's block times. A fast
+    clock delays every order and cancel by its offset: 420-560 ms, not the registered 200 ms.
+  - On the night's held-out hours, a replay as recorded matches the live forward test
+    (`improve+gap@0.25` +$61 an hour; live +$60.5). With a clock 285 ms fast it is -$27 an hour,
+    and every candidate turns negative (-$27 to -$124). Cancels land late, so fills rise by half.
+  - On the first live segment, taking the measured offset off every receive time
+    (`--clock-offset coinbase`) moves `improve+gap@0.25` from -$162 to -$97 an hour and cuts its
+    fills by 35%.
+- **The afternoon market did not trend.** In the night's held-out hours eight of nine coins rose
+  steadily (+66 to +138 bps; median 15-minute variance ratio 1.07). From 16:06 to 18:06 none moved
+  far (within -56 and +11 bps), one-minute volatility was a third higher (10.2 against 7.6 bps a
+  minute), and moves reverted over 15 minutes (variance ratio 0.89).
+  - With the clock fixed, the candidates' fills look like the night's over the first minute
+    (`improve+gap@0.25` markout -$14 an hour at 60 s; night -$33). The difference is later: at
+    15 minutes the night's fills were +$48 an hour, today's -$126.
+  - The lead still works: after a pull the mid moves 0.59 bps towards the pulled side within 10 s
+    (55% of pulls), as at night (0.56, 54%).
+- **Reading.** The night's profit was the inventory riding a steady move, as the journal showed.
+  In a choppy afternoon it is not there. The pulls still cut the loss against `touch` by about
+  $650 an hour, but they do not make money on their own. The registered run cannot be read from its
+  live PnL while the clock is off. Its recordings can be replayed with the offset taken off, which
+  restores the registered 200 ms (deviation in the pre-registration).
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
@@ -357,6 +390,7 @@ the position longer when the lead still points its way (closing fills lose).
 | `eval/paper/selection_20261106.json` | The live selection hour |
 | `eval/paper/selection_grid_*.json` | The grid the candidates were picked from (first 70 minutes, replayed) |
 | `eval/paper/replay_{us200,us50,tokyo}_20261106.json` | The held-out hours replayed at each location and latency |
+| `eval/paper/clock_and_market_20261106.json` | The first live segment and the night replayed with and without the PC's clock error; the clock offset; each coin's trend and volatility in both periods |
 | `eval/paper/journal_night_20261106.{json,md}` | The night's decision journals read by `cli.paper_journal`: fills by markout horizon and by what the strategy saw, side changes, pulls, actions |
 
 The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.

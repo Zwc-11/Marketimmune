@@ -240,3 +240,28 @@ def test_a_recording_with_its_ticks_replays_the_live_decisions(tmp_path: Path) -
     assert sum(len(i.account.log) for _, i in live.instances()) > 100
     for (_, a), (_, b) in zip(live.instances(), replayed.instances(), strict=True):
         assert a.account.log == b.account.log and a.actions == b.actions, a.name
+
+
+def test_clock_offsets_come_from_coinbase_timestamps(tmp_path: Path) -> None:
+    from datetime import UTC, datetime
+
+    from marketimmune.paper.live import NETWORK_FLOOR_MS, RawWriter, clock_offsets, raw_lines, reclocked
+
+    w = RawWriter(tmp_path)
+    t0 = 1_793_981_206_000  # ms
+    for i in range(240):  # four minutes, this clock 300 ms ahead and gaining 6 ms a minute (the PC gained 1)
+        sent = t0 + i * 1_000
+        ahead = 300 + 0.1 * i
+        stamp = datetime.fromtimestamp(sent / 1e3, UTC).strftime("%Y-%m-%dT%H:%M:%S.%f") + "123Z"
+        msg = json.dumps({"channel": "l2_data", "timestamp": stamp, "sequence_num": i, "events": []}, separators=(",", ":")).encode()
+        w.write("cb", int((sent + NETWORK_FLOOR_MS + ahead) * 1e6), msg)
+    w.close()
+    offsets = clock_offsets(tmp_path)
+    assert len(offsets) == 5  # the minutes touched
+    assert min(offsets.values()) == pytest.approx(300, abs=1) and max(offsets.values()) < 300 + 24 + 1
+    lines = list(raw_lines(tmp_path))
+    fixed = list(reclocked(iter(lines), offsets))
+    assert [x[0] for x in fixed] == sorted(x[0] for x in fixed)  # order kept
+    lag = [(f[0] - o[0]) / 1e6 for f, o in zip(fixed, lines, strict=True)]
+    assert -lag[0] == pytest.approx(300, abs=7) and -lag[-1] == pytest.approx(323.9, abs=7)
+    assert [x[0] - 250_000_000 for x in lines] == [x[0] for x in reclocked(iter(lines), 250.0)]
