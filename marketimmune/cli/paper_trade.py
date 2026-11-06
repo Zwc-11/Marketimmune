@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
+import urllib.request
 from pathlib import Path
 
 from marketimmune.logger import init_logger
@@ -22,6 +24,22 @@ from marketimmune.utils import parse_symbol_spec
 
 logger = init_logger(__name__)
 COINS = "BTC,ETH,SOL,XRP,LTC,BCH,LINK,AVAX,DOGE"
+INFO_URL = "https://api.hyperliquid.xyz/info"
+
+
+def sz_decimals(out: Path, replay: Path | None) -> dict[str, int]:
+    """Each perp's size decimals (its price step): from the recorded run's ``meta.json`` when
+    replaying one that has it, else from Hyperliquid's ``meta``, saved to ``out``."""
+    if replay is not None and (replay.parent / "meta.json").exists():
+        saved: dict[str, int] = json.loads((replay.parent / "meta.json").read_text(encoding="utf-8"))
+        return saved
+    req = urllib.request.Request(INFO_URL, data=b'{"type": "meta"}', headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        meta = json.loads(resp.read())
+    decimals = {x["name"]: int(x["szDecimals"]) for x in meta["universe"]}
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "meta.json").write_text(json.dumps(decimals), encoding="utf-8")
+    return decimals
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -45,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
         max_quotes=args.max_quotes,
         maker_fee_bps=args.maker_fee_bps,
         taker_fee_bps=args.taker_fee_bps,
+        sz_decimals=sz_decimals(args.out, args.replay),
     )
     if args.state_dir is not None:
         engine.load_state(args.state_dir, now_ms())

@@ -69,6 +69,17 @@ class Series:
         return self.v[i] if i >= 0 else None
 
 
+def tick_size(px: float, sz_decimals: int) -> float:
+    """Hyperliquid's perp price step at ``px``: 5 significant figures, at most ``6 - sz_decimals``
+    decimals, and integers always allowed."""
+    return min(1.0, max(10.0 ** (math.floor(math.log10(px)) - 4), 10.0 ** -(6 - sz_decimals)))
+
+
+def on_tick(px: float, tick: float) -> float:
+    """``px`` rounded to the decimals of ``tick``, so it compares equal to the feed's prices."""
+    return round(px, max(0, -math.floor(math.log10(tick) + 1e-9)))
+
+
 def log_bps(a: float | None, b: float | None) -> float:
     """``ln(a / b)`` in bps; 0 when either is missing."""
     return math.log(a / b) * BPS if a and b else 0.0
@@ -123,9 +134,10 @@ def r2(y: FloatArray, pred: FloatArray) -> float:
 
 
 class CoinState:
-    def __init__(self, coin: str, wallets: Wallets) -> None:
+    def __init__(self, coin: str, wallets: Wallets, sz_decimals: int | None = None) -> None:
         self.coin = coin
         self.wallets = wallets
+        self.sz_decimals = sz_decimals
         self.top: Top | None = None
         self.depth: Depth | None = None
         self.ref: RefTop | None = None
@@ -170,6 +182,12 @@ class CoinState:
     def on_ref(self, ev: RefTop, local_ms: int) -> None:
         self.ref = ev
         self.ref_view.add(local_ms, ev.mid)
+
+    @property
+    def tick(self) -> float | None:
+        if self.top is None or self.sz_decimals is None:
+            return None
+        return tick_size(self.top.mid, self.sz_decimals)
 
     # --- features
     def raw_gap(self) -> float | None:

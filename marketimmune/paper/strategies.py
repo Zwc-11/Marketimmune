@@ -9,6 +9,10 @@ Makers quote ``qty`` at the best bid and ask and stop quoting a side at ``max_po
 - ``ModelPull`` (December's S2, live): pull the side the walk-forward model's next-second move
   points at, beyond ``threshold_bps``. Before the first fit it quotes like ``Touch``.
 
+- ``Improve``: when the spread is at least 3 ticks, quote one tick inside it on both sides, a new
+  price level with nothing ahead; otherwise like ``Touch``. With ``gap_bps`` it also pulls like
+  ``GapPull``. For the coins whose spread is several ticks wide (BCH, LTC, DOGE).
+
 ``GapTaker`` is the other side of the trade: when the gap reaches ``threshold_bps`` it buys (or
 sells) ``qty`` at the touch, paying the taker fee, and closes ``hold_ms`` after the fill.
 """
@@ -17,7 +21,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from marketimmune.paper.signals import CoinState
+from marketimmune.paper.signals import CoinState, on_tick
 
 
 class Quoter(Protocol):
@@ -59,6 +63,25 @@ class ModelPull(Touch):
         return bid, ask
 
 
+class Improve(Touch):
+    def __init__(self, gap_bps: float | None = None) -> None:
+        self.gap_bps = gap_bps
+
+    def quotes(self, coin: CoinState, local_ms: int, position: float, max_position: float) -> tuple[float | None, float | None]:
+        bid, ask = super().quotes(coin, local_ms, position, max_position)
+        tick, top = coin.tick, coin.top
+        if tick is not None and top is not None and top.ask - top.bid >= 2.5 * tick:
+            bid = None if bid is None else on_tick(top.bid + tick, tick)
+            ask = None if ask is None else on_tick(top.ask - tick, tick)
+        gap = coin.gap() if self.gap_bps is not None else None
+        if gap is not None and self.gap_bps is not None:
+            if gap > self.gap_bps:
+                ask = None
+            if gap < -self.gap_bps:
+                bid = None
+        return bid, ask
+
+
 def maker_quoters() -> dict[str, Quoter]:
     return {
         "touch": Touch(),
@@ -66,6 +89,8 @@ def maker_quoters() -> dict[str, Quoter]:
         "gap@2": GapPull(2.0),
         "model@0.5": ModelPull(0.5),
         "model@1": ModelPull(1.0),
+        "improve": Improve(),
+        "improve+gap@2": Improve(2.0),
     }
 
 

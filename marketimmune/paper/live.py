@@ -13,6 +13,7 @@ import asyncio
 import contextlib
 import gzip
 import heapq
+import signal
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -121,13 +122,18 @@ async def cb_feed(engine: Engine, writer: RawWriter | None) -> None:
 
 
 async def run_live(engine: Engine, out: Path, seconds: float, raw: bool) -> None:
+    """Until ``seconds`` have passed or SIGINT / SIGTERM arrives; either way the run is written."""
     writer = RawWriter(out / "raw") if raw else None
     feeds = [asyncio.create_task(hl_feed(engine, writer)), asyncio.create_task(cb_feed(engine, writer))]
     stop = time.monotonic() + seconds
+    stopped = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, stopped.set)
     next_write = time.monotonic() + WRITE_S
     late = 0
     try:
-        while time.monotonic() < stop:
+        while time.monotonic() < stop and not stopped.is_set():
             await asyncio.sleep(TICK_MS / 1000)
             t0 = time.perf_counter()
             engine.tick(now_ms())

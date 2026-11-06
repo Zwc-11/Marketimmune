@@ -63,6 +63,7 @@ def test_taker_enters_on_the_gap_and_exits_after_the_hold() -> None:
 def test_cli_replays_a_recording(tmp_path: Path) -> None:
     raw = tmp_path / "rec" / "raw"
     w = RawWriter(raw)
+    (raw.parent / "meta.json").write_text('{"SOL": 2}')  # tick 0.01 at 100: no network call
     t0 = 1_793_900_000_000
     bbo = {
         "channel": "bbo",
@@ -93,7 +94,9 @@ def test_cli_replays_a_recording(tmp_path: Path) -> None:
     summary = json.loads((out / "summary.json").read_text())
     touch = next(r for r in summary["instances"] if r["strategy"] == "touch")
     assert touch["fills"] == 1 and touch["position_usd"] == pytest.approx(1_000.0)
-    assert (out / "fills.jsonl").read_text().count("\n") == 5  # the five makers, one fill each
+    improve = next(r for r in summary["instances"] if r["strategy"] == "improve")
+    assert improve["fills"] == 1  # bought at 99.01, a tick inside the 2.00 spread
+    assert (out / "fills.jsonl").read_text().count("\n") == 7  # the seven makers, one fill each
 
 
 def test_report_splits_the_pnl(tmp_path: Path) -> None:

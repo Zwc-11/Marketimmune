@@ -153,3 +153,27 @@ def test_strategies_pull_the_side_at_risk() -> None:
     assert GapPull(2.0).quotes(coin, 0, 0.0, 5.0) == (10.0, 10.1)
     assert ModelPull(1.0).quotes(_Stub(-1.5), 0, 0.0, 5.0) == (None, 10.1)
     assert ModelPull(1.0).quotes(_Stub(None), 0, 0.0, 5.0) == (10.0, 10.1)  # no model yet: like Touch
+
+
+def test_tick_sizes_follow_the_price_rules() -> None:
+    from marketimmune.paper.signals import on_tick, tick_size
+
+    assert tick_size(104_523.0, 5) == 1.0  # integers are always allowed
+    assert tick_size(3_512.3, 4) == pytest.approx(0.1)
+    assert tick_size(89.32, 2) == pytest.approx(0.001)
+    assert tick_size(0.0912, 0) == pytest.approx(1e-6)
+    assert tick_size(0.0912, 2) == pytest.approx(1e-4)  # capped by 6 - szDecimals decimals
+    assert on_tick(0.16345 + 0.00001, 1e-5) == 0.16346
+
+
+def test_improve_steps_inside_wide_spreads_only() -> None:
+    from marketimmune.paper.strategies import Improve
+
+    coin = CoinState("BCH", Wallets(), sz_decimals=3)
+    coin.top = Top("BCH", 0, 270.0, 1.0, 270.1, 1.0)  # tick 0.01: 10 ticks wide
+    assert Improve().quotes(coin, 0, 0.0, 5.0) == (270.01, 270.09)
+    assert Improve().quotes(coin, 0, 5.0, 5.0) == (None, 270.09)
+    coin.top = Top("BCH", 0, 270.0, 1.0, 270.02, 1.0)  # two ticks: stay at the touch
+    assert Improve().quotes(coin, 0, 0.0, 5.0) == (270.0, 270.02)
+    coin.basis, coin.ref = 0.0, RefTop("BCH", 0, 270.1, 270.1)  # Coinbase 3.3 bps above
+    assert Improve(2.0).quotes(coin, 0, 0.0, 5.0) == (270.0, None)

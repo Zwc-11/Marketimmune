@@ -138,6 +138,7 @@ class Engine:
         max_quotes: int = 5,
         maker_fee_bps: float = 1.5,
         taker_fee_bps: float = 4.5,
+        sz_decimals: dict[str, int] | None = None,
     ) -> None:
         self.coins = coins
         self.latency_ms = latency_ms
@@ -146,7 +147,7 @@ class Engine:
         self.maker_fee = maker_fee_bps / BPS
         self.taker_fee = taker_fee_bps / BPS
         self.wallets = Wallets()
-        self.states = {c: CoinState(c, self.wallets) for c in coins}
+        self.states = {c: CoinState(c, self.wallets, (sz_decimals or {}).get(c)) for c in coins}
         self.makers: dict[str, list[Maker]] = {}
         self.takers: dict[str, list[Taker]] = {}
         self.last_eval: dict[str, int] = dict.fromkeys(coins, 0)
