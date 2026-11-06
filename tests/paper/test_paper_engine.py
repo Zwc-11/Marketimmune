@@ -138,3 +138,15 @@ def test_state_carries_wallets_and_model_rows(tmp_path: Path) -> None:
     f.load_state(tmp_path)
     assert f.wallets.count == {"0xa": 1} and f.states["SOL"].rows == coin.rows and f.states["SOL"].basis == 0.5
     assert f.states["SOL"].fitted_ms < 0  # refits at its first sample once the rows suffice
+
+
+def test_raw_lines_survive_a_cut_file(tmp_path: Path) -> None:
+    w = RawWriter(tmp_path)
+    for k in range(200):
+        w.write("hl", (1_793_900_000_000 + k) * 1_000_000, '{"channel": "pong"}' * 20)
+    path = next(iter(w.files.values()))[1].name
+    w.close()
+    data = Path(path).read_bytes()
+    Path(path).write_bytes(data[: len(data) - 30])  # cut before the gzip trailer
+    lines = list(raw_lines(tmp_path))
+    assert 0 < len(lines) <= 200 and all(msg.endswith(b"}") for _, _, msg in lines)

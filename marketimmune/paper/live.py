@@ -161,10 +161,13 @@ def raw_lines(root: Path) -> Iterator[tuple[int, str, bytes]]:
     def one(path: Path) -> Iterator[tuple[int, str, bytes]]:
         venue = path.name.split("-")[0]
         with gzip.open(path, "rb") as fh:
-            for line in fh:
-                t, _, msg = line.rstrip(b"\n").partition(b"\t")
-                if msg:
-                    yield int(t), venue, msg
+            try:
+                for line in fh:
+                    t, _, msg = line.rstrip(b"\n").partition(b"\t")
+                    if msg and line.endswith(b"\n"):
+                        yield int(t), venue, msg
+            except EOFError:  # a file still being written, or cut by a crash: keep what is whole
+                logger.warning(f"{path}: ends mid-stream; replaying the lines before the cut")
 
     yield from heapq.merge(*(one(p) for p in sorted(root.glob("*.log.gz"))), key=lambda x: x[0])
 
