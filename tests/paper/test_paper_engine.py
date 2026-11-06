@@ -132,6 +132,18 @@ def test_retimed_replay_moves_each_venue_and_keeps_time_order() -> None:
     assert out == [(1_050, "hl"), (1_170, "cb")]
 
 
+def test_a_fast_clock_is_corrected_before_retiming(tmp_path: Path) -> None:
+    from marketimmune.paper.live import replay_lines
+
+    t0 = 1_793_900_000_000
+    w = RawWriter(tmp_path)
+    w.write("cb", (t0 + 300) * 1_000_000, b"{}")  # this machine's clock 200 ms fast: arrived at t0 + 100
+    w.write("hl", (t0 + 400) * 1_000_000, json.dumps({"channel": "bbo", "data": {"coin": "SOL", "time": t0, "bbo": []}}))
+    w.close()
+    out = [(t // 1_000_000 - t0, v) for t, v, _ in replay_lines(tmp_path, {"hl": 50, "cb": 70}, 200.0)]
+    assert out == [(50, "hl"), (170, "cb")]  # the block's time is exchange time: no clock correction on it
+
+
 def test_state_carries_wallets_and_model_rows(tmp_path: Path) -> None:
     e = _engine()
     e.wallets.add("0xa", 3.0)

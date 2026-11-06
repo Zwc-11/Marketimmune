@@ -17,6 +17,7 @@ export interface PaperStrategy {
     notional: number;
     actions: number;
     gross_usd: number;
+    net_usd?: number;
     bps: number | null;
     per_hour: number | null;
     actions_per_min: number | null;
@@ -142,9 +143,13 @@ export function registeredOf(state: PaperState): string[] {
     return state.settings.registered?.length ? state.settings.registered : REGISTERED;
 }
 
-export function strategyGroup(name: string, registered: string[] = REGISTERED): 'candidate' | 'control' | 'advanced' | 'baseline' {
+export function strategyGroup(
+    name: string,
+    registered: string[] = REGISTERED,
+): 'candidate' | 'control' | 'advanced' | 'baseline' | 'maker' {
     if (registered.includes(name)) return 'candidate';
     if (name === 'touch') return 'control';
+    if (name.startsWith('mm@')) return 'maker';
     if (ADVANCED_PREFIXES.some((p) => name.startsWith(p))) return 'advanced';
     return 'baseline';
 }

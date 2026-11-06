@@ -341,6 +341,19 @@ def reclocked(lines: Iterator[tuple[int, str, bytes]], offsets: dict[int, float]
         yield local_ns - int(np.interp(local_ns, xs, ys)), venue, raw
 
 
+def replay_lines(
+    root: Path, retime: dict[str, int] | None = None, clock: dict[int, float] | float | None = None
+) -> Iterator[tuple[int, str, bytes]]:
+    """A recording's lines as ``replay`` feeds them: receive times put on the right clock first, then
+    retimed (a Hyperliquid message from its block time, a Coinbase one from its corrected arrival)."""
+    lines = raw_lines(root)
+    if clock is not None:
+        lines = reclocked(lines, clock)
+    if retime is not None:
+        lines = retimed((x for x in lines if x[1] != "tick"), retime)
+    return lines
+
+
 def replay(
     engine: Engine,
     root: Path,
@@ -356,10 +369,7 @@ def replay(
     books = CoinbaseBooks()
     next_tick: int | None = None
     exact = retime is None and any(root.glob("tick-*.log.gz"))
-    lines = raw_lines(root) if retime is None else retimed((x for x in raw_lines(root) if x[1] != "tick"), retime)
-    if clock is not None:
-        lines = reclocked(lines, clock)
-    for local_ns, venue, raw in lines:
+    for local_ns, venue, raw in replay_lines(root, retime, clock):
         local_ms = local_ns // 1_000_000
         if until_ms is not None and local_ms > until_ms:
             break

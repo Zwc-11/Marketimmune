@@ -10,6 +10,8 @@ coin and strategy, in USD and in bps of filled notional (as in ``docs/research/b
 - ``fee`` and ``inventory`` (everything else: holding the position past 1 s, marked to the end);
 - ``break_even_fee_bps``: PnL before fees per filled dollar, the maker fee that would break even.
 
+``by_strategy`` sums the coins, with the components per filled dollar and per hour.
+
 Intervals: the PnL of 15-minute blocks (from the minute equity snapshots), stationary bootstrap with
 a mean block of 3, 5,000 draws, seed 0. ``vs_touch`` pairs each maker with ``touch`` on the same
 coin and blocks.
@@ -103,12 +105,15 @@ def score(runs: list[Path], funding: dict[Path, dict[str, list[tuple[int, float]
         fills[f"adverse_{h}_usd"] = side * (fills[f"mid_{h}"] - fills["mid"]) * qty
     fills["fee_usd"] = -fills["fee_rate"] * fills["notional"]
     rows: list[dict[str, Any]] = []
+    comps: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))  # strategy -> component USD
     for (coin, strategy), total in sorted(final.items()):
         f = fills[(fills["coin"] == coin) & (fills["strategy"] == strategy)]
         b = blocks[(blocks["coin"] == coin) & (blocks["strategy"] == strategy)]["pnl"].to_numpy()
         notional = float(f["notional"].sum())
         comp = {k: float(f[f"{k}_usd"].sum()) for k in ("spread", "adverse_1s", "adverse_10s", "adverse_60s", "fee")}
         comp["inventory"] = total - comp["spread"] - comp["adverse_1s"] - comp["fee"]
+        for k, v in comp.items():
+            comps[strategy][k] += v
         row: dict[str, Any] = {
             "coin": coin,
             "strategy": strategy,
@@ -142,6 +147,8 @@ def score(runs: list[Path], funding: dict[Path, dict[str, list[tuple[int, float]
                 "usd_per_hour_ci95": [round(v * 4, 2) for v in c] if (c := ci(b)) else None,
                 "bps": round(total / notional * BPS, 3) if notional else None,
                 "break_even_fee_bps": round((total - fee) / notional * BPS, 3) if notional else None,
+                "components_bps": {k: round(v / notional * BPS, 3) for k, v in comps[strategy].items()} if notional else None,
+                "components_usd_per_hour": {k: round(v / hours, 2) for k, v in comps[strategy].items()} if hours else None,
             }
             | (
                 {

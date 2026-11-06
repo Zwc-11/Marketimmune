@@ -40,6 +40,7 @@ from __future__ import annotations
 import math
 from typing import Protocol
 
+from marketimmune.paper.mm import MarketMaking, parse
 from marketimmune.paper.signals import FORECAST_MS, CoinState, on_tick
 
 Quotes = tuple[float | None, float | None]
@@ -242,8 +243,11 @@ ADVANCED_STRATEGIES = ("zgap@0.25", "zgap@0.5", "hawkes@2", "hawkes@3", "kelly@0
 
 def quoter(name: str) -> Quoter:
     """A maker strategy from its name: ``touch``, ``gap@<bps>``, ``model@<bps>``, ``improve``,
-    ``improve+gap@<bps>``, ``zgap@<z>``, ``hawkes@<ratio>``, ``kelly@<z>`` or ``reservation@<skew bps>``."""
+    ``improve+gap@<bps>``, ``zgap@<z>``, ``hawkes@<ratio>``, ``kelly@<z>``, ``reservation@<skew bps>`` or
+    ``mm@...`` (``paper.mm``)."""
     kind, _, arg = name.partition("@")
+    if kind == "mm":
+        return MarketMaking(parse(arg))
     if name == "touch":
         return Touch()
     if name == "improve":

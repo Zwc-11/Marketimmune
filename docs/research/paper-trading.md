@@ -389,6 +389,84 @@ extended the grid where the first one's best sat on its edge.
   beside the 24-hour run). Its live view shows the BTC mid on the PnL chart and the clock
   correction in the header.
 
+## A market maker with inventory and risk control (`paper/mm.py`, `eval/paper/*mm*_20261106.*`)
+
+The gap quoters sit at the touch and stop a side only at a coin's position limit. Their PnL is
+mostly the position they hold times the market's move: net short, it moves against BTC. `mm@...` is
+the textbook market maker instead.
+
+- **Fair price:** the mid, plus the 10 s Coinbase lead-lag forecast, plus the microprice's offset.
+- **Centre:** the fair price, shifted by the coin's position (`skew` bps at its limit) and the
+  strategy's net dollars over the nine coins (`nskew` bps at `net`). Avellaneda-Stoikov's
+  reservation price, with the drift and the inventory term set in bps.
+- **Quotes:** `h` bps either side of the centre, rounded away from it, post-only. A live order stays
+  while it is within a quarter of `h` of its target, which keeps its place in the queue and the
+  cancels inside Hyperliquid's rate limit.
+- **Limits:** no bid at the coin's limit or at `+net` net dollars; no ask at the opposites. A side
+  is pulled while takers hit it in a burst.
+- **Exits with a taker order** (4.5 bp, through the seen book):
+  - **stop:** the mid 30 bps against the position's average entry; then no quotes in that coin for
+    60 s;
+  - **kill switch:** the strategy's equity $50 below its peak; every coin is closed and nothing is
+    quoted for 10 minutes;
+  - **hold (off by default):** a position open longer than `hold` seconds.
+- **Dead man's switch:** either feed silent for 3 s cancels every quote, as Hyperliquid's
+  `scheduleCancel` would.
+
+**Replays.** The tuned run's 8.19 hours selected on (night segments 2-4, live segments 1-2 with the
+clock corrected), with the tuned run's first 0.95 hour held out (20:03-21:00 UTC, never used to
+pick). $250 quotes, 4 a coin, $5,000 gross budget. The grid was `h` 0-5 bps at two skews, plus each
+risk control switched off in turn at `h` 1.5 and 3.
+
+| Strategy | Orders per $ | Here, 200 ms | Held-out hour | Tokyo, 20 ms | 0 bp maker fee | Tokyo and -0.3 bp |
+|---|---:|---:|---:|---:|---:|---:|
+| `touch` | 0.10 | -145.5 | -98.7 | -125.7 | -74.4 | -43.7 |
+| `mm@0` | 0.19 | -64.6 | -55.1 | -52.1 | -27.7 | -5.3 |
+| `mm@1` | 0.64 | -22.6 | -23.5 | -11.6 | -6.7 | +2.6 |
+| `mm@1.5` | 0.97 | -13.8 | -9.7 | -6.0 | -4.6 | +2.1 |
+| `mm@h=2/skew=6` (pick) | 0.86 | -12.7 | -11.4 | -6.1 | -3.9 | +1.1 |
+| `mm@3` | 2.00 | -6.5 | -2.3 | -0.8 | -3.9 | +1.3 |
+| `mm@5` | 3.86 | -3.6 | | -1.0 | -2.9 | -0.5 |
+| `zgap@0.05` | 0.59 | +2.1 | +9.7 | +4.3 | +10.2 | +17.8 |
+
+$ an hour over the nine coins. Orders per $ are at 200 ms; the Tokyo replays send more (`mm@1.5`
+1.27). Tokyo: each Hyperliquid message 50 ms after its block, Coinbase 70 ms later than here,
+orders in 20 ms.
+
+- **Every setting loses at this PC's speed and the base fee.** The pick within the rate limit,
+  `mm@h=2/skew=6`, loses $12.7 an hour in-sample, $14.9 left-one-segment-out and $11.4 on the
+  held-out hour. Quoting further away loses less an hour, but only by trading less: per filled
+  dollar it loses more. `mm@2` and wider are over the rate limit.
+- **Where the money goes** (`mm@1.5`, bps of each filled dollar):
+
+  | | Spread earned | Move within 1 s | Fee | Rest | Total |
+  |---|---:|---:|---:|---:|---:|
+  | Here, 200 ms | +0.58 | -1.27 | -1.63 | +0.17 | -2.15 |
+  | Tokyo, 20 ms | +0.99 | -0.94 | -1.63 | +0.31 | -1.28 |
+
+  The spread is there. The mid moves against each fill by more than that within a second: takers hit
+  the quotes that are about to be stale. Further away the spread grows, and so does the move against
+  (`mm@3`: +0.84 against -2.04). The fee then takes 1.5 bp more. The stops' taker orders add about
+  0.1 bp.
+- **Speed:** from Tokyo the spread covers the move against it, but not the fee. Half the loss goes.
+- **Fees:** a 0 bp maker fee needs $500M of volume in 14 days; the -0.3 bp rebate needs over 3% of
+  all of Hyperliquid's maker volume. Only with both Tokyo and the rebate do the market makers turn
+  positive: +$1 to +$3 an hour, inside their intervals, and `mm@1` loses $3.2 on the held-out hour.
+  At $5,000 these trade $0.5-2.5M a day; the 0 bp tier alone needs about $36M a day.
+- **The risk controls** (`mm@1.5`, $ an hour): all off -16.7; without the stop -15.6; without the
+  net cap -16.4. The stop fired 61 times in 8.19 hours. The kill switch never fired at $50.
+  Closing every position after 60 s costs more than it saves (-28.9). Without the forecast in the
+  fair price the loss nearly triples (-37.5). The controls cut the loss by about $3 an hour; they
+  do not turn it into a profit.
+- **The gap quoters are not market makers.** `zgap@0.05` earns +0.15 bp of spread, loses 0.37 bp
+  within a second, and pays 1.5 bp in fees. It makes its +2.12 bp from holding positions the Coinbase
+  lead points to. It is a slow directional strategy that enters with maker orders, and a lower fee
+  helps it more than speed does.
+- **Registered:** `mm@h=2/skew=6`, 7 days live on paper beside the other runs
+  (`docs/preregistration/paper-mm-20261106.md`, `scripts/run_paper_mm.ps1`, port 8767). The
+  prediction is that it loses; the live view now shows each strategy's net position beside its
+  gross.
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
@@ -434,6 +512,8 @@ extended the grid where the first one's best sat on its edge.
 | `eval/paper/replay_{us200,us50,tokyo}_20261106.json` | The held-out hours replayed at each location and latency |
 | `eval/paper/tune_20261106.{json,md}` | Every family's grid at three sizings and a $5,000 budget on 8.19 hours; picks within Hyperliquid's rate limit, left-one-segment-out estimates |
 | `eval/paper/clock_and_market_20261106.json` | The first live segment and the night replayed with and without the PC's clock error; the clock offset; each coin's trend and volatility in both periods |
+| `eval/paper/tune_mm_{home,tokyo,fee0,tokyo_rebate}_20261106.{json,md}` | The market maker's grid and risk-control switches with the gap quoters and `touch`, at 200 ms, from Tokyo, at a 0 bp maker fee, and from Tokyo at -0.3 bp; picks within the rate limit, left-one-segment-out estimates, and the held-out hour |
+| `eval/paper/report_mm_*_20261106.json` | The same runs' PnL split into spread, move within 1 s, fee and the rest, per strategy and coin (`cli.paper_report`); `home_heldout` is the held-out hour |
 | `eval/paper/journal_night_20261106.{json,md}` | The night's decision journals read by `cli.paper_journal`: fills by markout horizon and by what the strategy saw, side changes, pulls, actions |
 
 The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
