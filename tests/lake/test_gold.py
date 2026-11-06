@@ -275,3 +275,18 @@ def test_labels_never_span_a_gap_in_the_mids() -> None:
     # 1 s label fine, 60 s label would need a mid 1,000 s after t+60 -> only 1s kept
     (row,) = build_markout_gold_rows_from_mids([fill], [99.9, 101.0, 1160.0], [100.0, 100.5, 90.0], config)
     assert set(row.markout_bps) == {"1s"}
+
+
+def test_a_label_never_reads_a_mid_long_after_its_horizon() -> None:
+    # Audit B09: after a feed gap the first later mid is not the mid at t + 10 s.
+    from marketimmune.lake.gold import build_markout_gold_rows_from_mids
+
+    fill = parse_fill_row(
+        {"coin": "BTC", "px": "100.0", "sz": "1.0", "side": "B", "crossed": False, "time": 1_000, "oid": 1, "tid": 2, "hash": "0x1"}
+    )
+    mids_t, mids = [0.5, 1.5, 3_600.0], [100.0, 100.0, 90.0]  # nothing between 1.5 s and an hour
+    (row,) = build_markout_gold_rows_from_mids([fill], mids_t, mids, MarkoutConfig(horizons_s=(0.4, 10.0)))
+    assert "10s" not in row.markout_bps and "0.4s" in row.markout_bps
+    unbounded = MarkoutConfig(horizons_s=(0.4, 10.0), max_mid_lag_s=None)  # the old behaviour, opt-in only
+    (old,) = build_markout_gold_rows_from_mids([fill], mids_t, mids, unbounded)
+    assert old.markout_bps["10s"] == pytest.approx(-1_000.0)

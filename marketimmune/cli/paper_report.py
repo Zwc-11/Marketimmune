@@ -13,6 +13,11 @@ coin and strategy, in USD and in bps of filled notional (as in ``docs/research/b
 Intervals: the PnL of 15-minute blocks (from the minute equity snapshots), stationary bootstrap with
 a mean block of 3, 5,000 draws, seed 0. ``vs_touch`` pairs each maker with ``touch`` on the same
 coin and blocks.
+
+With ``--funding``, each strategy's held positions also settle Hyperliquid's hourly funding
+(``marketimmune.paper.funding``; the rates are fetched once and cached as ``funding.json`` in each
+run). ``funding_usd`` and ``total_with_funding_usd`` are reported beside ``total_usd``, which stays
+the PnL before funding that the pre-registrations score.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 from marketimmune.models.compare import stationary_bootstrap_ci
+from marketimmune.paper.funding import funding_for_run, funding_payments
 
 FloatArray = npt.NDArray[np.float64]
 BPS = 1e4
@@ -75,8 +81,14 @@ def ci(x: FloatArray) -> list[float] | None:
     return [round(v, 2) for v in stationary_bootstrap_ci(x)] if x.size >= 4 else None
 
 
-def score(runs: list[Path]) -> dict[str, Any]:
+def score(runs: list[Path], funding: dict[Path, dict[str, list[tuple[int, float]]]] | None = None) -> dict[str, Any]:
+    """``funding``: each run's hourly rates per coin (``paper.funding.funding_for_run``); None
+    leaves funding out."""
     tables = [run_tables(r) for r in runs]
+    paid: dict[tuple[str, str], float] = defaultdict(float)
+    for run, rates in (funding or {}).items():
+        for pay in funding_payments(pd.read_json(run / "equity.jsonl", lines=True), rates).itertuples():
+            paid[(str(pay.coin), str(pay.strategy))] += float(pay.funding_usd)
     fills = pd.concat([t[0] for t in tables if not t[0].empty], ignore_index=True)
     blocks = pd.concat([t[1] for t in tables], ignore_index=True)
     final: dict[tuple[str, str], float] = defaultdict(float)
@@ -104,6 +116,9 @@ def score(runs: list[Path]) -> dict[str, Any]:
             "notional_usd": round(notional, 2),
             "total_usd": round(total, 2),
         }
+        if funding is not None:
+            row["funding_usd"] = round(paid[(coin, strategy)], 2)
+            row["total_with_funding_usd"] = round(total + paid[(coin, strategy)], 2)
         row["usd_per_hour"] = round(total / hours, 2) if hours else None
         row["usd_per_hour_ci95"] = [round(v * 4, 2) for v in c] if (c := ci(b)) else None
         if notional:
@@ -128,6 +143,14 @@ def score(runs: list[Path]) -> dict[str, Any]:
                 "bps": round(total / notional * BPS, 3) if notional else None,
                 "break_even_fee_bps": round((total - fee) / notional * BPS, 3) if notional else None,
             }
+            | (
+                {
+                    "funding_usd": round(f := sum(paid[(r["coin"], strategy)] for r in rs), 2),
+                    "total_with_funding_usd": round(total + f, 2),
+                }
+                if funding is not None
+                else {}
+            )
         )
     vs_touch = []
     for coin in sorted({r["coin"] for r in rows}):
@@ -169,8 +192,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--runs", type=Path, nargs="+", required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument(
+        "--funding", action="store_true", help="settle Hyperliquid's hourly funding on the held positions (fetches the rates once)"
+    )
     args = parser.parse_args(argv)
-    result = score(sorted(r for r in args.runs if (r / "fills.jsonl").exists()))
+    runs = sorted(r for r in args.runs if (r / "fills.jsonl").exists())
+    result = score(runs, {r: funding_for_run(r) for r in runs} if args.funding else None)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
     print(f"{result['hours']} h, {len(result['runs'])} runs")

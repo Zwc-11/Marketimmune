@@ -134,3 +134,23 @@ def test_read_parquet_window_sorts_then_slices_latest_or_head(tmp_path: Path) ->
     assert [row["ts_ms"] for row in read_parquet_window(path, limit=2, latest=False)] == [10, 20]
     assert [row["ts_ms"] for row in read_parquet_window(path, limit=0)] == [10, 20, 30, 40, 50]
     assert read_parquet_window(path, limit=9)[-1] == {"ts_ms": 50, "v": 100}
+
+
+def test_parquet_keeps_columns_that_only_later_rows_have(tmp_path: Path) -> None:
+    # Audit B01: a first fill without asset context must not drop asset_funding for the day.
+    path = tmp_path / "rows.parquet"
+    write_parquet_records(path, [{"ts_ms": 1, "px": 1.0}, {"ts_ms": 2, "px": 2.0, "asset_funding": 0.5}])
+    rows = read_parquet_records(path)
+    assert rows == [{"ts_ms": 1, "px": 1.0, "asset_funding": None}, {"ts_ms": 2, "px": 2.0, "asset_funding": 0.5}]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["rows.parquet"]  # published by rename, no temp left
+
+
+def test_a_leg_seen_twice_is_one_maker_opportunity() -> None:
+    # Audit B12: overlapping source objects deliver the same leg twice.
+    from marketimmune.sources.hyperliquid_node_fills import dedupe_fill_legs
+
+    taker, maker = _leg("B", True, "0xt"), _leg("A", False, "0xm")
+    legs, dropped = dedupe_fill_legs([taker, maker, maker, taker])
+    assert dropped == 2 and legs == [taker, maker]
+    (match,) = pair_fill_legs([taker, maker, maker])
+    assert (match.maker_user, match.taker_user) == ("0xm", "0xt")

@@ -86,7 +86,7 @@ function LiveStats() {
                         <Stat label="Withheld" value={`${integer(stats.withheld)} of ${integer(stats.scored)}`} />
                         <Stat
                             label="Policy lift"
-                            hint="Mean per-fill markout with withheld fills counted as 0, minus quoting every fill"
+                            hint="Mean per-fill markout with withheld fills counted as 0, minus quoting every fill. Scored after each public fill prints: a classification of fills, not a trading result (no costs, inventory or queue; see the Paper trading page)"
                             value={bps(stats.liftBps)}
                             tone={stats.liftBps === null ? undefined : stats.liftBps >= 0 ? 'up' : 'down'}
                         />

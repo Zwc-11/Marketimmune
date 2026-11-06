@@ -418,6 +418,9 @@ extended the grid where the first one's best sat on its edge.
 - Segments start flat and are marked to the mid at their end, with no exit cost. Flattening
   $5,000 at the touch would cost about the half-spread plus the taker fee once per coin and segment,
   under $25 a segment in all.
+- **Funding** is not booked by the engine. `cli.paper_report --funding` settles Hyperliquid's
+  hourly funding on the held positions (`paper/funding.py`, rates cached per run). On the 24-hour
+  run's first segment (2 h, $1,000 quotes) it was under $0.35 for every strategy.
 
 ## Files
 

@@ -121,3 +121,16 @@ def test_backfill_skips_empty_inputs(tmp_path: Path) -> None:
         0,
         (),
     )
+
+
+def test_a_rerun_over_other_hours_does_not_silently_replace_the_day(tmp_path: Path) -> None:
+    # Audit S06: hour 0 then hour 1 used to overwrite the coin-day's files.
+    layout = HyperliquidLakeLayout(tmp_path)
+    data = payloads()
+    kwargs = {"archive": data.__getitem__, "node": data.__getitem__, "coin": "BTC", "date": "20260101", "fill_hours": [0]}
+    run_backfill(layout, hours=[0], markout_config=MarkoutConfig(horizons_s=(1.0,)), **kwargs)  # type: ignore[arg-type]
+    coverage = json.loads(layout.coverage_path("BTC", "20260101").read_text())
+    assert (coverage["hours"], coverage["fill_hours"], coverage["duplicate_legs"]) == ([0], [0], 0)
+    run_backfill(layout, hours=[0], markout_config=MarkoutConfig(horizons_s=(1.0,)), **kwargs)  # type: ignore[arg-type]  # same hours: fine
+    with pytest.raises(ValueError, match="would replace"):
+        run_backfill(layout, hours=[0, 1], markout_config=MarkoutConfig(horizons_s=(1.0,)), **kwargs)  # type: ignore[arg-type]

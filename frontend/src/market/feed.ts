@@ -15,15 +15,21 @@ import {
     DEFAULT_CANDLE_INTERVAL,
     type CandleInterval,
     COIN,
+    CTX_AVAILABILITY_MARGIN_MS,
+    FEED_STALL_MS,
     HL_INFO_URL,
     HL_WS_URL,
     HORIZON_MS,
+    MAX_BOOK_AGE_MS,
+    MAX_CTX_AGE_MS,
+    MAX_LABEL_LAG_MS,
     MODEL_URL,
+    PONG_TIMEOUT_MS,
     STATS_WINDOW_MS,
     TAPE_LIMIT,
     TOXIC_FEE_BPS,
 } from '../config';
-import { assetFeatures, bookTop, featureValues, vectorFor, type BookTop } from '../lib/features';
+import { assetFeatures, bookTop, featureValues, FEATURE_NAMES, vectorFor, type BookTop } from '../lib/features';
 import { priceDecimals } from '../lib/format';
 import { calibrate, ObliviousModel, type IsotonicArtifact } from '../lib/obliviousTrees';
 import { OfiWindows, type OfiValues } from '../lib/ofi';
@@ -47,7 +53,8 @@ interface BookState {
 }
 
 interface AssetCtxState {
-    /** UTC receipt time; the context API does not supply an exchange timestamp. */
+    /** Local receipt time (Date.now()); the context API does not supply an exchange timestamp,
+     * so the scorer moves this onto the exchange clock before comparing it with a fill. */
     observedAt: number;
     markPx: number;
     oraclePx: number;
@@ -101,8 +108,6 @@ const CANDLE_LIMIT = 720;
 const SEEN_LIMIT = 5_000;
 const PING_MS = 30_000;
 const STATS_MIN_INTERVAL_MS = 250;
-/** The withhold cut when an exported artifact carries no tuned threshold. */
-const DEFAULT_THRESHOLD = 0.5;
 const UNSCORED = { score: null, action: null } as const;
 
 interface RawLevel {
@@ -142,7 +147,7 @@ export class MarketFeed {
     private ws: WebSocket | null = null;
 
     private ofi = new OfiWindows();
-    private readonly tracker = new RegretTracker(HORIZON_MS, TOXIC_FEE_BPS, STATS_WINDOW_MS);
+    private readonly tracker = new RegretTracker(HORIZON_MS, TOXIC_FEE_BPS, STATS_WINDOW_MS, MAX_LABEL_LAG_MS);
     private readonly bookHistory: BookState[] = [];
     private readonly ctxHistory: AssetCtxState[] = [];
     private scorer: Scorer | null = null;
@@ -152,6 +157,11 @@ export class MarketFeed {
     private readonly seenTrades = new Set<string>();
     private readonly seenOrder: string[] = [];
     private clockOffset: number | null = null;
+    /** (local time, local minus exchange time) of recent books: the smallest bounds the skew. */
+    private readonly offsets: { at: number; offset: number }[] = [];
+    private lastBookAt: number | null = null;
+    private pingAt: number | null = null;
+    private pongAt: number | null = null;
 
     constructor() {
         this.snapshot = {
@@ -190,7 +200,31 @@ export class MarketFeed {
         void this.loadContext();
         void this.loadModel();
         this.connect();
-        window.setInterval(() => this.refreshStats(true), 1_000);
+        window.setInterval(() => {
+            this.watchdog();
+            this.refreshStats(true);
+        }, 1_000);
+    }
+
+    /** The exchange's clock now, from this machine's (null before the first book). */
+    exchangeNow(): number | null {
+        return this.clockOffset === null ? null : Date.now() - this.clockOffset;
+    }
+
+    /**
+     * An open socket can stall silently: no book for `FEED_STALL_MS`, or a ping with no pong
+     * for `PONG_TIMEOUT_MS`, closes it, which reconnects and resets the windows (audit B09).
+     */
+    private watchdog(): void {
+        const ws = this.ws;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const now = Date.now();
+        const bookStalled = this.lastBookAt !== null && now - this.lastBookAt > FEED_STALL_MS;
+        const pongMissing = this.pingAt !== null && (this.pongAt ?? 0) < this.pingAt && now - this.pingAt > PONG_TIMEOUT_MS;
+        if (bookStalled || pongMissing) {
+            this.patch('status', 'reconnecting');
+            ws.close();
+        }
     }
 
     /** Switch the chart interval: new history over REST, new candle subscription. */
@@ -244,7 +278,11 @@ export class MarketFeed {
             }
             const model = ObliviousModel.fromCompact(await response.json());
             const { calibrator, decision_threshold: threshold, model_name: name } = model.meta;
-            this.scorer = { model, calibrator, threshold: threshold ?? DEFAULT_THRESHOLD };
+            checkCompatible(model);
+            if (threshold === null || threshold === undefined || !(threshold >= 0 && threshold <= 1)) {
+                throw new Error('the model carries no decision threshold in [0, 1]');
+            }
+            this.scorer = { model, calibrator, threshold };
             this.patch('model', {
                 state: 'ready',
                 name: name ?? null,
@@ -272,8 +310,13 @@ export class MarketFeed {
             ]) {
                 ws.send(JSON.stringify({ method: 'subscribe', subscription }));
             }
+            this.pingAt = null;
+            this.pongAt = null;
+            this.lastBookAt = Date.now();
             this.pingTimer = window.setInterval(() => {
-                if (ws.readyState === WebSocket.OPEN) ws.send('{"method":"ping"}');
+                if (ws.readyState !== WebSocket.OPEN) return;
+                ws.send('{"method":"ping"}');
+                if (this.pingAt === null || (this.pongAt ?? 0) >= this.pingAt) this.pingAt = Date.now();
             }, PING_MS);
             this.patch('status', 'live');
         };
@@ -336,6 +379,9 @@ export class MarketFeed {
             case 'candle':
                 this.onCandle(message.data as RawCandle | RawCandle[]);
                 break;
+            case 'pong':
+                this.pongAt = now;
+                return;
             default:
                 return;
         }
@@ -351,8 +397,12 @@ export class MarketFeed {
         if (this.snapshot.book === null) {
             this.patch('priceDecimals', priceDecimals(rawBids.concat(rawAsks).slice(0, 20).map((l) => l.px)));
         }
-        const offset = Date.now() - time;
+        const now = Date.now();
+        const offset = now - time;
         this.clockOffset = this.clockOffset === null ? offset : this.clockOffset * 0.9 + offset * 0.1;
+        this.offsets.push({ at: now, offset });
+        while (this.offsets.length && this.offsets[0].at < now - OFFSET_WINDOW_MS) this.offsets.shift();
+        this.lastBookAt = now;
         const book: BookState = { time, bids, asks, top, ofi: this.ofi.push(top) };
         if (this.coverageStart === null) {
             // Fills due before our first mid cannot be labelled with the mid at t+10 s.
@@ -364,6 +414,7 @@ export class MarketFeed {
         this.patch('book', book);
 
         const done = this.tracker.onMid(time, top.mid);
+        this.forget(this.tracker.takeDropped());
         if (!done.length) return;
         const byId = new Map(done.map((fill) => [fill.id, fill]));
         this.patch('tape', this.snapshot.tape.map((fill) => byId.get(fill.id) ?? fill));
@@ -373,6 +424,7 @@ export class MarketFeed {
 
     private onTrades(trades: RawTrade[]): void {
         const added: TapeFill[] = [];
+        const resolved: ResolvedFill[] = [];
         for (const trade of trades) {
             const px = Number(trade.px);
             const sz = Number(trade.sz);
@@ -382,10 +434,14 @@ export class MarketFeed {
             if (this.coverageStart !== null && trade.time + HORIZON_MS < this.coverageStart) continue;
             // `side` is the aggressor; the maker who got filled sits on the other side.
             const makerSide = trade.side === 'B' ? -1 : 1;
-            added.push(this.tracker.add({ id, time: trade.time, px, sz, makerSide, ...this.score(trade.time, px, sz, makerSide) }));
+            const { outcome, ...fill } = this.tracker.add({ id, time: trade.time, px, sz, makerSide, ...this.score(trade.time, px, sz, makerSide) });
+            if (outcome === 'unavailable') continue; // its horizon mid is not among the mids seen
+            added.push(fill);
+            if (outcome === 'resolved') resolved.push(fill as ResolvedFill);
         }
         if (!added.length) return;
         this.patch('tape', prependCapped(added.reverse(), this.snapshot.tape, TAPE_LIMIT));
+        if (resolved.length) this.patch('resolved', prependCapped(resolved.reverse(), this.snapshot.resolved, RESOLVED_LIMIT));
         this.refreshStats(false);
     }
 
@@ -398,18 +454,29 @@ export class MarketFeed {
         this.patch('ctx', ctx);
     }
 
-    /** Score with the latest book and context available at or before the fill. */
+    /**
+     * Score with the latest book and context known at or before the fill, both fresh (at most
+     * `MAX_BOOK_AGE_MS` / `MAX_CTX_AGE_MS` old), on one clock: the context's local receipt time
+     * is moved onto the exchange clock (audit B03). A missing or non-finite feature leaves the
+     * fill unscored rather than handing the model a value it never trained on (audit B11).
+     */
     private score(time: number, px: number, sz: number, makerSide: 1 | -1): Pick<TapeFill, 'score' | 'action'> {
         const scorer = this.scorer;
-        if (!scorer) return UNSCORED;
-        const ctx = latestAtOrBefore(this.ctxHistory, time, ctxTime);
-        if (!ctx) return UNSCORED;
+        if (!scorer || !this.offsets.length) return UNSCORED;
+        const skew = Math.min(...this.offsets.map((o) => o.offset));
+        const known = (ctx: AssetCtxState) => ctx.observedAt - skew + CTX_AVAILABILITY_MARGIN_MS;
+        const ctx = latestAtOrBefore(this.ctxHistory, time, known);
+        if (!ctx || time - known(ctx) > MAX_CTX_AGE_MS) return UNSCORED;
         const book = latestAtOrBefore(this.bookHistory, time, bookTime);
         const asset = assetFeatures(ctx);
-        if (!book || !asset) return UNSCORED;
+        if (!book || !asset || time - book.time > MAX_BOOK_AGE_MS) return UNSCORED;
         const values = featureValues({ px, sz, makerSide, feeBps: 0 }, book.top, book.ofi, asset);
         const { model, calibrator, threshold } = scorer;
-        const score = calibrate(calibrator, model.probability(vectorFor(model.featureColumns, values)));
+        const vector = vectorFor(model.featureColumns, values);
+        if (!vector.every((v) => Number.isFinite(v))) return UNSCORED;
+        const probability = model.probability(vector);
+        if (!Number.isFinite(probability)) return UNSCORED;
+        const score = calibrate(calibrator, probability);
         return { score, action: score >= threshold ? 'withhold' : 'quote' };
     }
 
@@ -438,7 +505,8 @@ export class MarketFeed {
         const now = Date.now();
         if (!force && now - this.statsAt < STATS_MIN_INTERVAL_MS) return;
         this.statsAt = now;
-        this.patch('stats', this.tracker.stats(this.snapshot.book?.time ?? now));
+        // The window ages with the clock, not with the last book, which stops in an outage (audit B24).
+        this.patch('stats', this.tracker.stats(this.exchangeNow() ?? now));
     }
 
     private patch<K extends keyof MarketSnapshot>(key: K, value: MarketSnapshot[K]): void {
@@ -465,8 +533,22 @@ async function info<T>(body: unknown): Promise<T> {
     return (await response.json()) as T;
 }
 
-const ctxTime = (ctx: AssetCtxState) => ctx.observedAt;
 const bookTime = (book: BookState) => book.time;
+/** How far back the smallest local-minus-exchange offset is taken. */
+const OFFSET_WINDOW_MS = 5 * 60_000;
+
+/**
+ * A model is used only if it was trained for this coin and label horizon and every feature it
+ * reads is one the live feed computes (audit B10, B11).
+ */
+export function checkCompatible(model: ObliviousModel): void {
+    const meta = model.meta as { coin?: unknown; horizon?: unknown };
+    const horizon = `${HORIZON_MS / 1000}s`;
+    if (meta.coin !== COIN) throw new Error(`model is for ${String(meta.coin ?? 'an unnamed coin')}, this feed is ${COIN}`);
+    if (meta.horizon !== horizon) throw new Error(`model is for a ${String(meta.horizon ?? 'unnamed')} horizon, this feed labels ${horizon}`);
+    const unknown = model.featureColumns.filter((name) => !FEATURE_NAMES.includes(name));
+    if (unknown.length) throw new Error(`model reads features the live feed does not compute: ${unknown.join(', ')}`);
+}
 
 /** Newest entry at or before `time` in a history appended in time order. */
 function latestAtOrBefore<T>(history: readonly T[], time: number, at: (entry: T) => number): T | undefined {

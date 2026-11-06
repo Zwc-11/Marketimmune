@@ -3,10 +3,15 @@
 L2 snapshots for the given hours, the day's asset contexts and the coin's node fills land in
 Silver; the paired matches get markout labels (Gold) and model features (Gold training) with
 a no-look-ahead sidecar. Network access is the two injected ``key -> bytes`` fetchers.
+
+The partitions are per coin-day, so a run over some hours replaces what an earlier run over
+other hours wrote. Each run records its hours (``coverage-<date>.json``); a run whose hours
+differ from the recorded ones stops unless ``replace=True``. Files are published by rename.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
@@ -30,7 +35,7 @@ from marketimmune.lake.tables import (
 from marketimmune.logger import init_logger
 from marketimmune.sources.hyperliquid_asset_ctxs import asset_ctxs_key, parse_asset_ctxs_csv
 from marketimmune.sources.hyperliquid_l2_archive import l2_book_key, parse_l2_book_ndjson
-from marketimmune.sources.hyperliquid_node_fills import node_fills_key, pair_fill_legs, parse_node_fills
+from marketimmune.sources.hyperliquid_node_fills import dedupe_fill_legs, node_fills_key, pair_fill_legs, parse_node_fills
 
 logger = init_logger(__name__)
 
@@ -47,6 +52,7 @@ class HyperliquidBackfillResult:
     gold_rows: int
     training_rows: int
     writes: tuple[LakeWrite, ...]
+    duplicate_legs: int = 0
 
 
 def parse_hours(values: Sequence[str]) -> tuple[int, ...]:
@@ -71,8 +77,18 @@ def run_backfill(
     fill_hours: Sequence[int],
     include_asset_ctxs: bool = True,
     markout_config: MarkoutConfig = DEFAULT_MARKOUT_CONFIG,
+    replace: bool = False,
 ) -> HyperliquidBackfillResult:
     """Fetch, parse and write one coin-day; empty artifacts are skipped, not written."""
+    coverage = {"coin": coin, "date": date, "hours": sorted(hours), "fill_hours": sorted(fill_hours), "asset_ctxs": include_asset_ctxs}
+    coverage_path = layout.coverage_path(coin, date)
+    if coverage_path.exists() and not replace:
+        recorded = json.loads(coverage_path.read_text(encoding="utf-8"))
+        if {k: recorded.get(k) for k in coverage} != coverage:
+            raise ValueError(
+                f"{coin} {date} was built from hours {recorded.get('hours')} / fill hours {recorded.get('fill_hours')}; "
+                f"this run has {coverage['hours']} / {coverage['fill_hours']} and would replace it. Pass replace=True (--replace) to rebuild."
+            )
 
     def read(fetch: Fetch, key: str) -> str:
         logger.info("fetch %s", key)
@@ -81,7 +97,11 @@ def run_backfill(
 
     snapshots = [s for hour in hours for s in parse_l2_book_ndjson(read(archive, l2_book_key(coin, date, hour)))]
     contexts = parse_asset_ctxs_csv(read(archive, asset_ctxs_key(date))) if include_asset_ctxs else []
-    legs = [leg for hour in fill_hours for leg in parse_node_fills(read(node, node_fills_key(date, hour)), coin)]
+    legs, duplicate_legs = dedupe_fill_legs(
+        [leg for hour in fill_hours for leg in parse_node_fills(read(node, node_fills_key(date, hour)), coin)]
+    )
+    if duplicate_legs:
+        logger.warning("%s %s: dropped %d repeated fill legs", coin, date, duplicate_legs)
     matches = pair_fill_legs(legs)
     gold_rows = build_markout_gold_rows(matches, snapshots, markout_config, coin=coin)
     logger.info(
@@ -113,6 +133,10 @@ def run_backfill(
         leakage = verify_training_rows_no_lookahead(label_records, l2_records, asset_records)
         write_leakage_report(layout, coin=coin, date=date, report=leakage.to_dict())
         logger.info("%d training rows; no-look-ahead check passed=%s (%d checked)", len(training_rows), leakage.passed, leakage.n_checked)
+    coverage_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = coverage_path.with_name(f".{coverage_path.name}.tmp")
+    tmp.write_text(json.dumps(coverage | {"duplicate_legs": duplicate_legs}, indent=1), encoding="utf-8")
+    tmp.replace(coverage_path)
     return HyperliquidBackfillResult(
         coin=coin,
         date=date,
@@ -122,4 +146,5 @@ def run_backfill(
         gold_rows=len(gold_rows),
         training_rows=len(training_rows),
         writes=tuple(writes),
+        duplicate_legs=duplicate_legs,
     )

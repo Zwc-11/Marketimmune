@@ -86,6 +86,12 @@ Everything else stays quiet.
   Its fills are simulated against real trades, and its header says so: "simulated fills · no
   order is sent". With no run on the machine it shows the command to start one.
 - With no exported model, fills are labelled but not scored, and the UI says so.
+- The terminal's live scores classify public fills after they print. They are not
+  executable decisions and the policy lift is not PnL (no fees, inventory or queue); the
+  Policy lift hint says so. Executable paper decisions, with latency, queue and a ledger, are
+  on the Paper trading page.
+- A live score uses only a book and an asset context that were fresh and already received
+  at the fill's exchange time, on one clock (`feed.ts`); otherwise the fill stays unscored.
 - The sample immune-loop run appears only after "Show a sample run" and is badged
   "Sample run, not live output" on every view.
 - The validation scheme is named as it was run (`purged_kfold` for the committed

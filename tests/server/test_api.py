@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.settings")
+os.environ.setdefault("MARKETIMMUNE_ALLOWED_HOSTS", "testserver,127.0.0.1,localhost")
 
 import django
 import pytest
@@ -203,3 +204,46 @@ def test_health_endpoint_lists_missing_artifacts(tmp_path: Path) -> None:
         payload = Client().get("/api/markout-model/health/?samples=5000").json()
     assert payload["available"] is False and payload["message"] == "Promoted markout artifacts are not complete yet."
     assert [a["label"] for a in payload["missing_artifacts"]] == ["model", "calibrator", "report"]
+
+
+def test_a_new_model_scoring_a_fill_adds_a_record_and_keeps_the_old(promoted: Path) -> None:
+    # Audit S01: rescoring after a promotion used to overwrite the earlier model's decision.
+    score = FakeScore(ts_ms=1_000.0, calibrated_score=0.9, action="withhold_quote")
+    markout_decisions._persist([score], source_path="gold/x.parquet", model_key="aaaa")
+    markout_decisions._persist([score], source_path="gold/x.parquet", model_key="aaaa")  # same model: same record
+    markout_decisions._persist(
+        [FakeScore(ts_ms=1_000.0, calibrated_score=0.1, action="quote")], source_path="gold/x.parquet", model_key="bbbb"
+    )
+    rows = {r.decision_id: r.action for r in ScoredFillDecision.objects.all()}
+    assert rows == {f"{score.alert_id}@aaaa": "withhold_quote", f"{score.alert_id}@bbbb": "quote"}
+    (promoted / "model.cbm").write_bytes(b"one")
+    first = markout_decisions.model_digest(promoted / "model.cbm")
+    (promoted / "model.cbm").write_bytes(b"two")
+    assert markout_decisions.model_digest(promoted / "model.cbm") != first and len(first) == 16
+
+
+def test_another_machine_may_read_but_not_trigger_scoring(promoted: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Audit S04: an anonymous request from elsewhere must not start a scoring pass that writes.
+    calls: list[int] = []
+    monkeypatch.setattr(markout_decisions, "_score_gold_file", lambda path, scorer, limit: calls.append(limit) or [])
+    monkeypatch.setattr(markout_decisions.HyperliquidMarkoutScorer, "load", staticmethod(lambda *_paths: object()))
+    remote = Client(REMOTE_ADDR="10.0.0.7")
+    assert remote.get("/api/markout-model/decisions/?refresh=1").json()["refresh_attempted"] is False and calls == []
+    with override_settings(MARKETIMMUNE_API_TOKEN="s3cret"):
+        bad = remote.get("/api/markout-model/decisions/?refresh=1", HTTP_X_MARKETIMMUNE_TOKEN="nope").json()
+        assert bad["refresh_attempted"] is False and calls == []
+        good = remote.get("/api/markout-model/decisions/?refresh=1", HTTP_X_MARKETIMMUNE_TOKEN="s3cret").json()
+        assert good["refresh_attempted"] is True and len(calls) == 1
+    assert Client().get("/api/markout-model/decisions/?refresh=1").json()["refresh_attempted"] is True  # this machine
+
+
+def test_production_settings_need_a_secret_and_name_their_hosts() -> None:
+    import subprocess
+    import sys
+
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("DJANGO_", "MARKETIMMUNE_"))}
+    code = "import server.settings as s; print(s.DEBUG, s.ALLOWED_HOSTS)"
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True).stdout
+    assert out.strip() == "True ['127.0.0.1', 'localhost', '[::1]']"
+    failed = subprocess.run([sys.executable, "-c", code], env=env | {"DJANGO_DEBUG": "0"}, capture_output=True, text=True)
+    assert failed.returncode != 0 and "DJANGO_SECRET_KEY" in failed.stderr

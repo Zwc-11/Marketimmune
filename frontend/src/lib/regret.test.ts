@@ -60,4 +60,23 @@ describe('RegretTracker', () => {
         expect(tracker.onMid(20_000, 101)).toEqual([]);
         expect(tracker.stats(20_000).pending).toBe(0);
     });
+
+    it('resolves a fill that arrives after its horizon from the mid at the horizon (audit B08)', () => {
+        const tracker = new RegretTracker(10_000, 1, 300_000, 2_000);
+        tracker.onMid(5_000, 100);
+        tracker.onMid(11_000, 99);
+        const late = tracker.add(fill('late', 1_000, 100, 1, 'quote'));
+        expect(late.outcome).toBe('resolved');
+        expect(late.markoutBps).toBeCloseTo(-100, 9);
+        expect(tracker.onMid(12_000, 101)).toEqual([]);
+        expect(tracker.stats(12_000).resolved).toBe(1);
+    });
+
+    it('gives no label when the first mid after the horizon is too late (audit B09)', () => {
+        const tracker = new RegretTracker(10_000, 1, 300_000, 2_000);
+        tracker.add(fill('gap', 0, 100, 1, null));
+        expect(tracker.onMid(12_500, 101)).toEqual([]);
+        expect(tracker.takeDropped().map((f) => f.id)).toEqual(['gap']);
+        expect(tracker.add(fill('old', 0, 100, 1, null)).outcome).toBe('unavailable');
+    });
 });

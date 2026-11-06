@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
@@ -252,6 +253,8 @@ def test_feature_sets_l0_is_default_and_drops_fill_vs_mid() -> None:
 
 def test_partition_leakage_status_requires_a_passing_report(tmp_path: Path) -> None:
     parts = tuple(TrainingPartition("SOL", d, tmp_path / f"SOL-training-{d}.parquet") for d in ("20251201", "20251202"))
+    for part in parts:
+        pq.write_table(pa.table({"ts_ms": [2.0], "feature_ts_ms": [1.0]}), part.path)
     ok, details = partition_leakage_status(parts)
     assert ok is False and details[0]["reason"] == "no leakage report"
     parts[0].path.with_suffix(".leakage.json").write_text(json.dumps({"passed": True, "n_checked": 5}))
@@ -278,3 +281,46 @@ def test_train_oof_catboost_rolling_daily_and_tail_calibrator() -> None:
     assert [f["n_train"] for f in result.fold_summaries] == [2 * per_day, 2 * per_day]
     assert [f["n_calibration"] for f in result.fold_summaries] == [48, 48]
     assert result.calibrator is not None
+
+
+def test_a_forward_holdout_is_disjoint_and_later() -> None:
+    # Audit B04: the same partition, or an earlier one, must not pass as a forward holdout.
+    from marketimmune.cli.train import check_forward_holdout
+
+    check_forward_holdout(("20260527", "20260528"), ("20260601",))
+    with pytest.raises(ValueError, match="also training"):
+        check_forward_holdout(("20260601",), ("20260601",))
+    with pytest.raises(ValueError, match="not after"):
+        check_forward_holdout(("20260527", "20260601"), ("20260530",))
+
+
+def test_holdout_rows_wait_for_the_last_training_label() -> None:
+    from marketimmune.cli.train import label_gap_ms, purge_holdout_gap
+
+    gap = label_gap_ms("10s")
+    assert gap == 40_000.0  # 10 s horizon plus the label's 30 s lag bound
+    train = pd.DataFrame({"ts_ms": [0.0, 100_000.0]})
+    holdout = pd.DataFrame({"ts_ms": [120_000.0, 140_000.0, 150_000.0]})
+    kept, dropped = purge_holdout_gap(train, holdout, gap)
+    assert dropped == 2 and kept["ts_ms"].tolist() == [150_000.0]
+
+
+def test_training_refuses_features_stamped_after_their_fill(tmp_path: Path) -> None:
+    # Audit B05: a Gold row whose features are from after its fill must not train a model.
+    from marketimmune.cli._train_data import check_feature_times
+
+    good = pd.DataFrame({"ts_ms": [10.0, 20.0], "feature_ts_ms": [9.0, 19.0]})
+    check_feature_times(good, tmp_path / "x.parquet")
+    for bad in ([9.0, 20.0], [9.0, None]):
+        with pytest.raises(ValueError, match="at or after their fill"):
+            check_feature_times(pd.DataFrame({"ts_ms": [10.0, 20.0], "feature_ts_ms": bad}), tmp_path / "x.parquet")
+    part = TrainingPartition("SOL", "20251201", tmp_path / "SOL-training-20251201.parquet")
+    pq.write_table(pa.table({"ts_ms": [2.0]}), part.path)
+    part.path.with_suffix(".leakage.json").write_text(json.dumps({"passed": True, "n_checked": 5}))
+    ok, details = partition_leakage_status((part,))
+    assert ok is False and "feature_ts_ms" in details[0]["reason"]
+
+
+def test_purge_must_cover_the_label(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="shorter than"):
+        trainer.main(["--coins", "SOL", "--dates", "20260601", "--horizon", "60s", "--purge-ms", "60000", "--lake-root", str(tmp_path)])

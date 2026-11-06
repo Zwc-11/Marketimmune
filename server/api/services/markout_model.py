@@ -57,7 +57,10 @@ def promoted_markout_model_health(*, samples: int = 128) -> dict[str, Any]:
             "artifacts": artifacts,
             "missing_artifacts": missing,
         }
-    scorer = HyperliquidMarkoutScorer.load(paths["model"], paths["calibrator"], paths["report"])
+    try:
+        scorer = HyperliquidMarkoutScorer.load(paths["model"], paths["calibrator"], paths["report"])
+    except ValueError as exc:  # artifacts that do not belong together, or no deployable policy
+        return {"available": False, "kind": "hyperliquid_markout", "message": str(exc), "artifacts": artifacts, "missing_artifacts": []}
     smoke_features = scorer.zero_feature_sample()
     report = scorer.report
     holdout = report["holdout_split"]

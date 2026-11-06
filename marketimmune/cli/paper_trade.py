@@ -79,7 +79,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--taker-fee-bps", type=float, default=4.5)
     parser.add_argument("--no-raw", action="store_true", help="do not keep the raw messages")
     parser.add_argument("--no-journal", action="store_true", help="do not write the decision journal")
-    parser.add_argument("--registered", default="", help="the strategies the run's pre-registration makes claims about (shown first in the live view)")
+    parser.add_argument(
+        "--registered", default="", help="the strategies the run's pre-registration makes claims about (shown first in the live view)"
+    )
     parser.add_argument(
         "--clock",
         choices=("local", "coinbase"),

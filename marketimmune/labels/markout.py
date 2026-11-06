@@ -26,12 +26,15 @@ class MarkoutConfig:
     ``"fill_px"`` reproduces the v2 label, which Gold still stores alongside as
     ``markout_px_bps_*`` for PnL accounting.
 
-    With ``max_mid_lag_s`` set, a label needs the anchor mid no older than that before
-    the fill and the future mid no later than that after ``t + h``; otherwise it would
-    span a gap in the data (Albers misses 2025-12-12 17:40 to 18:16 UTC).
+    A label needs the anchor mid no older than ``max_mid_lag_s`` before the fill and the
+    future mid no later than that after ``t + h``; otherwise it would span a gap in the data
+    (Albers misses 2025-12-12 17:40 to 18:16 UTC), and a nominal 10 s label could read a mid
+    an hour later. The default, 30 s, is the book's own staleness bound
+    (``features.training_rows.STALE_BOOK_MS``); ``None`` lifts the bound and is for
+    reproducing old builds only.
     """
 
     horizons_s: tuple[float, ...] = (1.0, 10.0, 60.0)
     fee_bps: float = 1.0
     reference: Literal["pre_fill_mid", "fill_px"] = "pre_fill_mid"
-    max_mid_lag_s: float | None = None
+    max_mid_lag_s: float | None = 30.0

@@ -110,6 +110,10 @@ class MarkoutEvaluationReport:
         return sum(value * weight for value, weight in pairs) / sum(weight for _value, weight in pairs)
 
 
+# A skip threshold above every probability: quote every fill (the quote-all baseline).
+QUOTE_ALL = 1.0 + 1e-9
+
+
 @dataclass(frozen=True, slots=True)
 class ThresholdSelection:
     """One skip threshold scored on realised markout (bps)."""
@@ -211,11 +215,15 @@ def select_markout_threshold(
     *,
     min_quote_rate: float,
     max_quote_rate: float,
-) -> ThresholdSelection:
-    """Best markout lift inside the quote-rate budget (the whole grid if nothing is inside);
-    ties go to the quote rate nearest the budget's middle, then the lower threshold."""
+) -> ThresholdSelection | None:
+    """Best markout lift inside the quote-rate budget; ties go to the quote rate nearest the
+    budget's middle, then the lower threshold. None when no threshold is inside the budget: the
+    caller says what that means (no deployable policy; quote everything on a fold), rather than
+    this function quietly returning a policy that breaks the budget."""
     selections = threshold_sweep(probabilities, markout_bps, thresholds, min_quote_rate=min_quote_rate, max_quote_rate=max_quote_rate)
-    pool = tuple(selection for selection in selections if selection.eligible) or selections
+    pool = tuple(selection for selection in selections if selection.eligible)
+    if not pool:
+        return None
     target = (min_quote_rate + max_quote_rate) / 2.0
     return max(pool, key=lambda s: (s.markout_lift_bps, -abs(s.quote_rate - target), -s.threshold))
 
@@ -230,7 +238,9 @@ def fold_local_markout_thresholds(
     max_quote_rate: float,
 ) -> tuple[FloatArray, tuple[dict[str, Any], ...]]:
     """Per-row thresholds, each fold's chosen on the OOF predictions inside its own training
-    window. A fold with none there (the first tested day) gets the grid's middle value."""
+    window. A fold with none there (the first tested day) gets the grid's middle value; a fold
+    where no threshold keeps the quote rate inside the budget quotes everything (threshold
+    ``QUOTE_ALL``), and its summary says so."""
     probs = np.asarray(probabilities, dtype=np.float64)
     markouts = np.asarray(markout_bps, dtype=np.float64)
     assert probs.shape == markouts.shape, f"{probs.shape=} {markouts.shape=}"
@@ -249,6 +259,10 @@ def fold_local_markout_thresholds(
         selection = select_markout_threshold(
             probs[train], markouts[train], grid, min_quote_rate=min_quote_rate, max_quote_rate=max_quote_rate
         )
+        if selection is None:
+            thresholds[fold.test] = QUOTE_ALL
+            summaries.append({**sizes, "threshold": None, "fallback": "no threshold inside the quote-rate budget: quote all"})
+            continue
         thresholds[fold.test] = selection.threshold
         summaries.append({**sizes, **selection.to_dict()})
     return thresholds, tuple(summaries)

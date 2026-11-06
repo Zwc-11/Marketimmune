@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -77,7 +78,7 @@ def refresh_markout_fill_decisions(*, limit: int | None = None, trigger: str = "
     try:
         scorer = HyperliquidMarkoutScorer.load(paths["model"], paths["calibrator"], paths["report"])
         scores = _score_gold_file(gold_path, scorer, limit)
-        count = _persist(scores[-limit:], source_path=run.source_path)
+        count = _persist(scores[-limit:], source_path=run.source_path, model_key=model_digest(paths["model"]))
     except Exception as exc:  # recorded on the run, which the terminal shows
         return _finish(run, status="failed", message=str(exc))
     return _finish(run, status="succeeded", refreshed_count=count)
@@ -87,11 +88,26 @@ def _score_gold_file(path: Path, scorer: HyperliquidMarkoutScorer, limit: int) -
     return score_gold_training_file(path, scorer, horizon=scorer.report["horizon"], limit=limit, latest=True)
 
 
+def model_digest(path: Path) -> str:
+    """The model file's content hash (first 16 hex digits of SHA-256)."""
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()[:16]
+
+
+def decision_key(alert_id: str, model_key: str) -> str:
+    """One record per fill *and model*: a later model's score of the same fill is a new row,
+    so what an earlier model decided is never overwritten."""
+    return f"{alert_id}@{model_key}"
+
+
 @transaction.atomic
-def _persist(scores: Sequence[GoldFillScore], *, source_path: str) -> int:
+def _persist(scores: Sequence[GoldFillScore], *, source_path: str, model_key: str) -> int:
     for score in scores:
         ScoredFillDecision.objects.update_or_create(
-            decision_id=score.alert_id,
+            decision_id=decision_key(score.alert_id, model_key),
             defaults={
                 "coin": score.coin,
                 "ts_ms": score.ts_ms,

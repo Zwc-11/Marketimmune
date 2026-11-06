@@ -41,6 +41,7 @@ def _write_day(layout: HyperliquidLakeLayout, day: int, rng: np.random.Generator
             "oid": np.arange(n),
         }
     )
+    frame["feature_ts_ms"] = frame["ts_ms"] - 1.0
     path = layout.gold_training_path("SOL", date)
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_parquet(path)

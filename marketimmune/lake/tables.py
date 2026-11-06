@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -68,16 +69,31 @@ class HyperliquidLakeLayout:
     def gold_training_path(self, coin: str, date: str) -> Path:
         return self._partition("gold", "training", coin, date, "training-")
 
+    def coverage_path(self, coin: str, date: str) -> Path:
+        """The hours a coin-day's partitions were built from (``lake.backfill``)."""
+        return self._partition("gold", "coverage", coin, date, "coverage-").with_suffix(".json")
+
     def _partition(self, layer: str, table: str, coin: str, date: str, tag: str = "") -> Path:
         symbol = _coin_dir(coin)
         return self.root / layer / "hyperliquid" / table / symbol / f"{symbol}-{tag}{date}.parquet"
 
 
 def write_parquet_records(path: Path, records: Sequence[Mapping[str, Any]]) -> LakeWrite:
-    """Write non-empty records to a zstd parquet file; the first record's keys name the columns."""
+    """Write non-empty records to a zstd parquet file.
+
+    The columns are every key any record has, in first-seen order; a record without a key
+    gets a null there. (``pa.Table.from_pylist`` alone names the columns from the first
+    record, so a first fill without asset context dropped the asset columns of every later
+    fill.) The file is written beside the target and renamed over it, so a reader never sees
+    a half-written partition.
+    """
     assert records, f"refusing to write an empty parquet artifact: {path}"
+    names = list(dict.fromkeys(key for record in records for key in record))
+    table = pa.Table.from_pylist([{name: record.get(name) for name in names} for record in records])
     path.parent.mkdir(parents=True, exist_ok=True)
-    pq.write_table(pa.Table.from_pylist(records), path, compression="zstd")
+    tmp = path.with_name(f".{path.name}.tmp")
+    pq.write_table(table, tmp, compression="zstd")
+    os.replace(tmp, path)
     return LakeWrite(path=path, rows=len(records))
 
 

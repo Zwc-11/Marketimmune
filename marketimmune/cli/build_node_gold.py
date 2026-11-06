@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import polars as pl
 import pyarrow.parquet as pq
 from numpy.typing import NDArray
@@ -133,6 +134,18 @@ def labels(
     return out
 
 
+def feature_times(block: npt.NDArray[np.int64], t_ms: npt.ArrayLike, blocks: pl.DataFrame, latency_ms: float) -> npt.NDArray[np.float64]:
+    """The newest information each fill's features read: the last block before the fill's
+    block (trade state, fees, forced flow) or the CEX price ``latency_ms`` before it, whichever
+    is later. Strictly before the fill, which ``cli._train_data.check_feature_times`` checks."""
+    bn = blocks["block_number"].to_numpy().astype(np.int64)
+    bt = blocks["t_ms"].to_numpy().astype(np.float64)
+    prev = np.searchsorted(bn, block, side="left") - 1
+    prev_t = np.where(prev >= 0, bt[np.maximum(prev, 0)], -np.inf)
+    out: npt.NDArray[np.float64] = np.maximum(prev_t, np.asarray(t_ms, dtype=np.float64) - latency_ms)
+    return out
+
+
 def build_day(args: argparse.Namespace, hype: pl.DataFrame, coin: str, date: str) -> dict[str, Any]:
     layout = HyperliquidLakeLayout(args.lake_root)
     path = layout.gold_training_path(coin, date)
@@ -172,7 +185,7 @@ def build_day(args: argparse.Namespace, hype: pl.DataFrame, coin: str, date: str
     ).with_columns(
         pl.Series("l2_mid", lab["mid_before"]),
         pl.Series("l2_microprice", lab["mid_before"]),
-        pl.Series("feature_ts_ms", t_ms),
+        pl.Series("feature_ts_ms", feature_times(block, t_ms, blocks, args.cex_latency_ms)),
         *(pl.Series(k, v) for k, v in lab.items() if k != "mid_before"),
         pl.Series("mid_before", lab["mid_before"]),
         *(pl.Series(k, v) for k, v in feats.items()),

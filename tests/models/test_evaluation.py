@@ -137,9 +137,22 @@ def test_select_markout_threshold_respects_quote_rate_budget() -> None:
     assert selection.markout_lift_bps == pytest.approx(2.25)
 
 
-def test_select_markout_threshold_falls_back_when_quote_budget_is_unreachable() -> None:
-    selection = select_markout_threshold([0.1, 0.2], [1.0, -2.0], [0.0], min_quote_rate=0.5, max_quote_rate=0.8)
-    assert (selection.threshold, selection.quote_rate, selection.eligible) == (0.0, 0.0, False)
+def test_select_markout_threshold_has_no_policy_when_the_quote_budget_is_unreachable() -> None:
+    # Audit B16: a 0% quote rate must not come back as the policy for a 50% floor.
+    assert select_markout_threshold([0.1, 0.2], [1.0, -2.0], [0.0], min_quote_rate=0.5, max_quote_rate=0.8) is None
+
+
+def test_fold_without_a_feasible_threshold_quotes_everything_and_says_so() -> None:
+    probs = np.array([0.1, 0.2, 0.3, 0.9])
+    markouts = np.array([1.0, -2.0, 0.5, -3.0])
+    fold = FoldArrays(
+        train=np.array([0, 1]), test=np.array([2, 3]), test_start_ms=0.0, test_end_ms=1.0, purge_start_ms=0.0, embargo_end_ms=1.0
+    )
+    thresholds, summaries = fold_local_markout_thresholds(
+        probs, markouts, folds=[fold], threshold_grid=[0.05], min_quote_rate=0.5, max_quote_rate=0.8
+    )
+    assert summaries[0]["threshold"] is None and "quote all" in summaries[0]["fallback"]
+    assert np.all(probs[[2, 3]] < thresholds[[2, 3]])  # both test fills quoted
 
 
 def test_threshold_selection_rejects_invalid_inputs() -> None:
