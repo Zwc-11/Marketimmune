@@ -5,7 +5,7 @@ every second (``cli.paper_trade --serve <port>``).
 
 - each strategy's PnL, fills, filled notional, gross position and order actions, summed over the
   coins (finished segments plus the running one);
-- a PnL history every 10 s;
+- a PnL history every 10 s, and each coin's Hyperliquid mid with it;
 - each coin's mid, spread, gap and the positions;
 - the last fills.
 
@@ -48,6 +48,7 @@ class Board:
         self.engine: Engine | None = None
         self.done: dict[tuple[str, str], dict[str, float]] = defaultdict(lambda: defaultdict(float))
         self.history: dict[str, list[tuple[int, float]]] = defaultdict(list)
+        self.prices: dict[str, list[tuple[int, float]]] = defaultdict(list)
         self.started_ms: int | None = None
         self.segments = 0
         self.gaps_done = 0
@@ -98,6 +99,13 @@ class Board:
             h.append((now_ms, round(pnl, 2)))
             if len(h) > 4 * MAX_POINTS:
                 del h[::2]  # keep the whole run at a coarser step
+        if self.engine is not None:
+            for coin, st in self.engine.states.items():
+                if st.top is not None:
+                    h = self.prices[coin]
+                    h.append((now_ms, st.top.mid))
+                    if len(h) > 4 * MAX_POINTS:
+                        del h[::2]
 
     def state(self, now_ms: int) -> dict[str, Any]:
         rows = self.rows()
@@ -159,11 +167,13 @@ class Board:
             "segment": self.segments,
             "last_event_ms": e.last_ms if e is not None else None,
             "feed_delay_ms": summary.get("feed_delay_ms_p10_p50_p90", {}),
+            "clock": summary.get("clock", {}),
             "reconnects": self.gaps_done + len(summary.get("connection_gaps", [])),
             "settings": summary.get("settings", {}) | {"fees_bps": summary.get("settings_fees_bps", {})},
             "strategies": sorted(strategies.values(), key=lambda s: -s["pnl"]),
             "coins": coins,
             "history": {k: h[::step] + h[-1:] for k, h in self.history.items()},
+            "prices": {k: h[:: max(1, len(h) // MAX_POINTS)] + h[-1:] for k, h in self.prices.items()},
             "tape": tape,
             "decisions": decisions,
             "decision_log": log,

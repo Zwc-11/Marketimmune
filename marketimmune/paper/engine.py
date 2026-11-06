@@ -315,10 +315,13 @@ class Engine:
         strategies: tuple[str, ...] = LIVE_STRATEGIES,
         budget_usd: float | None = None,
         journal: Journal | None = None,
+        registered: tuple[str, ...] = (),
     ) -> None:
         self.coins = coins
+        self.registered = registered  # the strategies a pre-registration makes claims about (for the live view)
         self.journal = journal
         self.next_signal = 0
+        self.clock: dict[str, Any] = {}  # the live clock correction (``paper.live.Clock.info``)
         self.strategies = strategies
         self.budget_usd = budget_usd
         self.by_strategy: dict[str, dict[str, Maker | Taker]] = {}
@@ -496,10 +499,12 @@ class Engine:
                 "max_quotes": self.max_quotes,
                 "budget_usd": self.budget_usd,
                 "strategies": list(self.strategies),
+                "registered": list(self.registered),
             },
             "settings_fees_bps": {"maker": self.maker_fee * BPS, "taker": self.taker_fee * BPS},
             "counts": self.counts,
             "feed_delay_ms_p10_p50_p90": lags,
+            "clock": self.clock,
             "connection_gaps": self.gaps,
             "models": {c: s.fit_log for c, s in self.states.items()},
             "instances": rows,

@@ -28,7 +28,7 @@ from marketimmune.logger import init_logger
 from marketimmune.paper.dashboard import Board
 from marketimmune.paper.engine import Engine
 from marketimmune.paper.journal import Journal
-from marketimmune.paper.live import clock_offsets, replay, run_live
+from marketimmune.paper.live import Clock, clock_offsets, replay, run_live
 from marketimmune.paper.strategies import LIVE_STRATEGIES
 from marketimmune.utils import parse_symbol_spec, split_csv
 
@@ -79,6 +79,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--taker-fee-bps", type=float, default=4.5)
     parser.add_argument("--no-raw", action="store_true", help="do not keep the raw messages")
     parser.add_argument("--no-journal", action="store_true", help="do not write the decision journal")
+    parser.add_argument("--registered", default="", help="the strategies the run's pre-registration makes claims about (shown first in the live view)")
+    parser.add_argument(
+        "--clock",
+        choices=("local", "coinbase"),
+        default="local",
+        help="live: time events on this machine's clock, or on it corrected to Coinbase's timestamps (paper.live.Clock)",
+    )
     parser.add_argument(
         "--strategies", default=",".join(LIVE_STRATEGIES), help="touch, gap@<bps>, model@<bps>, improve, improve+gap@<bps>, taker@<bps>"
     )
@@ -120,6 +127,7 @@ def make_engine(args: argparse.Namespace, out: Path) -> Engine:
         strategies=split_csv(args.strategies),
         budget_usd=args.budget_usd,
         journal=None if args.no_journal else Journal(out / "journal"),
+        registered=split_csv(args.registered) if args.registered else (),
     )
 
 
@@ -128,6 +136,7 @@ async def live(args: argparse.Namespace) -> None:
     written when it ends; the model rows and wallet scores carry through ``--state-dir``."""
     state_dir = args.state_dir or (args.out / "state" if args.segment_hours else None)
     board = Board()
+    clock = Clock(correct=args.clock == "coinbase")
     server = await board.serve(args.serve, args.web) if args.serve else None
     if server is not None:
         logger.info(f"live view: http://127.0.0.1:{args.serve}/" + ("#/paper" if args.web else ""))
@@ -141,7 +150,7 @@ async def live(args: argparse.Namespace) -> None:
                 engine.load_state(state_dir)
             board.attach(engine)
             seconds = min(left, args.segment_hours * 3600) if args.segment_hours else left
-            stopped = await run_live(engine, out, seconds, raw=not args.no_raw, board=board)
+            stopped = await run_live(engine, out, seconds, raw=not args.no_raw, board=board, clock=clock)
             engine.write(out, final=True)
             if state_dir is not None:
                 engine.save_state(state_dir)

@@ -28,6 +28,7 @@ def test_board_sums_segments_and_counts_actions() -> None:
     assert touch["actions"] == 2  # a bid and an ask sent
     assert state["coins"][0]["positions"]["touch"] == pytest.approx(1_000.0)
     assert state["tape"][0]["side"] == 1 and state["history"]["touch"][-1][1] == pytest.approx(touch["pnl"], abs=0.01)
+    assert state["prices"]["SOL"][-1] == (5_000, first.states["SOL"].top.mid)  # the mid, for the price line
     board.close_segment(first)
     board.attach(_filled_engine())
     again = next(s for s in board.state(6_000)["strategies"] if s["strategy"] == "touch")

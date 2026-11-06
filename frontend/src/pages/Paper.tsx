@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { PaperChart } from '../components/PaperChart';
 import { Empty, Panel, Stat } from '../components/Panel';
 import {
-    REGISTERED,
+    registeredOf,
+    strategyColors,
     strategyGroup,
-    STRATEGY_COLORS,
+    useCoinPrices,
     usePaperState,
     type PaperCoin,
     type PaperDecision,
@@ -13,8 +14,8 @@ import {
 } from '../data/paper';
 import { clockTime, fixed, integer, signed } from '../lib/format';
 
-const BEST = 'improve+gap@0.25';
-const CHART_FOCUS = [...REGISTERED, 'touch', 'zgap@0.25', 'kelly@0.5', 'reservation@1', 'hawkes@3'];
+const PRICE_COIN = 'BTC';
+const CHART_EXTRA = ['touch', 'zgap@0.25', 'kelly@0.5', 'reservation@1', 'hawkes@3'];
 const GROUP_LABEL = { candidate: 'Registered', control: 'Control', advanced: 'Exploratory', baseline: 'December' } as const;
 
 function usd(value: number | null | undefined, decimals = 0): string {
@@ -30,9 +31,13 @@ function elapsed(ms: number): string {
     return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map((v) => String(v).padStart(2, '0')).join(':');
 }
 
-function Header({ state }: { state: PaperState }) {
+function Header({ state, prices }: { state: PaperState; prices: [number, number][] }) {
     const age = state.last_event_ms ? state.now_ms - state.last_event_ms : Infinity;
     const delay = state.feed_delay_ms.hl_top?.[1];
+    const btc = state.coins.find((c) => c.coin === PRICE_COIN)?.mid ?? null;
+    const first = prices[0]?.[1];
+    const change = btc !== null && first ? (btc / first - 1) * 100 : null;
+    const clock = state.clock;
     return (
         <div className="market-header paper-header">
             <div className="symbol">
@@ -40,6 +45,13 @@ function Header({ state }: { state: PaperState }) {
                 <span className="symbol-venue">Hyperliquid perps · simulated fills · no order is sent</span>
             </div>
             <dl className="header-stats">
+                <div className="header-stat">
+                    <dt title="Hyperliquid BTC perp mid; change since the first price this run (or this page) has">BTC</dt>
+                    <dd className="num">
+                        {btc === null ? '–' : `$${btc.toLocaleString('en-US', { maximumFractionDigits: 1 })}`}{' '}
+                        {change !== null && <span className={tone(change)}>{`${change >= 0 ? '+' : '−'}${fixed(Math.abs(change), 2)}%`}</span>}
+                    </dd>
+                </div>
                 <div className="header-stat">
                     <dt>Feed</dt>
                     <dd>
@@ -57,6 +69,18 @@ function Header({ state }: { state: PaperState }) {
                 <div className="header-stat">
                     <dt title="Median time from Hyperliquid's block to this machine">Hyperliquid delay</dt>
                     <dd className="num">{delay === undefined ? '–' : `${integer(delay)} ms`}</dd>
+                </div>
+                <div className="header-stat">
+                    <dt title="This machine's clock against Coinbase's timestamps. Paper orders are timed on it against Hyperliquid's blocks, so an uncorrected fast clock delays every order by its offset.">
+                        Clock
+                    </dt>
+                    <dd className={`num ${clock?.corrected ? '' : 'down'}`}>
+                        {clock?.corrected
+                            ? `corrected ${integer(clock.offset_ms ?? 0)} ms`
+                            : clock?.measured_ms != null
+                              ? `${integer(clock.measured_ms - 15)} ms off`
+                              : 'not checked'}
+                    </dd>
                 </div>
                 <div className="header-stat">
                     <dt>Order latency</dt>
@@ -79,12 +103,13 @@ function Header({ state }: { state: PaperState }) {
 
 function Summary({ state }: { state: PaperState }) {
     const by = Object.fromEntries(state.strategies.map((s) => [s.strategy, s]));
+    const BEST = registeredOf(state)[0];
     const best = by[BEST];
     const ctl = by.touch;
     const diff = best && ctl ? best.pnl - ctl.pnl : null;
     return (
         <div className="paper-stats">
-            <Stat label={`Best candidate, ${BEST}`} value={usd(best?.pnl, 2)} tone={best && best.pnl < 0 ? 'down' : 'up'} hint="Registered on 2026-11-06; summed over the coins" />
+            <Stat label={`Best candidate, ${BEST}`} value={usd(best?.pnl, 2)} tone={best && best.pnl < 0 ? 'down' : 'up'} hint="The run's first registered strategy; summed over the coins" />
             <Stat label="Per filled dollar" value={best?.bps == null ? '–' : `${signed(best.bps, 2)} bps`} />
             <Stat label="Control, touch" value={usd(ctl?.pnl, 2)} tone={ctl && ctl.pnl < 0 ? 'down' : 'up'} hint="Always quotes both sides at the best price" />
             <Stat label="Best vs control, per hour" value={diff === null || state.hours < 0.01 ? '–' : usd(diff / state.hours)} tone={diff !== null && diff < 0 ? 'down' : 'up'} />
@@ -94,6 +119,8 @@ function Summary({ state }: { state: PaperState }) {
 }
 
 function Leaderboard({ state, onPick, picked }: { state: PaperState; onPick: (s: string) => void; picked: string }) {
+    const registered = registeredOf(state);
+    const colors = strategyColors(registered);
     return (
         <table className="grid-table paper-board">
             <thead>
@@ -118,10 +145,10 @@ function Leaderboard({ state, onPick, picked }: { state: PaperState; onPick: (s:
                         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onPick(s.strategy)}
                     >
                         <td>
-                            <span className="swatch" style={{ background: STRATEGY_COLORS[s.strategy] ?? 'var(--rule-strong)' }} />
+                            <span className="swatch" style={{ background: colors[s.strategy] ?? 'var(--rule-strong)' }} />
                             {s.strategy}
                         </td>
-                        <td className="muted">{GROUP_LABEL[strategyGroup(s.strategy)]}</td>
+                        <td className="muted">{GROUP_LABEL[strategyGroup(s.strategy, registered)]}</td>
                         <td className={`num ${tone(s.pnl)}`}>{usd(s.pnl, 2)}</td>
                         <td className={`num ${tone(s.per_hour)}`}>{usd(s.per_hour)}</td>
                         <td className={`num ${tone(s.bps)}`}>{s.bps == null ? '–' : signed(s.bps, 2)}</td>
@@ -254,8 +281,15 @@ function Tape({ state, picked }: { state: PaperState; picked: string }) {
 
 export default function PaperPage() {
     const status = usePaperState();
-    const [picked, setPicked] = useState(BEST);
-    const focus = useMemo(() => CHART_FOCUS, []);
+    const [chosen, setPicked] = useState('');
+    const registered = status.kind === 'live' ? registeredOf(status.state) : [];
+    const key = registered.join(',');
+    const focus = useMemo(() => [...registered, ...CHART_EXTRA.filter((s) => !registered.includes(s))], [key]);
+    const colors = useMemo(() => strategyColors(registered), [key]);
+    const picked = chosen || registered[0] || '';
+    const prices = useCoinPrices(status.kind === 'live' ? status.state : null, PRICE_COIN);
+    const last = prices[prices.length - 1]?.[0];
+    const price = useMemo(() => ({ label: PRICE_COIN, points: prices }), [prices, last]);
     if (status.kind !== 'live') {
         return (
             <div className="paper">
@@ -275,11 +309,15 @@ export default function PaperPage() {
     return (
         <div className="paper">
             <div className="paper-head">
-                <Header state={state} />
+                <Header state={state} prices={prices} />
                 <Summary state={state} />
             </div>
-            <Panel className="paper-equity" title="Cumulative PnL by strategy" actions={<span className="faint">Each segment is marked to the mid at its end</span>}>
-                <PaperChart history={state.history} focus={focus} />
+            <Panel
+                className="paper-equity"
+                title="Cumulative PnL by strategy"
+                actions={<span className="faint">Right: PnL, each segment marked to the mid at its end · left, dotted: BTC</span>}
+            >
+                <PaperChart history={state.history} focus={focus} price={price} colors={colors} />
             </Panel>
             <Panel className="paper-leaders" title="Leaderboard" actions={<span className="faint">Select a row to follow it below</span>}>
                 <Leaderboard state={state} onPick={setPicked} picked={picked} />

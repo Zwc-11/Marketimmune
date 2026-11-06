@@ -265,3 +265,36 @@ def test_clock_offsets_come_from_coinbase_timestamps(tmp_path: Path) -> None:
     lag = [(f[0] - o[0]) / 1e6 for f, o in zip(fixed, lines, strict=True)]
     assert -lag[0] == pytest.approx(300, abs=7) and -lag[-1] == pytest.approx(323.9, abs=7)
     assert [x[0] - 250_000_000 for x in lines] == [x[0] for x in reclocked(iter(lines), 250.0)]
+
+
+def test_live_clock_puts_receive_times_on_coinbases(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import UTC, datetime
+
+    from marketimmune.paper import live
+    from marketimmune.paper.live import CLOCK_SLEW_MS, NETWORK_FLOOR_MS, Clock
+
+    now = {"ns": 1_793_981_206_000_000_000}
+    monkeypatch.setattr(live.time, "time_ns", lambda: now["ns"])
+
+    def coinbase(sent_ns: int) -> bytes:
+        stamp = datetime.fromtimestamp(sent_ns / 1e9, UTC).strftime("%Y-%m-%dT%H:%M:%S.%f") + "000Z"
+        return json.dumps({"channel": "l2_data", "timestamp": stamp, "sequence_num": 1}, separators=(",", ":")).encode()
+
+    clock, plain = Clock(correct=True), Clock(correct=False)
+    for c in (clock, plain):
+        c.observe(now["ns"], coinbase(now["ns"] - 300_000_000 - int(NETWORK_FLOOR_MS * 1e6)))  # this machine 300 ms fast
+        c.step()
+    assert clock.offset_ms == pytest.approx(300, abs=0.01) and plain.offset_ms == 0
+    assert clock.now_ns() == now["ns"] - 300_000_000 and plain.now_ns() == now["ns"]
+    now["ns"] += 1_000_000_000  # a second later the clock is measured 10 ms less fast: the correction slews
+    clock.observe(now["ns"], coinbase(now["ns"] - 290_000_000 - int(NETWORK_FLOOR_MS * 1e6)))
+    clock.step()
+    assert clock.offset_ms == pytest.approx(300 - CLOCK_SLEW_MS)  # towards the new 290 at 1 ms a tick, not at once
+    before = clock.now_ns()
+    clock.offset_ms += 50  # a correction step backwards never runs time backwards
+    assert clock.now_ns() >= before
+    assert clock.info() == {
+        "corrected": True,
+        "offset_ms": pytest.approx(350 - CLOCK_SLEW_MS, abs=0.1),
+        "measured_ms": pytest.approx(305, abs=0.1),
+    }

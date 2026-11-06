@@ -350,6 +350,45 @@ From 16:06 to 18:06 UTC every strategy lost: the four candidates -$163 to -$212 
   live PnL while the clock is off. Its recordings can be replayed with the offset taken off, which
   restores the registered 200 ms (deviation in the pre-registration).
 
+## Tuning at a $5,000 budget (`cli.paper_tune`, `eval/paper/tune_20261106.{json,md}`)
+
+Each family ran over a grid of its parameter, at three sizings (quote USD x quotes a coin: 100x10,
+250x4, 500x2), with one $5,000 budget of gross exposure per strategy over the nine coins. Data:
+8.19 hours of 2026-11-06, the night's segments 2-4 and the live run's first two segments with the
+clock corrected. A segment chain carries the model state, as the live run does. A second pass
+extended the grid where the first one's best sat on its edge.
+
+- **Selection.** Per family, the setting with the most PnL over all five segments. The honest
+  number is the left-one-segment-out estimate: pick on four segments, score on the fifth.
+- **Hyperliquid's rate limit decides.** Hyperliquid allows one order request per USD traded, after
+  a 10,000-request buffer; cancels get twice that. A maker's actions are half orders (50.0-50.2% in
+  the journal). The paper winners at $100 quotes (+$7-8 an hour) sent 1.2-1.7 orders per USD filled:
+  live, they would run out of requests within the hour and be cut to one every 10 s. They are not
+  selectable.
+- **Within the limit**, the best are the gap quoters with near-zero thresholds at $250 quotes: quote
+  only the side the Coinbase lead favours, almost always.
+
+| Family | Pick | Orders per $ | In-sample $/h | Left-out $/h | Each segment $/h |
+|---|---|---:|---:|---:|---|
+| improve+gap | `improve+gap@0.05`, 250x4 | 0.60 | +1.7 | +1.7 | +5.4, +6.8, +4.0, -11.8, +8.0 |
+| zgap | `zgap@0.05`, 250x4 | 0.59 | +2.1 | +1.3 | +4.7, +9.0, +4.5, -13.0, +9.1 |
+| gap | `gap@0.1`, 250x4 | 0.71 | +1.8 | +0.6 | +7.1, +8.0, +4.2, -13.4, +7.6 |
+| hawkes | `hawkes@1.25`, 250x4 | 0.58 | +0.1 | -1.6 | |
+| kelly | `kelly@5`, 250x4 | 0.96 | -1.0 | -1.0 | |
+| model | `model@0.25`, 250x4 | 0.31 | -26.2 | -26.2 | |
+| touch | 100x10 | 0.22 | -67.7 | -67.7 | |
+
+- At $5,000 the registered values lose: `improve+gap@0.25` -$4.6 an hour, `gap@0.25` -$2.4 at
+  250x4. The night's +$61 an hour at $1,000 quotes and no budget was the uncapped inventory riding
+  the trend; the budget caps that.
+- The reservation-price quoter sends 1.3-1.9 orders per USD filled at $250 quotes, at every skew.
+- **Noise.** The picks' 15-minute block PnL has a standard deviation of about $6.3 against a mean of
+  about $0.45. A day cannot tell that from zero; about 9-13 days can.
+- **Registered:** the three picks, 14 days live on paper from 2026-11-06
+  (`docs/preregistration/paper-tuned-5k-20261106.md`, `scripts/run_paper_tuned.ps1`, port 8766,
+  beside the 24-hour run). Its live view shows the BTC mid on the PnL chart and the clock
+  correction in the header.
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
@@ -390,6 +429,7 @@ From 16:06 to 18:06 UTC every strategy lost: the four candidates -$163 to -$212 
 | `eval/paper/selection_20261106.json` | The live selection hour |
 | `eval/paper/selection_grid_*.json` | The grid the candidates were picked from (first 70 minutes, replayed) |
 | `eval/paper/replay_{us200,us50,tokyo}_20261106.json` | The held-out hours replayed at each location and latency |
+| `eval/paper/tune_20261106.{json,md}` | Every family's grid at three sizings and a $5,000 budget on 8.19 hours; picks within Hyperliquid's rate limit, left-one-segment-out estimates |
 | `eval/paper/clock_and_market_20261106.json` | The first live segment and the night replayed with and without the PC's clock error; the clock offset; each coin's trend and volatility in both periods |
 | `eval/paper/journal_night_20261106.{json,md}` | The night's decision journals read by `cli.paper_journal`: fills by markout horizon and by what the strategy saw, side changes, pulls, actions |
 

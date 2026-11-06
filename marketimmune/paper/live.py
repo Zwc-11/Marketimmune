@@ -20,6 +20,7 @@ import math
 import re
 import signal
 import time
+from collections import deque
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,69 @@ def now_ms() -> int:
     return time.time_ns() // 1_000_000
 
 
+CLOCK_WINDOW_S = 60
+CLOCK_SLEW_MS = 1.0  # the most the correction moves in a tick (10 ms a second; a PC drifts ~0.02)
+
+
+class Clock:
+    """This machine's time, put on Coinbase's when ``correct``. A PC clock can be hundreds of ms off
+    and drift (Caesar's ran 223-345 ms fast on 2026-11-06), and the engine times paper orders on it
+    against Hyperliquid's block times. The offset is the least (receive time - Coinbase's timestamp)
+    over the last minute, less ``NETWORK_FLOOR_MS``; it is applied at once when first known, then
+    moved at most ``CLOCK_SLEW_MS`` a tick, and the corrected time never runs backwards. Every
+    receive time the engine and the raw recording see is the corrected one; the tick lines keep the
+    offset applied."""
+
+    def __init__(self, correct: bool) -> None:
+        self.correct = correct
+        self.offset_ms = 0.0
+        self.target_ms: float | None = None
+        self.measured_ms: float | None = None  # the uncorrected least delay over the window
+        self.least: deque[tuple[int, float]] = deque()  # (second, least delay in it)
+        self.started = False
+        self.last_ns = 0
+
+    def observe(self, local_ns: int, raw: bytes | str) -> None:
+        """A Coinbase message received at ``local_ns`` on this machine's own clock."""
+        data = raw.encode() if isinstance(raw, str) else raw
+        m = CB_STAMP.search(data, 0, 160)
+        if m is None:
+            return
+        stamp = calendar.timegm(time.strptime(m.group(1).decode(), "%Y-%m-%dT%H:%M:%S")) * 1_000_000_000
+        stamp += int(m.group(2).decode().ljust(9, "0")[:9])
+        d, sec = (local_ns - stamp) / 1e6, local_ns // 1_000_000_000
+        if self.least and self.least[-1][0] == sec:
+            if d < self.least[-1][1]:
+                self.least[-1] = (sec, d)
+        else:
+            self.least.append((sec, d))
+        while self.least and self.least[0][0] <= sec - CLOCK_WINDOW_S:
+            self.least.popleft()
+        self.measured_ms = min(x[1] for x in self.least)
+        self.target_ms = self.measured_ms - NETWORK_FLOOR_MS
+
+    def step(self) -> None:
+        """Once a tick: move the applied offset towards the measured one."""
+        if not self.correct or self.target_ms is None:
+            return
+        if not self.started:
+            self.offset_ms, self.started = self.target_ms, True
+        else:
+            self.offset_ms += max(-CLOCK_SLEW_MS, min(CLOCK_SLEW_MS, self.target_ms - self.offset_ms))
+
+    def now_ns(self) -> int:
+        t = time.time_ns() - int(self.offset_ms * 1e6)
+        self.last_ns = max(self.last_ns, t)
+        return self.last_ns
+
+    def info(self) -> dict[str, Any]:
+        return {
+            "corrected": self.correct,
+            "offset_ms": round(self.offset_ms, 1),
+            "measured_ms": None if self.measured_ms is None else round(self.measured_ms, 1),
+        }
+
+
 class RawWriter:
     """Gzipped ``<local_ns>\\t<raw>`` lines in ``<root>/<venue>-<YYYYMMDDHH>.log.gz`` (UTC hours)."""
 
@@ -70,7 +134,7 @@ class RawWriter:
         self.files.clear()
 
 
-async def hl_feed(engine: Engine, writer: RawWriter | None) -> None:
+async def hl_feed(engine: Engine, writer: RawWriter | None, clock: Clock) -> None:
     backoff = 1.0
     while True:
         try:
@@ -84,7 +148,7 @@ async def hl_feed(engine: Engine, writer: RawWriter | None) -> None:
                 last_ping = time.monotonic()
                 while True:
                     raw = await asyncio.wait_for(ws.recv(), timeout=HL_PING_S)
-                    local_ns = time.time_ns()
+                    local_ns = clock.now_ns()
                     if writer is not None:
                         writer.write("hl", local_ns, raw)
                     for ev in parse_hl(fastjson.loads(raw), local_ns // 1_000_000):
@@ -101,7 +165,7 @@ async def hl_feed(engine: Engine, writer: RawWriter | None) -> None:
             backoff = min(backoff * 2, 30.0)
 
 
-async def cb_feed(engine: Engine, writer: RawWriter | None) -> None:
+async def cb_feed(engine: Engine, writer: RawWriter | None, clock: Clock) -> None:
     backoff = 1.0
     products = [f"{c}-USD" for c in engine.coins]
     while True:
@@ -114,7 +178,8 @@ async def cb_feed(engine: Engine, writer: RawWriter | None) -> None:
                 backoff = 1.0
                 while True:
                     raw = await asyncio.wait_for(ws.recv(), timeout=30.0)
-                    local_ns = time.time_ns()
+                    clock.observe(time.time_ns(), raw)
+                    local_ns = clock.now_ns()
                     if writer is not None:
                         writer.write("cb", local_ns, raw)
                     for ev in books.apply(fastjson.loads(raw), local_ns // 1_000_000):
@@ -128,11 +193,13 @@ async def cb_feed(engine: Engine, writer: RawWriter | None) -> None:
             backoff = min(backoff * 2, 30.0)
 
 
-async def run_live(engine: Engine, out: Path, seconds: float, raw: bool, board: Board | None = None) -> bool:
+async def run_live(engine: Engine, out: Path, seconds: float, raw: bool, board: Board | None = None, clock: Clock | None = None) -> bool:
     """Until ``seconds`` have passed or SIGINT / SIGTERM arrives; either way the run is written by
-    the caller. Returns True when a signal stopped it. ``board`` is refreshed every tick."""
+    the caller. Returns True when a signal stopped it. ``board`` is refreshed every tick. ``clock``
+    (kept across segments) puts receive times on Coinbase's clock when it corrects."""
+    clock = clock or Clock(correct=False)
     writer = RawWriter(out / "raw") if raw else None
-    feeds = [asyncio.create_task(hl_feed(engine, writer)), asyncio.create_task(cb_feed(engine, writer))]
+    feeds = [asyncio.create_task(hl_feed(engine, writer, clock)), asyncio.create_task(cb_feed(engine, writer, clock))]
     stop = time.monotonic() + seconds
     stopped = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -147,12 +214,14 @@ async def run_live(engine: Engine, out: Path, seconds: float, raw: bool, board: 
         while time.monotonic() < stop and not stopped.is_set():
             await asyncio.sleep(TICK_MS / 1000)
             t0 = time.perf_counter()
-            tick_ns = time.time_ns()
+            clock.step()
+            tick_ns = clock.now_ns()
             if writer is not None:
-                writer.write("tick", tick_ns, b"%d" % (tick_ns // 1_000_000))
+                writer.write("tick", tick_ns, b"%d %.1f" % (tick_ns // 1_000_000, clock.offset_ms))
             engine.tick(tick_ns // 1_000_000)
+            engine.clock = clock.info()
             if board is not None:
-                board.sample(now_ms())
+                board.sample(tick_ns // 1_000_000)
             late += (time.perf_counter() - t0) > 0.05
             if time.monotonic() >= next_write:
                 next_write = time.monotonic() + WRITE_S
@@ -295,7 +364,7 @@ def replay(
         if until_ms is not None and local_ms > until_ms:
             break
         if venue == "tick":
-            engine.tick(int(raw))
+            engine.tick(int(raw.split()[0]))
             continue
         if not exact:
             if next_tick is None:
