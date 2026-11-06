@@ -9,7 +9,8 @@
 Every strategy in the grid (``GRID``: each family over a range of its parameter) runs in one engine
 per sizing config (quote USD x quotes a coin may hold, under ``--budget-usd`` per strategy), on
 every recorded segment. A chain's segments run in order and share the model's state, as the live
-run's do; a segment ending in ``~`` only warms the state up and is not scored. ``--clock`` names the
+run's do; a segment ending in ``~`` only warms the state up and is not scored, and one ending in
+``!`` is held out: replayed and reported, never used to select. ``--clock`` names the
 chains recorded on a machine whose clock was off: their receive times are corrected from
 Coinbase's timestamps (``paper.live.clock_offsets``).
 
@@ -51,6 +52,7 @@ GRID: dict[str, tuple[str, ...]] = {
     "reservation": tuple(f"reservation@{v}" for v in (0.5, 1, 2, 3, 5, 8)),
     "model": tuple(f"model@{v}" for v in (0.25, 0.5, 1, 1.5)),
     "taker": tuple(f"taker@{v}" for v in (3, 4, 6, 8, 10, 15)),
+    "mm": tuple(f"mm@{v}" for v in (0, 0.5, 1, 1.5, 2, 3, 5)),
 }
 
 
@@ -63,6 +65,7 @@ class Segment:
     chain: str
     raw: Path
     warmup: bool
+    holdout: bool = False
 
     @property
     def name(self) -> str:
@@ -73,8 +76,7 @@ def parse_chain(spec: str) -> list[Segment]:
     name, _, paths = spec.partition("=")
     out = []
     for p in paths.split(","):
-        warm = p.endswith("~")
-        out.append(Segment(name, Path(p.rstrip("~")), warm))
+        out.append(Segment(name, Path(p.rstrip("~!")), p.endswith("~"), p.endswith("!")))
     return out
 
 
@@ -110,6 +112,9 @@ def run_chain(segments: list[Segment], config: str, args: argparse.Namespace, st
             cmd += ["--budget-usd", str(args.budget_usd)]
         if seg.chain in args.clock:
             cmd += ["--clock-offset", "coinbase"]
+        if args.retime:
+            cmd += ["--retime", args.retime]
+        cmd += ["--maker-fee-bps", str(args.maker_fee_bps), "--taker-fee-bps", str(args.taker_fee_bps)]
         logger.info(f"{config} {seg.chain} {seg.name}: replaying")
         with (args.work / config / seg.chain / f"{seg.name}.log").open("w") as log:
             subprocess.run(cmd, check=True, stdout=log, stderr=subprocess.STDOUT)
@@ -194,32 +199,41 @@ def select(
 
 def markdown(report: dict[str, Any]) -> str:
     segs = list(report["hours"])
+    held = list(report.get("held_out_hours", {}))
     lines = [
         f"Segments (hours): {', '.join(f'{k} {v:.2f}' for k, v in report['hours'].items())}. "
-        f"Configs: {', '.join(report['configs'])} (quote USD x quotes a coin), budget {report['budget_usd']} USD a strategy, "
-        f"latency {report['latency_ms']} ms. Only settings at or under {report['max_orders_per_usd']} orders per USD filled "
+        + (f"Held out, not selected on: {', '.join(f'{k} {v:.2f}' for k, v in report['held_out_hours'].items())}. " if held else "")
+        + f"Latency {report['latency_ms']} ms{', retimed ' + report['retime'] if report.get('retime') else ''}; "
+        f"fees {report['fees_bps']['maker']:g} / {report['fees_bps']['taker']:g} bp. "
+        f"Configs: {', '.join(report['configs'])} (quote USD x quotes a coin), budget {report['budget_usd']} USD a strategy. "
+        f"Only settings at or under {report['max_orders_per_usd']} orders per USD filled "
         f"(Hyperliquid's rate limit) are selected; {report['excluded']} of {report['options']} were over it.",
         "",
         "| family | best (all segments) | config | orders per $ | $/h in-sample | $/h left-out (CV) | picks agree | "
-        + " | ".join(segs)
+        + " | ".join(segs + [f"{k} (held out)" for k in held])
         + " |",
-        "|---|---|---|---:|---:|---:|---|" + "---:|" * len(segs),
+        "|---|---|---|---:|---:|---:|---|" + "---:|" * (len(segs) + len(held)),
     ]
     fams = sorted(report["families"].items(), key=lambda kv: -kv[1]["cv_usd_per_hour"])
     for fam, r in fams:
         b = r["best"]
         lines.append(
             f"| {fam} | `{b['strategy']}` | {b['config']} | {b['orders_per_usd']:.2f} | {b['usd_per_hour']:,.1f} | {r['cv_usd_per_hour']:,.1f} | {'yes' if r['picks_agree'] else 'no'} | "
-            + " | ".join(f"{r['best_per_segment_usd_per_hour'][k]:,.1f}" for k in segs)
+            + " | ".join(
+                [f"{r['best_per_segment_usd_per_hour'][k]:,.1f}" for k in segs] + [f"{b['held_out_usd_per_hour'][k]:,.1f}" for k in held]
+            )
             + " |"
         )
     lines += ["", "Every setting within the rate limit, $ an hour (all segments, then each):", ""]
-    lines += ["| strategy | config | orders per $ | all | " + " | ".join(segs) + " |", "|---|---|---:|---:|" + "---:|" * len(segs)]
+    lines += [
+        "| strategy | config | orders per $ | all | " + " | ".join(segs + [f"{k} (held out)" for k in held]) + " |",
+        "|---|---|---:|---:|" + "---:|" * (len(segs) + len(held)),
+    ]
     for _, r in fams:
         for o in r["all"]:
             lines.append(
                 f"| `{o['strategy']}` | {o['config']} | {o['orders_per_usd']:.2f} | {o['usd_per_hour']:,.1f} | "
-                + " | ".join(f"{o[k]:,.1f}" for k in segs)
+                + " | ".join([f"{o[k]:,.1f}" for k in segs] + [f"{o['held_out_usd_per_hour'][k]:,.1f}" for k in held])
                 + " |"
             )
     lines += [
@@ -241,6 +255,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", action="append", default=None, help="quote USD x quotes a coin, e.g. 250x4")
     parser.add_argument("--budget-usd", type=float, default=5_000.0)
     parser.add_argument("--latency-ms", type=int, default=200)
+    parser.add_argument(
+        "--maker-fee-bps", type=float, default=1.5, help="Hyperliquid's base tier: 1.5; lower tiers to see what volume buys"
+    )
+    parser.add_argument("--taker-fee-bps", type=float, default=4.5)
+    parser.add_argument(
+        "--retime", default="", help="replay as a maker elsewhere would see the feeds, e.g. hl=20,cb=60 (paper_trade --retime)"
+    )
     parser.add_argument("--families", default=",".join(GRID))
     parser.add_argument("--strategies", default=None, help="an explicit list instead of the families' grids")
     parser.add_argument("--also", type=Path, action="append", default=[], help="earlier --work dirs (same chains) to select over too")
@@ -260,9 +281,11 @@ def main(argv: list[str] | None = None) -> int:
     with ThreadPoolExecutor(args.jobs) as pool:
         for f in [pool.submit(run_chain, chain, config, args, strategies) for config in configs for chain in chains]:
             f.result()
-    segments = [s for chain in chains for s in chain]
+    every = [s for chain in chains for s in chain]
+    segments = [s for s in every if not s.holdout]
     load: dict[tuple[str, str], list[float]] = {}
     hours, pnl = results(segments, configs, args.work, load)
+    held_hours, held = results([s for s in every if s.holdout], configs, args.work)
     for earlier in args.also:
         done = sorted(d.name for d in earlier.iterdir() if d.is_dir())
         more_load: dict[tuple[str, str], list[float]] = {}
@@ -279,6 +302,8 @@ def main(argv: list[str] | None = None) -> int:
         "configs": configs,
         "budget_usd": args.budget_usd,
         "latency_ms": args.latency_ms,
+        "retime": args.retime or None,
+        "fees_bps": {"maker": args.maker_fee_bps, "taker": args.taker_fee_bps},
         "clock_corrected": sorted(args.clock),
         "max_orders_per_usd": args.max_orders_per_usd,
         "options": len(pnl),
@@ -293,7 +318,11 @@ def main(argv: list[str] | None = None) -> int:
             for k in over
         ],
         "families": select(hours, pnl, per_usd, args.max_orders_per_usd),
+        "held_out_hours": {k: round(v, 3) for k, v in held_hours.items()},
     }
+    for r in report["families"].values():  # the held-out segments, never selected on
+        for o in [r["best"], *r["all"]]:
+            o["held_out_usd_per_hour"] = {k: round(held[(o["config"], o["strategy"])][k] / h, 1) for k, h in held_hours.items()}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
     if args.md is not None:

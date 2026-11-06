@@ -25,3 +25,17 @@ def test_tuning_selects_within_the_rate_limit_and_scores_left_out_segments() -> 
     assert not gap["picks_agree"]
     assert [o["strategy"] for o in gap["all"]] == ["gap@0.1", "gap@0.5"]
     assert family("improve+gap@0.05") == "improve+gap" and family("touch") == "touch"
+
+
+def test_chains_mark_warm_up_and_held_out_segments() -> None:
+    from pathlib import Path
+
+    from marketimmune.cli.paper_tune import parse_chain
+
+    segs = parse_chain("live=a/raw~,b/raw,c/raw!")
+    assert [(s.raw, s.warmup, s.holdout) for s in segs] == [
+        (Path("a/raw"), True, False),
+        (Path("b/raw"), False, False),
+        (Path("c/raw"), False, True),
+    ]
+    assert family("mm@h=2/skew=6") == "mm"

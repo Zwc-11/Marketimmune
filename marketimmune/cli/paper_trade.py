@@ -89,7 +89,9 @@ def main(argv: list[str] | None = None) -> int:
         help="live: time events on this machine's clock, or on it corrected to Coinbase's timestamps (paper.live.Clock)",
     )
     parser.add_argument(
-        "--strategies", default=",".join(LIVE_STRATEGIES), help="touch, gap@<bps>, model@<bps>, improve, improve+gap@<bps>, taker@<bps>"
+        "--strategies",
+        default=",".join(LIVE_STRATEGIES),
+        help="comma-separated: touch, gap@<bps>, model@<bps>, improve, improve+gap@<bps>, zgap@<z>, hawkes@<ratio>, kelly@<z>, reservation@<bps>, taker@<bps>, mm@<h> or mm@h=<bps>/skew=<bps>/... (paper.mm)",
     )
     parser.add_argument("--serve", type=int, default=0, help="serve the live view on http://127.0.0.1:<port>/ (live runs)")
     parser.add_argument(

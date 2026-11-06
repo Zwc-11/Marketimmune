@@ -113,13 +113,15 @@ class Board:
         strategies: dict[str, dict[str, Any]] = {}
         for r in rows:
             s = strategies.setdefault(
-                r["strategy"], {"strategy": r["strategy"], "pnl": 0.0, "fills": 0, "notional": 0.0, "actions": 0, "gross_usd": 0.0}
+                r["strategy"],
+                {"strategy": r["strategy"], "pnl": 0.0, "fills": 0, "notional": 0.0, "actions": 0, "gross_usd": 0.0, "net_usd": 0.0},
             )
             s["pnl"] += r["pnl"]
             s["fills"] += r["fills"]
             s["notional"] += r["notional"]
             s["actions"] += r["actions"]
             s["gross_usd"] += abs(r["position_usd"])
+            s["net_usd"] += r["position_usd"]
         for s in strategies.values():
             s["bps"] = s["pnl"] / s["notional"] * 1e4 if s["notional"] else None
             s["per_hour"] = s["pnl"] / hours if hours > 0.01 else None

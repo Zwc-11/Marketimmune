@@ -1,0 +1,558 @@
+{
+ "hours": {
+  "night/seg2-20261106T0448": 1.184,
+  "night/seg3-20261106T0559": 1.95,
+  "night/seg4-20261106T0757": 1.576,
+  "live/seg-20261106T1606": 2.0,
+  "live/seg-20261106T1806": 1.479
+ },
+ "configs": [
+  "250x4"
+ ],
+ "budget_usd": 5000.0,
+ "latency_ms": 200,
+ "retime": null,
+ "fees_bps": {
+  "maker": 1.5,
+  "taker": 4.5
+ },
+ "clock_corrected": [
+  "live"
+ ],
+ "max_orders_per_usd": 1.0,
+ "options": 31,
+ "excluded": 13,
+ "over_limit": [
+  {
+   "strategy": "mm@h=5/skew=15",
+   "config": "250x4",
+   "orders_per_usd": 2.63,
+   "usd_per_hour": -2.9
+  },
+  {
+   "strategy": "mm@5",
+   "config": "250x4",
+   "orders_per_usd": 3.86,
+   "usd_per_hour": -3.6
+  },
+  {
+   "strategy": "mm@h=3/net=0",
+   "config": "250x4",
+   "orders_per_usd": 2.05,
+   "usd_per_hour": -6.0
+  },
+  {
+   "strategy": "mm@h=3/vol=1",
+   "config": "250x4",
+   "orders_per_usd": 2.02,
+   "usd_per_hour": -6.2
+  },
+  {
+   "strategy": "mm@3",
+   "config": "250x4",
+   "orders_per_usd": 2.0,
+   "usd_per_hour": -6.5
+  },
+  {
+   "strategy": "mm@h=3/dd=0",
+   "config": "250x4",
+   "orders_per_usd": 2.0,
+   "usd_per_hour": -6.5
+  },
+  {
+   "strategy": "mm@h=3/stop=0/dd=0/net=0/burst=0",
+   "config": "250x4",
+   "orders_per_usd": 1.82,
+   "usd_per_hour": -7.0
+  },
+  {
+   "strategy": "mm@h=3/skew=9",
+   "config": "250x4",
+   "orders_per_usd": 1.26,
+   "usd_per_hour": -8.0
+  },
+  {
+   "strategy": "mm@h=3/stop=0",
+   "config": "250x4",
+   "orders_per_usd": 2.13,
+   "usd_per_hour": -9.2
+  },
+  {
+   "strategy": "mm@h=3/hold=60",
+   "config": "250x4",
+   "orders_per_usd": 1.42,
+   "usd_per_hour": -10.2
+  },
+  {
+   "strategy": "mm@2",
+   "config": "250x4",
+   "orders_per_usd": 1.2,
+   "usd_per_hour": -10.6
+  },
+  {
+   "strategy": "mm@h=1.5/stop=0",
+   "config": "250x4",
+   "orders_per_usd": 1.0,
+   "usd_per_hour": -15.6
+  },
+  {
+   "strategy": "mm@h=1.5/net=0",
+   "config": "250x4",
+   "orders_per_usd": 1.02,
+   "usd_per_hour": -16.4
+  }
+ ],
+ "families": {
+  "improve+gap": {
+   "best": {
+    "strategy": "improve+gap@0.05",
+    "config": "250x4",
+    "usd_per_hour": 1.7,
+    "orders_per_usd": 0.6,
+    "held_out_usd_per_hour": {
+     "live/seg-20261106T2003": 9.2
+    }
+   },
+   "best_per_segment_usd_per_hour": {
+    "night/seg2-20261106T0448": 5.4,
+    "night/seg3-20261106T0559": 6.8,
+    "night/seg4-20261106T0757": 4.0,
+    "live/seg-20261106T1606": -11.8,
+    "live/seg-20261106T1806": 8.0
+   },
+   "cv_usd_per_hour": 1.7,
+   "folds": [
+    {
+     "left_out": "night/seg2-20261106T0448",
+     "pick": "improve+gap@0.05 250x4",
+     "left_out_usd_per_hour": 5.4
+    },
+    {
+     "left_out": "night/seg3-20261106T0559",
+     "pick": "improve+gap@0.05 250x4",
+     "left_out_usd_per_hour": 6.8
+    },
+    {
+     "left_out": "night/seg4-20261106T0757",
+     "pick": "improve+gap@0.05 250x4",
+     "left_out_usd_per_hour": 4.0
+    },
+    {
+     "left_out": "live/seg-20261106T1606",
+     "pick": "improve+gap@0.05 250x4",
+     "left_out_usd_per_hour": -11.8
+    },
+    {
+     "left_out": "live/seg-20261106T1806",
+     "pick": "improve+gap@0.05 250x4",
+     "left_out_usd_per_hour": 8.0
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "improve+gap@0.05",
+     "config": "250x4",
+     "usd_per_hour": 1.7,
+     "orders_per_usd": 0.6,
+     "night/seg2-20261106T0448": 5.4,
+     "night/seg3-20261106T0559": 6.8,
+     "night/seg4-20261106T0757": 4.0,
+     "live/seg-20261106T1606": -11.8,
+     "live/seg-20261106T1806": 8.0,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": 9.2
+     }
+    }
+   ]
+  },
+  "mm": {
+   "best": {
+    "strategy": "mm@h=2/skew=6",
+    "config": "250x4",
+    "usd_per_hour": -12.7,
+    "orders_per_usd": 0.86,
+    "held_out_usd_per_hour": {
+     "live/seg-20261106T2003": -11.4
+    }
+   },
+   "best_per_segment_usd_per_hour": {
+    "night/seg2-20261106T0448": -10.3,
+    "night/seg3-20261106T0559": -20.5,
+    "night/seg4-20261106T0757": -12.1,
+    "live/seg-20261106T1606": -13.1,
+    "live/seg-20261106T1806": -4.3
+   },
+   "cv_usd_per_hour": -14.9,
+   "folds": [
+    {
+     "left_out": "night/seg2-20261106T0448",
+     "pick": "mm@h=2/skew=6 250x4",
+     "left_out_usd_per_hour": -10.3
+    },
+    {
+     "left_out": "night/seg3-20261106T0559",
+     "pick": "mm@h=3/alpha=0 250x4",
+     "left_out_usd_per_hour": -22.7
+    },
+    {
+     "left_out": "night/seg4-20261106T0757",
+     "pick": "mm@h=1.5/vol=1 250x4",
+     "left_out_usd_per_hour": -16.6
+    },
+    {
+     "left_out": "live/seg-20261106T1606",
+     "pick": "mm@h=3/alpha=0 250x4",
+     "left_out_usd_per_hour": -16.6
+    },
+    {
+     "left_out": "live/seg-20261106T1806",
+     "pick": "mm@h=2/skew=6 250x4",
+     "left_out_usd_per_hour": -4.3
+    }
+   ],
+   "picks_agree": false,
+   "all": [
+    {
+     "strategy": "mm@h=2/skew=6",
+     "config": "250x4",
+     "usd_per_hour": -12.7,
+     "orders_per_usd": 0.86,
+     "night/seg2-20261106T0448": -10.3,
+     "night/seg3-20261106T0559": -20.5,
+     "night/seg4-20261106T0757": -12.1,
+     "live/seg-20261106T1606": -13.1,
+     "live/seg-20261106T1806": -4.3,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -11.4
+     }
+    },
+    {
+     "strategy": "mm@h=3/alpha=0",
+     "config": "250x4",
+     "usd_per_hour": -13.0,
+     "orders_per_usd": 0.73,
+     "night/seg2-20261106T0448": -6.3,
+     "night/seg3-20261106T0559": -22.7,
+     "night/seg4-20261106T0757": -11.7,
+     "live/seg-20261106T1606": -16.6,
+     "live/seg-20261106T1806": -2.1,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -4.0
+     }
+    },
+    {
+     "strategy": "mm@h=1.5/vol=1",
+     "config": "250x4",
+     "usd_per_hour": -13.1,
+     "orders_per_usd": 0.98,
+     "night/seg2-20261106T0448": -9.0,
+     "night/seg3-20261106T0559": -21.3,
+     "night/seg4-20261106T0757": -16.6,
+     "live/seg-20261106T1606": -14.1,
+     "live/seg-20261106T1806": -0.8,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -9.7
+     }
+    },
+    {
+     "strategy": "mm@1.5",
+     "config": "250x4",
+     "usd_per_hour": -13.8,
+     "orders_per_usd": 0.97,
+     "night/seg2-20261106T0448": -9.0,
+     "night/seg3-20261106T0559": -24.7,
+     "night/seg4-20261106T0757": -15.9,
+     "live/seg-20261106T1606": -14.1,
+     "live/seg-20261106T1806": -0.8,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -9.7
+     }
+    },
+    {
+     "strategy": "mm@h=1.5/dd=0",
+     "config": "250x4",
+     "usd_per_hour": -13.8,
+     "orders_per_usd": 0.97,
+     "night/seg2-20261106T0448": -9.0,
+     "night/seg3-20261106T0559": -24.7,
+     "night/seg4-20261106T0757": -15.9,
+     "live/seg-20261106T1606": -14.1,
+     "live/seg-20261106T1806": -0.8,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -9.7
+     }
+    },
+    {
+     "strategy": "mm@h=1.5/stop=0/dd=0/net=0/burst=0",
+     "config": "250x4",
+     "usd_per_hour": -16.7,
+     "orders_per_usd": 0.91,
+     "night/seg2-20261106T0448": -3.2,
+     "night/seg3-20261106T0559": -37.4,
+     "night/seg4-20261106T0757": -22.0,
+     "live/seg-20261106T1606": -15.4,
+     "live/seg-20261106T1806": 3.5,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -4.0
+     }
+    },
+    {
+     "strategy": "mm@h=1.5/skew=4.5",
+     "config": "250x4",
+     "usd_per_hour": -19.7,
+     "orders_per_usd": 0.72,
+     "night/seg2-20261106T0448": -12.4,
+     "night/seg3-20261106T0559": -29.5,
+     "night/seg4-20261106T0757": -20.6,
+     "live/seg-20261106T1606": -23.1,
+     "live/seg-20261106T1806": -7.4,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -16.3
+     }
+    },
+    {
+     "strategy": "mm@1",
+     "config": "250x4",
+     "usd_per_hour": -22.6,
+     "orders_per_usd": 0.64,
+     "night/seg2-20261106T0448": -16.6,
+     "night/seg3-20261106T0559": -32.5,
+     "night/seg4-20261106T0757": -26.3,
+     "live/seg-20261106T1606": -27.8,
+     "live/seg-20261106T1806": -3.5,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -23.5
+     }
+    },
+    {
+     "strategy": "mm@h=1/skew=3",
+     "config": "250x4",
+     "usd_per_hour": -28.6,
+     "orders_per_usd": 0.54,
+     "night/seg2-20261106T0448": -20.1,
+     "night/seg3-20261106T0559": -34.5,
+     "night/seg4-20261106T0757": -30.0,
+     "live/seg-20261106T1606": -38.8,
+     "live/seg-20261106T1806": -12.4,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -27.6
+     }
+    },
+    {
+     "strategy": "mm@h=1.5/hold=60",
+     "config": "250x4",
+     "usd_per_hour": -28.9,
+     "orders_per_usd": 0.65,
+     "night/seg2-20261106T0448": -25.1,
+     "night/seg3-20261106T0559": -40.5,
+     "night/seg4-20261106T0757": -31.9,
+     "live/seg-20261106T1606": -29.8,
+     "live/seg-20261106T1806": -12.3,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -29.0
+     }
+    },
+    {
+     "strategy": "mm@h=1.5/alpha=0",
+     "config": "250x4",
+     "usd_per_hour": -37.5,
+     "orders_per_usd": 0.32,
+     "night/seg2-20261106T0448": -30.6,
+     "night/seg3-20261106T0559": -44.0,
+     "night/seg4-20261106T0757": -37.8,
+     "live/seg-20261106T1606": -52.6,
+     "live/seg-20261106T1806": -13.7,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -24.9
+     }
+    },
+    {
+     "strategy": "mm@0.5",
+     "config": "250x4",
+     "usd_per_hour": -40.1,
+     "orders_per_usd": 0.36,
+     "night/seg2-20261106T0448": -33.2,
+     "night/seg3-20261106T0559": -50.7,
+     "night/seg4-20261106T0757": -39.0,
+     "live/seg-20261106T1606": -51.0,
+     "live/seg-20261106T1806": -18.0,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -36.9
+     }
+    },
+    {
+     "strategy": "mm@h=0.5/skew=3",
+     "config": "250x4",
+     "usd_per_hour": -47.5,
+     "orders_per_usd": 0.33,
+     "night/seg2-20261106T0448": -38.2,
+     "night/seg3-20261106T0559": -53.8,
+     "night/seg4-20261106T0757": -48.6,
+     "live/seg-20261106T1606": -60.0,
+     "live/seg-20261106T1806": -28.3,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -43.3
+     }
+    },
+    {
+     "strategy": "mm@h=0/skew=3",
+     "config": "250x4",
+     "usd_per_hour": -64.3,
+     "orders_per_usd": 0.21,
+     "night/seg2-20261106T0448": -51.7,
+     "night/seg3-20261106T0559": -69.7,
+     "night/seg4-20261106T0757": -66.5,
+     "live/seg-20261106T1606": -81.0,
+     "live/seg-20261106T1806": -42.6,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -54.4
+     }
+    },
+    {
+     "strategy": "mm@0",
+     "config": "250x4",
+     "usd_per_hour": -64.6,
+     "orders_per_usd": 0.19,
+     "night/seg2-20261106T0448": -51.4,
+     "night/seg3-20261106T0559": -71.1,
+     "night/seg4-20261106T0757": -64.6,
+     "live/seg-20261106T1606": -83.6,
+     "live/seg-20261106T1806": -40.6,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -55.1
+     }
+    }
+   ]
+  },
+  "touch": {
+   "best": {
+    "strategy": "touch",
+    "config": "250x4",
+    "usd_per_hour": -145.5,
+    "orders_per_usd": 0.1,
+    "held_out_usd_per_hour": {
+     "live/seg-20261106T2003": -98.7
+    }
+   },
+   "best_per_segment_usd_per_hour": {
+    "night/seg2-20261106T0448": -120.7,
+    "night/seg3-20261106T0559": -174.7,
+    "night/seg4-20261106T0757": -146.1,
+    "live/seg-20261106T1606": -188.0,
+    "live/seg-20261106T1806": -68.4
+   },
+   "cv_usd_per_hour": -145.5,
+   "folds": [
+    {
+     "left_out": "night/seg2-20261106T0448",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -120.7
+    },
+    {
+     "left_out": "night/seg3-20261106T0559",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -174.7
+    },
+    {
+     "left_out": "night/seg4-20261106T0757",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -146.1
+    },
+    {
+     "left_out": "live/seg-20261106T1606",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -188.0
+    },
+    {
+     "left_out": "live/seg-20261106T1806",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -68.4
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "touch",
+     "config": "250x4",
+     "usd_per_hour": -145.5,
+     "orders_per_usd": 0.1,
+     "night/seg2-20261106T0448": -120.7,
+     "night/seg3-20261106T0559": -174.7,
+     "night/seg4-20261106T0757": -146.1,
+     "live/seg-20261106T1606": -188.0,
+     "live/seg-20261106T1806": -68.4,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": -98.7
+     }
+    }
+   ]
+  },
+  "zgap": {
+   "best": {
+    "strategy": "zgap@0.05",
+    "config": "250x4",
+    "usd_per_hour": 2.1,
+    "orders_per_usd": 0.59,
+    "held_out_usd_per_hour": {
+     "live/seg-20261106T2003": 9.7
+    }
+   },
+   "best_per_segment_usd_per_hour": {
+    "night/seg2-20261106T0448": 4.7,
+    "night/seg3-20261106T0559": 9.0,
+    "night/seg4-20261106T0757": 4.5,
+    "live/seg-20261106T1606": -13.0,
+    "live/seg-20261106T1806": 9.1
+   },
+   "cv_usd_per_hour": 2.1,
+   "folds": [
+    {
+     "left_out": "night/seg2-20261106T0448",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": 4.7
+    },
+    {
+     "left_out": "night/seg3-20261106T0559",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": 9.0
+    },
+    {
+     "left_out": "night/seg4-20261106T0757",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": 4.5
+    },
+    {
+     "left_out": "live/seg-20261106T1606",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": -13.0
+    },
+    {
+     "left_out": "live/seg-20261106T1806",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": 9.1
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "zgap@0.05",
+     "config": "250x4",
+     "usd_per_hour": 2.1,
+     "orders_per_usd": 0.59,
+     "night/seg2-20261106T0448": 4.7,
+     "night/seg3-20261106T0559": 9.0,
+     "night/seg4-20261106T0757": 4.5,
+     "live/seg-20261106T1606": -13.0,
+     "live/seg-20261106T1806": 9.1,
+     "held_out_usd_per_hour": {
+      "live/seg-20261106T2003": 9.7
+     }
+    }
+   ]
+  }
+ },
+ "held_out_hours": {
+  "live/seg-20261106T2003": 0.945
+ }
+}

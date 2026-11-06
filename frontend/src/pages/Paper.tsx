@@ -16,7 +16,7 @@ import { clockTime, fixed, integer, signed } from '../lib/format';
 
 const PRICE_COIN = 'BTC';
 const CHART_EXTRA = ['touch', 'zgap@0.25', 'kelly@0.5', 'reservation@1', 'hawkes@3'];
-const GROUP_LABEL = { candidate: 'Registered', control: 'Control', advanced: 'Exploratory', baseline: 'December' } as const;
+const GROUP_LABEL = { candidate: 'Registered', control: 'Control', advanced: 'Exploratory', baseline: 'December', maker: 'Market maker' } as const;
 
 function usd(value: number | null | undefined, decimals = 0): string {
     if (value === null || value === undefined || !Number.isFinite(value)) return '–';
@@ -132,6 +132,7 @@ function Leaderboard({ state, onPick, picked }: { state: PaperState; onPick: (s:
                     <th className="num" title="PnL per filled dollar">bps</th>
                     <th className="num">Fills</th>
                     <th className="num" title="Sum over coins of the absolute position">Gross position</th>
+                    <th className="num" title="Sum over coins of the signed position: the bet on the market's direction">Net position</th>
                     <th className="num" title="Orders plus cancels per minute: what Hyperliquid's rate limit counts">Actions / min</th>
                 </tr>
             </thead>
@@ -154,6 +155,7 @@ function Leaderboard({ state, onPick, picked }: { state: PaperState; onPick: (s:
                         <td className={`num ${tone(s.bps)}`}>{s.bps == null ? '–' : signed(s.bps, 2)}</td>
                         <td className="num">{integer(s.fills)}</td>
                         <td className="num">{usd(s.gross_usd)}</td>
+                        <td className="num">{usd(s.net_usd)}</td>
                         <td className="num">{s.actions_per_min == null ? '–' : integer(s.actions_per_min)}</td>
                     </tr>
                 ))}
