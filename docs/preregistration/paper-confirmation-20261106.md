@@ -63,4 +63,9 @@ run.
 
 ## Deviations
 
-(none)
+- **2026-11-06, about 16:45 UTC: a decision journal was added to the code** (`paper/journal.py`;
+  engine hooks that only read, and the tick times in the raw recording). Fills, candidates,
+  settings and the fill model are unchanged: a replay with and without it gives the same fills
+  (`tests/paper/test_paper_journal.py`). The run that started at 16:06 UTC does not load it unless
+  restarted. A restart to switch it on stops the run for under a minute; that gap is excluded and
+  made up under **Length**, and the restart time is recorded here.

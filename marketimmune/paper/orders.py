@@ -21,6 +21,7 @@ Sides are +1 for a bid (we buy) and -1 for an ask.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 NEVER = 1 << 62
 
@@ -33,6 +34,9 @@ class PaperOrder:
     t_live: int
     t_cancel: int = NEVER
     queue: float | None = None
+    joined: float | None = None  # queue ahead when it joined (for the journal; the fill model uses ``queue``)
+    placed: int = 0  # local ms of the decision that sent it
+    ctx: dict[str, Any] | None = None  # the signals at that decision, when a journal is kept
 
     def live_at(self, t_ms: int) -> bool:
         return self.qty > 0 and self.t_live <= t_ms < self.t_cancel
@@ -42,6 +46,8 @@ class PaperOrder:
         price is better than the book's best on that side, so nothing is ahead)."""
         if t_ms < self.t_live:
             return
+        if self.queue is None:
+            self.joined = size
         self.queue = size if self.queue is None else min(self.queue, size)
 
     def match(self, t_ms: int, px: float, sz: float, taker_buy: bool, seen_size: float) -> float:
@@ -54,6 +60,8 @@ class PaperOrder:
             fill = self.qty
         elif px == self.px:
             ahead = seen_size if self.queue is None else self.queue
+            if self.joined is None:
+                self.joined = ahead
             fill = min(self.qty, max(0.0, sz - ahead))
             self.queue = max(0.0, ahead - sz)
         else:

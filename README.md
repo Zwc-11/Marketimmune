@@ -268,6 +268,7 @@ Every pipeline command is `python -m marketimmune.cli.<command> --help`; the
 | `hft_baseline` / `pull_frontier` | hftbacktest reconciliation; pull-limit frontier with a time-shifted placebo (`--back-off`: step back instead of pulling) |
 | `fee_tiers` | Every simulated maker's PnL at each Hyperliquid maker fee tier, and its break-even fee |
 | `paper_trade` / `paper_report` | Live paper trading on Hyperliquid (or a replay of a recorded night), with the web terminal's Paper trading page (`--serve 8765 --web frontend/dist`); its PnL by component |
+| `paper_journal` | Reads a paper run's decision journal (every side change, fill with the signals behind it, per-minute counters): where each strategy's fills made or lost money, by horizon and by what it saw |
 
 ### Reproduce the results
 

@@ -4,7 +4,9 @@ Live: one Hyperliquid connection (``bbo``, ``l2Book`` and ``trades`` per coin) a
 connection (``level2`` and ``heartbeats``). Each reconnects on any error with a growing back-off,
 and every drop is logged in ``connection_gaps``. Every raw message is kept, gzipped by venue and UTC
 hour, as ``<local_ns>\\t<message>`` lines: ``replay`` feeds those back through the engine, so a
-night can be re-run with other settings.
+night can be re-run with other settings. The engine's 100 ms ticks are kept too (``tick-*.log.gz``:
+the time each one ran, and the ms it was given), so a replay of a recording that has them makes every
+decision the live run made, in the same order.
 """
 
 from __future__ import annotations
@@ -141,7 +143,10 @@ async def run_live(engine: Engine, out: Path, seconds: float, raw: bool, board: 
         while time.monotonic() < stop and not stopped.is_set():
             await asyncio.sleep(TICK_MS / 1000)
             t0 = time.perf_counter()
-            engine.tick(now_ms())
+            tick_ns = time.time_ns()
+            if writer is not None:
+                writer.write("tick", tick_ns, b"%d" % (tick_ns // 1_000_000))
+            engine.tick(tick_ns // 1_000_000)
             if board is not None:
                 board.sample(now_ms())
             late += (time.perf_counter() - t0) > 0.05
@@ -225,19 +230,28 @@ def retimed(lines: Iterator[tuple[int, str, bytes]], retime: dict[str, int]) -> 
         yield sent * 1_000_000, v, r
 
 
-def replay(engine: Engine, root: Path, retime: dict[str, int] | None = None) -> None:
-    """Feed a recorded run through ``engine`` in receive order (or ``retimed``), ticking every
-    100 ms of receive time."""
+def replay(engine: Engine, root: Path, retime: dict[str, int] | None = None, until_ms: int | None = None) -> None:
+    """Feed a recorded run through ``engine`` in receive order (or ``retimed``); with ``until_ms``,
+    only the messages received by then (to compare with a live run's ``summary.json``, whose
+    ``last_ms`` it is). The engine ticks when the live run did if the recording kept its ticks (and
+    is not retimed), else every 100 ms of receive time."""
     books = CoinbaseBooks()
     next_tick: int | None = None
-    lines = raw_lines(root) if retime is None else retimed(raw_lines(root), retime)
+    exact = retime is None and any(root.glob("tick-*.log.gz"))
+    lines = raw_lines(root) if retime is None else retimed((x for x in raw_lines(root) if x[1] != "tick"), retime)
     for local_ns, venue, raw in lines:
         local_ms = local_ns // 1_000_000
-        if next_tick is None:
-            next_tick = local_ms
-        while next_tick <= local_ms:
-            engine.tick(next_tick)
-            next_tick += TICK_MS
+        if until_ms is not None and local_ms > until_ms:
+            break
+        if venue == "tick":
+            engine.tick(int(raw))
+            continue
+        if not exact:
+            if next_tick is None:
+                next_tick = local_ms
+            while next_tick <= local_ms:
+                engine.tick(next_tick)
+                next_tick += TICK_MS
         msg: dict[str, Any] = fastjson.loads(raw)
         if venue == "hl":
             events = parse_hl(msg, local_ms)

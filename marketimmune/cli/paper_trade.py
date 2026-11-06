@@ -5,7 +5,10 @@
     python -m marketimmune.cli.paper_trade --out data/paper/live --hours 24 --segment-hours 2 --serve 8765   # then open http://127.0.0.1:8765/
 
 Writes ``summary.json`` every minute, and at the end ``fills.jsonl``, ``equity.jsonl``,
-``mids.parquet`` and the raw messages under ``raw/``. ``--state-dir`` carries the model rows and the
+``mids.parquet`` and the raw messages under ``raw/``. ``journal/`` holds every strategy's decisions,
+fills with the signals behind them, each coin's signals every second and per-minute counters, written
+as the run goes (``marketimmune.paper.journal``; ``--no-journal`` to skip; ``cli.paper_journal``
+reads it). ``--state-dir`` carries the model rows and the
 wallet scores from one run to the next. ``--retime`` replays a recording as a maker elsewhere would
 have seen it: Hyperliquid's messages ``hl`` ms after their block, Coinbase's ``cb`` ms later than they
 arrived here (``paper.live.retimed``). Strategies and fill model: ``marketimmune.paper``; results:
@@ -24,6 +27,7 @@ from pathlib import Path
 from marketimmune.logger import init_logger
 from marketimmune.paper.dashboard import Board
 from marketimmune.paper.engine import Engine
+from marketimmune.paper.journal import Journal
 from marketimmune.paper.live import replay, run_live
 from marketimmune.paper.strategies import LIVE_STRATEGIES
 from marketimmune.utils import parse_symbol_spec, split_csv
@@ -60,12 +64,15 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help="replay as if elsewhere: hl=<ms after each block>,cb=<ms added to Coinbase's receive time>, e.g. hl=50,cb=70 for Tokyo",
     )
+    parser.add_argument("--until-ms", type=int, default=None, help="replay only the messages received by this local ms")
     parser.add_argument("--latency-ms", type=int, default=200, help="decision to order (or cancel) in the book")
     parser.add_argument("--quote-usd", type=float, default=1_000.0)
-    parser.add_argument("--max-quotes", type=int, default=5)
+    parser.add_argument("--max-quotes", type=int, default=5, help="per coin: the most quotes of position a strategy holds")
+    parser.add_argument("--budget-usd", type=float, default=None, help="per strategy: the most gross exposure over all coins")
     parser.add_argument("--maker-fee-bps", type=float, default=1.5)
     parser.add_argument("--taker-fee-bps", type=float, default=4.5)
     parser.add_argument("--no-raw", action="store_true", help="do not keep the raw messages")
+    parser.add_argument("--no-journal", action="store_true", help="do not write the decision journal")
     parser.add_argument(
         "--strategies", default=",".join(LIVE_STRATEGIES), help="touch, gap@<bps>, model@<bps>, improve, improve+gap@<bps>, taker@<bps>"
     )
@@ -80,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.state_dir is not None:
             engine.load_state(args.state_dir)
         retime = {k: int(v) for k, v in (kv.split("=") for kv in args.retime.split(",") if kv)}
-        replay(engine, args.replay, retime or None)
+        replay(engine, args.replay, retime or None, args.until_ms)
         engine.write(args.out, final=True)
         if args.state_dir is not None:
             engine.save_state(args.state_dir)
@@ -99,6 +106,8 @@ def make_engine(args: argparse.Namespace, out: Path) -> Engine:
         taker_fee_bps=args.taker_fee_bps,
         sz_decimals=sz_decimals(out, args.replay),
         strategies=split_csv(args.strategies),
+        budget_usd=args.budget_usd,
+        journal=None if args.no_journal else Journal(out / "journal"),
     )
 
 

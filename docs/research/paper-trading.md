@@ -255,6 +255,68 @@ The live run measured order actions too: the makers send about 2,500-4,500 order
 minute over the nine coins. At $1,000 quotes their fills earn enough of Hyperliquid's per-address
 request budget (one request per dollar traded). At minimum size they would not.
 
+## Decision journal (`marketimmune/paper/journal.py`, `cli.paper_journal`)
+
+Every run now writes `journal/` next to its summary, as it goes (flushed every minute, readable while
+the run is on):
+
+| File | One row per |
+|---|---|
+| `decisions.jsonl.gz` | change of the sides a maker quotes on a coin: the sides the quoter wanted, the sides sent after the budget, its reason, the position, and the signals then |
+| `fills.jsonl.gz` | paper fill: block and local time, price, size, fee, position after; for a maker, when the order was sent and reached the book, the queue ahead when it joined and just before the fill, whether the trade went through the price, the mid before the block, and the signals when the order was sent |
+| `taker.jsonl.gz` | taker entry or exit sent, with the signals |
+| `signals.jsonl.gz` | coin and second: mid, spread, Coinbase mid, gap, gap z, 10 s forecast, 1 s model, 1 s volatility, buy and sell bursts |
+| `minutes.jsonl.gz` | strategy, coin and minute: orders and cancels sent, fills, time quoted on both sides / one side / none, sides the budget dropped, position, PnL |
+
+The order actions themselves (1,200-1,800 a minute per strategy over the nine coins) are counted,
+not listed. At the night's pace the journal of 21 strategies is about 11 MB an hour; the raw
+recording is 60-120 MB an hour.
+
+- **It only reads.** A replay with and without it gives the same fills, byte for byte
+  (`tests/paper/test_paper_journal.py`; also the night's second segment, 26,217 fills).
+- **Replays are now exact.** The raw recording also keeps the time of each 100 ms engine tick
+  (`raw/tick-*.log.gz`). A recording that has them replays every live decision in the same order
+  (tested). Without them a replay ticks on its own 100 ms grid. On the first 23 minutes of the
+  24-hour run, which started before this change, the replay saw the same 146,599 events and
+  reproduced `touch`, `improve` and both takers exactly, but the signal quoters' fills only to
+  within 1-8%: the basis, volatilities and model they read are updated on the ticks.
+- **Other settings on the same live data.** Paper orders do not touch the market, so a
+  recording with its ticks can be replayed with any settings and the result is what the live run
+  would have shown with them. One new setting: `--budget-usd 5000` gives each strategy one budget
+  of gross exposure over all coins (each position at its mid); a side that would take it past the
+  budget is not quoted, a side that reduces the position always is, and a taker does not enter.
+- `python -m marketimmune.cli.paper_journal --runs <run dirs> --out <json> --md <md>` reads the
+  journals (`eval/paper/journal_night_20261106.{json,md}` for the night, replayed with all 21
+  strategies).
+
+### What the night's journal shows (4.76 replayed hours, exploratory)
+
+- **The candidates' fills are adversely selected like everyone's.** Over the first five minutes
+  after a fill, the mid moves against it for every quoter (`improve+gap@0.25`: -0.4 bps at 1 s,
+  -0.7 bps at 5 min; `touch`: -1.1 and -1.5). Net of the fee, their fills lose about 2 bps over a
+  minute.
+- **Their PnL accrues later.** Summed in USD over the fills, the mid's move after them is negative
+  up to five minutes and turns positive after: for `improve+gap@0.25`, -$112 at 5 min, +$330 at
+  15 min, +$521 by the segment's end, which is its whole position PnL. So the gain is held inventory
+  over a quarter of an hour or more. The Coinbase lead picks which side fills; the position it
+  leaves rides the night's moves. That is a directional position at a slow pace, not a spread.
+  It agrees with the drift/timing split above (positions that covary with the next minutes' move)
+  and makes its risk plain: it needs the moves to persist.
+- **Fills that grow the position gain; fills that shrink it lose.** `improve+gap@0.25`: +2.4 bps
+  at 5 min for the 1,328 opening fills, -4.2 bps for the 1,139 closing ones (`gap@0.25`: +1.9 and
+  -3.7). `touch` shows the same tilt (-0.5 and -2.6), so part of it is how a capped position fills.
+- **The 0.25-bp quoters change their mind every 1.5 s.** About 40 side changes a coin and minute.
+  After a pull, the mid moves 0.56 bps towards the pulled side within 10 s (54% of pulls): the pulls
+  are right on average, by less than the fee.
+- **Fills alone at a new level do better than fills behind a queue.** -1.6 bps against -2.5 at
+  1 minute for `improve+gap@0.25`, -1.0 against -2.4 for `gap@0.25`.
+- **Rate limit:** 0.05-0.3 order actions per USD filled for every quoter but the reservation pair
+  (0.75), under Hyperliquid's one per USD.
+
+Ideas these point to, none tested: a hysteresis band on the pull threshold (fewer flips, fewer
+actions, queue kept); a position target from a forecast over 15 minutes rather than 10 s; holding
+the position longer when the lead still points its way (closing fills lose).
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
@@ -295,5 +357,6 @@ request budget (one request per dollar traded). At minimum size they would not.
 | `eval/paper/selection_20261106.json` | The live selection hour |
 | `eval/paper/selection_grid_*.json` | The grid the candidates were picked from (first 70 minutes, replayed) |
 | `eval/paper/replay_{us200,us50,tokyo}_20261106.json` | The held-out hours replayed at each location and latency |
+| `eval/paper/journal_night_20261106.{json,md}` | The night's decision journals read by `cli.paper_journal`: fills by markout horizon and by what the strategy saw, side changes, pulls, actions |
 
 The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
