@@ -5,7 +5,9 @@
 
 Writes ``summary.json`` every minute, and at the end ``fills.jsonl``, ``equity.jsonl``,
 ``mids.parquet`` and the raw messages under ``raw/``. ``--state-dir`` carries the model rows and the
-wallet scores from one run to the next. Strategies and fill model: ``marketimmune.paper``; results:
+wallet scores from one run to the next. ``--retime`` replays a recording as a maker elsewhere would
+have seen it: Hyperliquid's messages ``hl`` ms after their block, Coinbase's ``cb`` ms later than they
+arrived here (``paper.live.retimed``). Strategies and fill model: ``marketimmune.paper``; results:
 ``docs/research/paper-trading.md``.
 """
 
@@ -19,7 +21,7 @@ from pathlib import Path
 
 from marketimmune.logger import init_logger
 from marketimmune.paper.engine import Engine
-from marketimmune.paper.live import now_ms, replay, run_live
+from marketimmune.paper.live import replay, run_live
 from marketimmune.utils import parse_symbol_spec
 
 logger = init_logger(__name__)
@@ -49,6 +51,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--state-dir", type=Path, default=None)
     parser.add_argument("--replay", type=Path, default=None, help="a recorded run's raw/ directory, instead of the live feeds")
+    parser.add_argument(
+        "--retime",
+        default="",
+        help="replay as if elsewhere: hl=<ms after each block>,cb=<ms added to Coinbase's receive time>, e.g. hl=50,cb=70 for Tokyo",
+    )
     parser.add_argument("--latency-ms", type=int, default=200, help="decision to order (or cancel) in the book")
     parser.add_argument("--quote-usd", type=float, default=1_000.0)
     parser.add_argument("--max-quotes", type=int, default=5)
@@ -66,9 +73,10 @@ def main(argv: list[str] | None = None) -> int:
         sz_decimals=sz_decimals(args.out, args.replay),
     )
     if args.state_dir is not None:
-        engine.load_state(args.state_dir, now_ms())
+        engine.load_state(args.state_dir)
     if args.replay is not None:
-        replay(engine, args.replay)
+        retime = {k: int(v) for k, v in (kv.split("=") for kv in args.retime.split(",") if kv)}
+        replay(engine, args.replay, retime or None)
     else:
         asyncio.run(run_live(engine, args.out, args.hours * 3600, raw=not args.no_raw))
     engine.write(args.out, final=True)

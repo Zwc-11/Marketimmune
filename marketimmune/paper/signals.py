@@ -245,7 +245,8 @@ class CoinState:
         if self.basis is None:
             self.basis = raw
         else:
-            alpha = 1.0 - math.exp(-math.log(2) * (local_ms - self.basis_ms) / BASIS_HALF_LIFE_MS)
+            dt = local_ms - self.basis_ms if self.basis_ms else 0
+            alpha = 1.0 - math.exp(-math.log(2) * max(dt, 0) / BASIS_HALF_LIFE_MS)
             self.basis += alpha * (raw - self.basis)
         self.basis_ms = local_ms
         x = self.features(local_ms)
@@ -290,11 +291,11 @@ class CoinState:
     def state(self) -> dict[str, Any]:
         return {"rows": self.rows[-MAX_ROWS:], "row_ms": self.row_ms[-MAX_ROWS:], "row_mid": self.row_mid[-MAX_ROWS:], "basis": self.basis}
 
-    def load(self, state: dict[str, Any], now_ms: int) -> None:
+    def load(self, state: dict[str, Any]) -> None:
         """Rows and basis from an earlier run; the model is refitted at the first sample."""
         self.rows = [list(map(float, r)) for r in state["rows"]]
         self.row_ms = [int(t) for t in state["row_ms"]]
         self.row_mid = [float(m) for m in state["row_mid"]]
         self.basis = state["basis"]
-        self.basis_ms = now_ms
-        self.fitted_ms = now_ms - REFIT_MS
+        self.basis_ms = 0
+        self.fitted_ms = -REFIT_MS

@@ -307,7 +307,7 @@ class Engine:
                     basis=np.asarray([st["basis"]]),
                 )
 
-    def load_state(self, state_dir: Path, now_ms: int) -> None:
+    def load_state(self, state_dir: Path) -> None:
         if (state_dir / "wallets.json").exists():
             self.wallets.load(json.loads((state_dir / "wallets.json").read_text(encoding="utf-8")))
         for c, s in self.states.items():
@@ -320,7 +320,6 @@ class Engine:
                         "row_ms": z["row_ms"].tolist(),
                         "row_mid": z["row_mid"].tolist(),
                         "basis": float(z["basis"][0]),
-                    },
-                    now_ms,
+                    }
                 )
         logger.info(f"loaded state from {state_dir}: {len(self.wallets.count)} wallets")

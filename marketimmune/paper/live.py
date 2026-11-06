@@ -24,7 +24,7 @@ import websockets
 
 from marketimmune.logger import init_logger
 from marketimmune.paper.engine import Engine
-from marketimmune.paper.events import CoinbaseBooks, parse_hl
+from marketimmune.paper.events import STALE_TRADE_MS, CoinbaseBooks, parse_hl
 
 logger = init_logger(__name__)
 HL_URL = "wss://api.hyperliquid.xyz/ws"
@@ -169,11 +169,58 @@ def raw_lines(root: Path) -> Iterator[tuple[int, str, bytes]]:
     yield from heapq.merge(*(one(p) for p in sorted(root.glob("*.log.gz"))), key=lambda x: x[0])
 
 
-def replay(engine: Engine, root: Path) -> None:
-    """Feed a recorded run through ``engine`` in receive order, ticking every 100 ms of receive time."""
+RETIME_WINDOW_MS = 10_000
+
+
+def block_ms(msg: dict[str, Any]) -> int | None:
+    """The block time of a Hyperliquid message: its book's, or its newest fresh trade's."""
+    data: Any = msg.get("data")
+    if msg.get("channel") in ("bbo", "l2Book"):
+        return int(data["time"])
+    if msg.get("channel") == "trades" and data:
+        return max(int(x["time"]) for x in data)
+    return None
+
+
+def retimed(lines: Iterator[tuple[int, str, bytes]], retime: dict[str, int]) -> Iterator[tuple[int, str, bytes]]:
+    """``lines`` with each message's receive time moved to where another maker would have seen it:
+    a Hyperliquid message ``retime["hl"]`` ms after its block, a Coinbase one ``retime["cb"]`` ms
+    after it arrived here. A reorder buffer of ``RETIME_WINDOW_MS`` puts them back in time order;
+    a message later than that window is held at the last time already sent. The trades replayed at
+    each subscription are dropped first, as ``parse_hl`` would."""
+    heap: list[tuple[int, int, str, bytes]] = []
+    sent = 0
+    for seq, (local_ns, venue, raw) in enumerate(lines):
+        local_ms = local_ns // 1_000_000
+        if venue == "hl":
+            msg = orjson.loads(raw)
+            if msg.get("channel") == "trades":
+                msg["data"] = [x for x in msg["data"] if local_ms - int(x["time"]) <= STALE_TRADE_MS]
+                raw = orjson.dumps(msg)
+            t = block_ms(msg)
+            if t is None:
+                continue
+            new = t + retime["hl"]
+        else:
+            new = local_ms + retime["cb"]
+        heapq.heappush(heap, (new, seq, venue, raw))
+        while heap and heap[0][0] <= local_ms - RETIME_WINDOW_MS:
+            t, _, v, r = heapq.heappop(heap)
+            sent = max(sent, t)
+            yield sent * 1_000_000, v, r
+    while heap:
+        t, _, v, r = heapq.heappop(heap)
+        sent = max(sent, t)
+        yield sent * 1_000_000, v, r
+
+
+def replay(engine: Engine, root: Path, retime: dict[str, int] | None = None) -> None:
+    """Feed a recorded run through ``engine`` in receive order (or ``retimed``), ticking every
+    100 ms of receive time."""
     books = CoinbaseBooks()
     next_tick: int | None = None
-    for local_ns, venue, raw in raw_lines(root):
+    lines = raw_lines(root) if retime is None else retimed(raw_lines(root), retime)
+    for local_ns, venue, raw in lines:
         local_ms = local_ns // 1_000_000
         if next_tick is None:
             next_tick = local_ms
