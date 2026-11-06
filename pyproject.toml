@@ -30,7 +30,7 @@ aws = ["boto3>=1.34"]
 # Django API that serves the terminal and the scored-fill decisions.
 server = ["django>=5.1", "python-dotenv>=1.0"]
 # Always-on order-book recorder (deploy/recorder); deploy/recorder/requirements.txt mirrors this.
-recorder = ["websockets>=15"]
+recorder = ["websockets>=15", "orjson>=3.10"]  # the recorder and live paper trading (marketimmune.paper)
 # Price of Priority study. Versions named in its plan are pinned as written.
 causal = ["rdrobust==2.1.1", "rddensity==3.0", "rdlocrand==3.0", "pyfixest==0.60.0"]
 survival = ["lifelines==0.30.3"]

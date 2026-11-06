@@ -24,24 +24,26 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import pyarrow.parquet as pq
 
 from marketimmune.models.compare import stationary_bootstrap_ci
 
+FloatArray = npt.NDArray[np.float64]
 BPS = 1e4
 BLOCK_MS = 15 * 60_000
 HORIZONS_MS = {"1s": 1_000, "10s": 10_000, "60s": 60_000}
 
 
-def mid_lookup(mids: pd.DataFrame, coin: str, t: np.ndarray, *, before: bool = False) -> np.ndarray:
+def mid_lookup(mids: pd.DataFrame, coin: str, t: FloatArray, *, before: bool = False) -> FloatArray:
     """The last mid at or before each block time ``t`` (strictly before with ``before``: the book
     before the fill's own block). NaN before the run's first mid; past its end, the last mid, where
     the run marks its positions."""
     m = mids[mids["coin"] == coin]
     ts, px = m["t_ms"].to_numpy(), m["mid"].to_numpy()
     i = np.searchsorted(ts, t, side="left" if before else "right") - 1
-    out: np.ndarray = np.where(i >= 0, px[np.clip(i, 0, None)], np.nan)
+    out: FloatArray = np.where(i >= 0, px[np.clip(i, 0, None)], np.nan)
     return out
 
 
@@ -69,7 +71,7 @@ def run_tables(run: Path) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     return fills, last[["coin", "strategy", "block", "pnl"]], summary
 
 
-def ci(x: np.ndarray) -> list[float] | None:
+def ci(x: FloatArray) -> list[float] | None:
     return [round(v, 2) for v in stationary_bootstrap_ci(x)] if x.size >= 4 else None
 
 

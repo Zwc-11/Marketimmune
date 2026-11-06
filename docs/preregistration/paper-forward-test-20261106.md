@@ -44,4 +44,24 @@ time is the registration time.
 
 ## Deviations
 
-(none)
+- **2026-11-06, the test is 3.53 hours, not the whole morning.** The cloud environment running the
+  paper trader stopped at 09:31 UTC. Segment 4 (from 07:57) was cut there, and its outputs were
+  written by its SIGTERM handler. No fifth segment ran. The test covers segments 3 and 4,
+  05:59-09:31. No hours were added afterwards: the results had been seen by then.
+- **Segment 2 was stopped at 05:59, an hour early,** so the candidates could start live at once.
+  That was decided before any held-out hour existed.
+
+## Result (2026-11-06; `eval/paper/forward_test_verdict_20261106.json`)
+
+**No candidate makes money under the rule.** All four totals are positive; no 98.75% interval (nor
+95%) excludes zero.
+
+| Candidate | Total | USD/h | 98.75% interval, USD/h | vs `touch`, USD/h [95%] |
+|---|---:|---:|---|---|
+| `improve+gap@0.25` | +$213 | +61 | [-59, +193] | +735 [+595, +875], 15/15 blocks |
+| `gap@0.25` | +$119 | +34 | [-84, +160] | +709 [+582, +843], 15/15 |
+| `improve+gap@0.5` | +$99 | +28 | [-108, +187] | +704 [+559, +854], 14/15 |
+| `gap@0.5` | +$56 | +16 | [-103, +160] | +693 [+559, +829], 14/15 |
+
+At the 0.8 bp tier the totals are +$303, +$186, +$218 and +$148. Analysis and limits:
+`docs/research/paper-trading.md`.

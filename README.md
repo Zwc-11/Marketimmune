@@ -34,7 +34,7 @@ over days [bootstrap 95%], days improved.
   wallet score in 3/3 at 1 s and 2/3 at 60 s. Fees leave one trace, at 1 s: Brier better by
   +0.5 ×1e-3 in every coin, about 2% of the gap's gain, which fails the registered rules
   (BTC's placebo p 0.098; pinball improves only in BTC). It is re-tested, on its own, on
-  January 2027 (section 4).
+  January 2027 (section 5).
 - The same ladder on December 2025: the gap was claimed on SOL and replicated on ETH; the
   wallet score, exploratory on SOL, was confirmed on ETH under a second registration. Lost
   cancel races and forecast liquidations, tested the same way, came back null
@@ -82,7 +82,35 @@ hftbacktest's queue rule, it agrees with hftbacktest to 0.1 bps per filled dolla
   1.7-1.85 bp rebate; ETH at the 2 bp limit breaks even only at the top rebate tier, which its
   volume does not reach.
 
-### 4. What is next, and what is closed
+### 4. Live paper trading (one night, 2026-11-06)
+
+From [`docs/research/paper-trading.md`](docs/research/paper-trading.md):
+
+- **Setup.** Every strategy above ran live on Hyperliquid's public feed for nine coins, with a
+  Coinbase reference. Paper orders were matched against the real trades on block time, with
+  200 ms orders, from a machine that sees Hyperliquid about 340 ms late.
+- **Selection.** Four strategies picked in the first hour were registered before the next hours
+  existed ([registration](docs/preregistration/paper-forward-test-20261106.md)) and tested on
+  3.5 held-out hours.
+
+| Held-out 3.5 h, nine coins | Fills | bps per filled $ | USD per hour [95%] |
+|---|---:|---:|---|
+| Always quote at the touch | 14,143 | -3.49 | -721 [-809, -561] |
+| Pull on the CEX gap, 2 bps (December's stale rule) | 9,703 | -2.56 | -369 [-474, -207] |
+| Pull on the live model | 10,563 | -2.88 | -441 [-568, -263] |
+| Pull on a 0.25 bp gap, quote inside wide spreads | 1,860 | **+1.67** | +61 [-39, +164] |
+| Take on a 10 bp gap | 116 | -3.60 | -12 [-26, -1] |
+
+- **The touch quoter loses live just as the December simulator said** (-3.19 to -3.35 bps there),
+  in all 15 quarter-hours.
+- **Pulling on very small gaps came out positive** (+$16 to +$61 an hour) and beat the touch
+  quoter in 14-15 of 15 quarter-hours. It does not pass the registered rule: every interval
+  includes zero.
+- **Its gain is position timing, not spread.** It quotes only the side the Coinbase lead leaves
+  safe, so its inventory leads Hyperliquid's next move. A longer registered run would have to
+  confirm it.
+
+### 5. What is next, and what is closed
 
 - **Pre-registered: January 2027**
   ([`docs/preregistration/jan-2027-confirmation.md`](docs/preregistration/jan-2027-confirmation.md)).
@@ -237,6 +265,7 @@ Every pipeline command is `python -m marketimmune.cli.<command> --help`; the
 | `quote_signals` / `simulate_quotes` | Quote-time model quantiles; the block simulator |
 | `hft_baseline` / `pull_frontier` | hftbacktest reconciliation; pull-limit frontier with a time-shifted placebo (`--back-off`: step back instead of pulling) |
 | `fee_tiers` | Every simulated maker's PnL at each Hyperliquid maker fee tier, and its break-even fee |
+| `paper_trade` / `paper_report` | Live paper trading on Hyperliquid (or a replay of a recorded night); its PnL by component |
 
 ### Reproduce the results
 
@@ -320,6 +349,8 @@ MarketImmune/
 │   │                          mcs.py, decomposition.py
 │   ├── sim/                   engine.py (block simulator), strategies.py, signals.py, attribution.py,
 │   │                          hft_baseline.py, pnl.py (the older fill filter)
+│   ├── paper/                 live paper trading: events.py (feeds), signals.py (gap, wallets, model),
+│   │                          orders.py (queue fills), strategies.py, engine.py, live.py (run, replay)
 │   ├── serving/               scorer.py (CatBoost), oblivious_trees.py (no CatBoost), gold_scoring.py
 │   ├── priority/              fills.py (execution order), fees.py (priority fees in bps), nonces.py
 │   ├── cli/                   python -m marketimmune.cli.<command>
