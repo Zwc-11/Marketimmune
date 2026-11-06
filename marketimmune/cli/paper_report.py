@@ -10,11 +10,13 @@ coin and strategy, in USD and in bps of filled notional (as in ``docs/research/b
 - ``fee`` and ``inventory`` (everything else: holding the position past 1 s, marked to the end);
 - ``break_even_fee_bps``: PnL before fees per filled dollar, the maker fee that would break even.
 
-``by_strategy`` sums the coins, with the components per filled dollar and per hour.
+``by_strategy`` sums the coins, with the components per filled dollar and per hour, and its risk: the
+standard deviation of its 15-minute block PnL, the largest fall from a peak, the mean absolute net
+position, and the correlation of its minute PnL with BTC's minute move.
 
 Intervals: the PnL of 15-minute blocks (from the minute equity snapshots), stationary bootstrap with
 a mean block of 3, 5,000 draws, seed 0. ``vs_touch`` pairs each maker with ``touch`` on the same
-coin and blocks.
+coin and blocks; ``--baseline`` pairs every strategy with the one named, summed over the coins.
 
 With ``--funding``, each strategy's held positions also settle Hyperliquid's hourly funding
 (``marketimmune.paper.funding``; the rates are fetched once and cached as ``funding.json`` in each
@@ -79,11 +81,53 @@ def run_tables(run: Path) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     return fills, last[["coin", "strategy", "block", "pnl"]], summary
 
 
+def risk(runs: list[Path]) -> dict[str, dict[str, float | None]]:
+    """Per strategy over the runs in order, from the minute snapshots summed over the coins: the
+    largest fall of equity from a peak (the runs chained), the mean absolute net position, and the
+    correlation of each minute's PnL with BTC's move that minute (positive: it gains when BTC rises)."""
+    series: dict[str, list[pd.DataFrame]] = defaultdict(list)
+    for run in runs:
+        eq = pd.read_json(run / "equity.jsonl", lines=True)
+        mids = pq.read_table(run / "mids.parquet").to_pandas()
+        btc = mids[mids["coin"] == "BTC"].sort_values("t_ms")
+        per = eq.groupby(["strategy", "t_ms"]).agg(equity=("equity", "sum"), net=("position_usd", "sum")).reset_index()
+        for strategy, g in per.groupby("strategy"):
+            g = g.sort_values("t_ms").copy()
+            if not btc.empty:
+                i = np.searchsorted(btc["t_ms"].to_numpy(), g["t_ms"].to_numpy(), side="right") - 1
+                g["btc"] = np.where(i >= 0, btc["mid"].to_numpy()[np.clip(i, 0, None)], np.nan)
+            else:
+                g["btc"] = np.nan
+            g["pnl"] = g["equity"].diff()
+            g["ret"] = np.log(g["btc"]).diff()
+            series[str(strategy)].append(g)
+    out: dict[str, dict[str, float | None]] = {}
+    for strategy, parts in series.items():
+        offset, peak, worst = 0.0, 0.0, 0.0
+        for g in parts:
+            path = g["equity"].to_numpy() + offset
+            for v in path:
+                peak = max(peak, v)
+                worst = min(worst, v - peak)
+            offset = float(path[-1]) if path.size else offset
+        both = pd.concat(parts)[["pnl", "ret", "net"]]
+        ok = both.dropna()
+        c = float(np.corrcoef(ok["pnl"], ok["ret"])[0, 1]) if len(ok) > 10 and ok["pnl"].std() > 0 and ok["ret"].std() > 0 else None
+        out[strategy] = {
+            "max_drawdown_usd": round(worst, 2),
+            "mean_abs_net_usd": round(float(both["net"].abs().mean()), 1),
+            "btc_corr_1min": round(c, 3) if c is not None else None,
+        }
+    return out
+
+
 def ci(x: FloatArray) -> list[float] | None:
     return [round(v, 2) for v in stationary_bootstrap_ci(x)] if x.size >= 4 else None
 
 
-def score(runs: list[Path], funding: dict[Path, dict[str, list[tuple[int, float]]]] | None = None) -> dict[str, Any]:
+def score(
+    runs: list[Path], funding: dict[Path, dict[str, list[tuple[int, float]]]] | None = None, baseline: str | None = None
+) -> dict[str, Any]:
     """``funding``: each run's hourly rates per coin (``paper.funding.funding_for_run``); None
     leaves funding out."""
     tables = [run_tables(r) for r in runs]
@@ -131,6 +175,7 @@ def score(runs: list[Path], funding: dict[Path, dict[str, list[tuple[int, float]
             row["break_even_fee_bps"] = round((total - comp["fee"]) / notional * BPS, 3)
         rows.append(row)
     by_strategy = []
+    risks = risk(runs)
     for strategy in sorted({r["strategy"] for r in rows}):
         rs = [r for r in rows if r["strategy"] == strategy]
         notional = sum(r["notional_usd"] for r in rs)
@@ -149,6 +194,8 @@ def score(runs: list[Path], funding: dict[Path, dict[str, list[tuple[int, float]
                 "break_even_fee_bps": round((total - fee) / notional * BPS, 3) if notional else None,
                 "components_bps": {k: round(v / notional * BPS, 3) for k, v in comps[strategy].items()} if notional else None,
                 "components_usd_per_hour": {k: round(v / hours, 2) for k, v in comps[strategy].items()} if hours else None,
+                "block_sd_usd": round(float(b.std(ddof=1)), 2) if b.size > 1 else None,
+                **risks.get(strategy, {}),
             }
             | (
                 {
@@ -175,6 +222,22 @@ def score(runs: list[Path], funding: dict[Path, dict[str, list[tuple[int, float]
                     "blocks_better": f"{int((d > 0).sum())}/{d.size}",
                 }
             )
+    vs_baseline = []
+    if baseline is not None:
+        summed = blocks.groupby(["strategy", "block"])["pnl"].sum()
+        base_all = summed.xs(baseline, level="strategy") if baseline in summed.index.get_level_values(0) else None
+        for strategy in sorted({r["strategy"] for r in rows} - {baseline}):
+            if base_all is None:
+                break
+            d = (summed.xs(strategy, level="strategy") - base_all).dropna().to_numpy()
+            vs_baseline.append(
+                {
+                    "strategy": strategy,
+                    "usd_per_hour": round(float(d.mean()) * 4, 2) if d.size else None,
+                    "ci95": [round(v * 4, 2) for v in c] if (c := ci(d)) else None,
+                    "blocks_better": f"{int((d > 0).sum())}/{d.size}",
+                }
+            )
     models: dict[str, list[dict[str, Any]]] = {}
     for _, _, s in tables:
         for coin, fits in s["models"].items():
@@ -188,6 +251,8 @@ def score(runs: list[Path], funding: dict[Path, dict[str, list[tuple[int, float]
         "by_strategy": by_strategy,
         "by_coin": rows,
         "vs_touch": vs_touch,
+        "baseline": baseline,
+        "vs_baseline": vs_baseline,
         "model_oos_r2": {
             c: {"fits": len(v), "mean_oos_r2": round(float(np.mean(o)), 4) if (o := [x["oos_r2"] for x in v if "oos_r2" in x]) else None}
             for c, v in models.items()
@@ -200,11 +265,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--runs", type=Path, nargs="+", required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument(
+        "--baseline", default=None, help="also pair every strategy with this one, summed over the coins, on the same blocks"
+    )
+    parser.add_argument(
         "--funding", action="store_true", help="settle Hyperliquid's hourly funding on the held positions (fetches the rates once)"
     )
     args = parser.parse_args(argv)
     runs = sorted(r for r in args.runs if (r / "fills.jsonl").exists())
-    result = score(runs, {r: funding_for_run(r) for r in runs} if args.funding else None)
+    result = score(runs, {r: funding_for_run(r) for r in runs} if args.funding else None, args.baseline)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
     print(f"{result['hours']} h, {len(result['runs'])} runs")

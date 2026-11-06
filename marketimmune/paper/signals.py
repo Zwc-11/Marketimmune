@@ -28,6 +28,11 @@ previous fit on the rows it has not seen (out-of-sample R^2), so the log is a wa
 - ``intensity_ratio``: each side's taker-arrival intensity with an exponential (Hawkes) kernel,
   ``lambda(t) = sum exp(-(t - t_i) / 2 s)`` over that side's trades, divided by its own 10-minute
   EWMA. Above 1, trades are arriving in a burst.
+- ``informed``: the wallet factor of the A1 test, live. Over the last ``window`` (5 s), the takers'
+  signed notional times each taker's wallet score as it stood when the trade arrived, over the
+  notional: positive when the takers whose past trades were followed by moves their way are buying.
+  ``informed_z``: over its own EWMA standard deviation (half-life 5 min), for the 1 s and 5 s windows
+  (``INFORMED_WINDOWS_MS``), so a threshold is in the same units on every coin.
 
 Times: ``local_ms`` is when a message arrived; ``t_ms`` is Hyperliquid's block time.
 """
@@ -63,6 +68,7 @@ FORECAST_HALF_LIFE_MS = 1_800_000
 FORECAST_PRIOR = 2_000.0  # ridge prior on the forecast's slope, in gap bps^2 of grid rows
 HAWKES_DECAY_MS = 2_000
 HAWKES_BASE_HALF_LIFE_MS = 600_000
+INFORMED_WINDOWS_MS = (1_000, 5_000)
 FEATURES = ("gap", "ref_ret_1s", "ref_ret_5s", "hl_ret_1s", "hl_ret_5s", "imb_1s", "imb_5s", "tox_buy_5s", "tox_sell_5s", "spread")
 
 
@@ -181,6 +187,7 @@ class CoinState:
         self.fc_sxx = 0.0
         self.fc_sxy = 0.0
         self.fc_ms = 0
+        self.informed_var: dict[int, float | None] = dict.fromkeys(INFORMED_WINDOWS_MS)
         self.hawkes: dict[int, tuple[float, int]] = {1: (0.0, 0), -1: (0.0, 0)}  # side -> intensity, local ms
         self.hawkes_base: dict[int, float | None] = {1: None, -1: None}
 
@@ -235,6 +242,23 @@ class CoinState:
     def gap_sigma(self) -> float | None:
         return math.sqrt(self.gap_var) if self.gap_var is not None else None
 
+    def informed_z(self, local_ms: int, window_ms: int = FLOW_MS) -> float | None:
+        """``informed`` over its own volatility; None before the first sample (or for a window
+        without one)."""
+        var = self.informed_var.get(window_ms)
+        return self.informed(local_ms, window_ms) / math.sqrt(var) if var else None
+
+    def informed(self, local_ms: int, window_ms: int = FLOW_MS) -> float:
+        """Wallet-informed taker flow over the last ``window_ms``, bps (0 without trades)."""
+        num = den = 0.0
+        for t, signed, notional, score in reversed(self.flow):
+            if t < local_ms - window_ms:
+                break
+            if t <= local_ms:
+                num += signed * score
+                den += notional
+        return num / den if den else 0.0
+
     @property
     def forecast_slope(self) -> float:
         return self.fc_sxy / (self.fc_sxx + FORECAST_PRIOR)
@@ -249,6 +273,9 @@ class CoinState:
         r = log_bps(self.view.at(local_ms), self.view.at(local_ms - 1_000))
         self.var_1s = r * r if self.var_1s is None else self.var_1s + a * (r * r - self.var_1s)
         self.gap_var = gap * gap if self.gap_var is None else self.gap_var + a * (gap * gap - self.gap_var)
+        for window, var in self.informed_var.items():
+            w = self.informed(local_ms, window)
+            self.informed_var[window] = w * w if var is None else var + a * (w * w - var)
         mid = self.view.at(local_ms)
         if mid is not None:
             self.fc_pending.append((local_ms, gap, mid))

@@ -31,6 +31,16 @@ After the 2026-11-06 night (exploratory; estimators in ``paper.signals``):
   terms, a side is skipped when the optimal quote would sit behind the touch: December's back-off
   run showed those fills lose more than not quoting.
 
+After the market maker (``paper.mm``) lost in every replay, the research's own result as a quoter:
+
+- ``Guard`` (``guard@z=<z>/w=<z>/...``): A1's two signals that held, live, with ``paper.mm``'s position
+  and risk control. Quotes like ``ZGap`` (the touch, one tick inside wide spreads) and pulls the
+  side the Coinbase gap says is at risk (``|gap z| > z``) and the side informed wallets are taking
+  (``|wallet z| > w``: ``CoinState.informed_z`` over the last ``win`` seconds; positive, informed
+  buyers, pulls the ask). Position control: no bid once the coin's position is ``lean`` of its limit (no ask
+  at minus that), and no bid anywhere at ``+net`` net dollars over the coins (no ask at ``-net``).
+  ``stop``, ``hold``, ``dd`` and ``stale`` are ``paper.mm``'s exits; 0 turns one off.
+
 ``GapTaker`` is the other side of the trade: when the gap reaches ``threshold_bps`` it buys (or
 sells) ``qty`` at the touch, paying the taker fee, and closes ``hold_ms`` after the fill.
 """
@@ -38,6 +48,7 @@ sells) ``qty`` at the touch, paying the taker fee, and closes ``hold_ms`` after 
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass, fields
 from typing import Protocol
 
 from marketimmune.paper.mm import MarketMaking, parse
@@ -223,6 +234,83 @@ class Reservation(Touch):
         )
 
 
+@dataclass(frozen=True, slots=True)
+class GuardParams:
+    z: float = 0.05  # |gap z| that pulls the side at risk
+    w: float = 0.0  # |wallet z| that pulls the side informed wallets take (0: off)
+    win: float = 1.0  # the wallet factor's window, seconds (1 or 5)
+    lean: float = 1.0  # share of the coin's limit past which only the reducing side is quoted
+    net: float = 0.0  # net USD over the coins past which the side adding to it stops (0: off)
+    stop: float = 0.0  # bps against the average entry that closes a coin's position (0: off)
+    hold: float = 0.0  # seconds a position may stay open (0: off)
+    dd: float = 0.0  # USD below the equity peak that closes everything (0: off)
+    pause: float = 600.0
+    cool: float = 60.0
+    stale: float = 3.0
+    tol: float = 0.0  # 0: a live order moves on any change of its price, as ZGap's
+
+
+GUARD_KEYS = tuple(f.name for f in fields(GuardParams))
+
+
+def parse_guard(arg: str) -> GuardParams:
+    """``""`` -> defaults; ``"z=0.05/w=1/net=2000"`` -> those, the rest defaults."""
+    values: dict[str, float] = {}
+    for part in arg.split("/") if arg else ():
+        key, _, value = part.partition("=")
+        if key not in GUARD_KEYS:
+            raise AssertionError(f"unknown guard parameter {key!r} (one of {', '.join(GUARD_KEYS)})")
+        values[key] = float(value)
+    return GuardParams(**values)
+
+
+def signal_z(value: float | None, sigma: float | None) -> float | None:
+    return value / sigma if value is not None and sigma else None
+
+
+class Guard:
+    def __init__(self, params: GuardParams) -> None:
+        self.p = params
+        self.why = "not started"
+
+    def half_spread(self, coin: CoinState) -> float:
+        return 0.0
+
+    def quotes(self, coin: CoinState, local_ms: int, position: float, max_position: float) -> Quotes:
+        return self.targets(coin, local_ms, position, max_position, 0.0)
+
+    def reason(self, coin: CoinState, local_ms: int) -> str:
+        return self.why
+
+    def targets(self, coin: CoinState, local_ms: int, position: float, max_position: float, net_usd: float) -> Quotes:
+        p = self.p
+        gz = signal_z(coin.gap(), coin.gap_sigma)
+        wz = coin.informed_z(local_ms, int(p.win * 1_000))
+        bid, ask = pull(inside(coin, capped(coin, position, max_position)), gz, p.z)
+        notes = [said(gz, p.z, "gap z")]
+        if p.w > 0:
+            before = (bid, ask)
+            bid, ask = pull((bid, ask), wz, p.w)
+            if (bid, ask) != before:
+                notes.append(f"wallets z {wz:+.2f}: {'ask' if before[1] is not None and ask is None else 'bid'} pulled")
+        if p.lean < 1 and max_position > 0:
+            if position >= p.lean * max_position and bid is not None:
+                bid = None
+                notes.append(f"position {position / max_position:+.0%}: no bid")
+            if position <= -p.lean * max_position and ask is not None:
+                ask = None
+                notes.append(f"position {position / max_position:+.0%}: no ask")
+        if p.net > 0:
+            if net_usd >= p.net and bid is not None:
+                bid = None
+                notes.append(f"net +${net_usd:,.0f}: no bids")
+            if net_usd <= -p.net and ask is not None:
+                ask = None
+                notes.append(f"net -${-net_usd:,.0f}: no asks")
+        self.why = "; ".join(notes)
+        return bid, ask
+
+
 LIVE_STRATEGIES = (
     "touch",
     "gap@1",
@@ -243,11 +331,13 @@ ADVANCED_STRATEGIES = ("zgap@0.25", "zgap@0.5", "hawkes@2", "hawkes@3", "kelly@0
 
 def quoter(name: str) -> Quoter:
     """A maker strategy from its name: ``touch``, ``gap@<bps>``, ``model@<bps>``, ``improve``,
-    ``improve+gap@<bps>``, ``zgap@<z>``, ``hawkes@<ratio>``, ``kelly@<z>``, ``reservation@<skew bps>`` or
-    ``mm@...`` (``paper.mm``)."""
+    ``improve+gap@<bps>``, ``zgap@<z>``, ``hawkes@<ratio>``, ``kelly@<z>``, ``reservation@<skew bps>``,
+    ``mm@...`` (``paper.mm``) or ``guard@...``."""
     kind, _, arg = name.partition("@")
     if kind == "mm":
         return MarketMaking(parse(arg))
+    if kind == "guard":
+        return Guard(parse_guard(arg))
     if name == "touch":
         return Touch()
     if name == "improve":

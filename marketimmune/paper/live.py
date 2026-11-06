@@ -307,12 +307,15 @@ CB_STAMP = re.compile(rb'"timestamp":"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)\.(\d+)Z"'
 NETWORK_FLOOR_MS = 15.0  # the least Coinbase to here, as the cloud measured it (14-25 ms)
 
 
-def clock_offsets(root: Path) -> dict[int, float]:
+def clock_offsets(root: Path, until_ms: int | None = None) -> dict[int, float]:
     """How far ahead of Coinbase's clock this machine's was, per UTC minute of the recording: the
     least (receive time - Coinbase's message timestamp) in the minute, less ``NETWORK_FLOOR_MS``.
-    A clock that is ahead makes every order and cancel later against Hyperliquid's blocks."""
+    A clock that is ahead makes every order and cancel later against Hyperliquid's blocks. With
+    ``until_ms``, only the lines received by then (as the recording's clock read)."""
     least: dict[int, float] = {}
     for local_ns, venue, raw in raw_lines(root):
+        if until_ms is not None and local_ns > until_ms * 1_000_000:
+            break
         if venue != "cb":
             continue
         m = CB_STAMP.search(raw, 0, 160)
@@ -327,28 +330,34 @@ def clock_offsets(root: Path) -> dict[int, float]:
     return {k: v - NETWORK_FLOOR_MS for k, v in sorted(least.items())}
 
 
-def reclocked(lines: Iterator[tuple[int, str, bytes]], offsets: dict[int, float] | float) -> Iterator[tuple[int, str, bytes]]:
+def reclocked(
+    lines: Iterator[tuple[int, str, bytes]], offsets: dict[int, float] | float, causal: bool = False
+) -> Iterator[tuple[int, str, bytes]]:
     """``lines`` with their receive times put on the right clock: minus the offset (a constant, or
-    per minute from ``clock_offsets``, interpolated between minute midpoints, which keeps the order)."""
+    per minute from ``clock_offsets``, interpolated between minute midpoints, which keeps the order).
+
+    The midpoints use up to 30 s of later Coinbase timestamps. ``causal``: a minute's offset is
+    reached only one minute after that minute ends, so every receive time is corrected from
+    timestamps received before it (the live ``Clock`` does the same over a rolling minute)."""
     if not isinstance(offsets, dict):
         shift = int(offsets * 1e6)
         for local_ns, venue, raw in lines:
             yield local_ns - shift, venue, raw
         return
-    xs = np.asarray([(k * 60 + 30) * 1e9 for k in offsets], np.float64)
+    xs = np.asarray([((k + 2) * 60 if causal else k * 60 + 30) * 1e9 for k in offsets], np.float64)
     ys = np.asarray(list(offsets.values()), np.float64) * 1e6
     for local_ns, venue, raw in lines:
         yield local_ns - int(np.interp(local_ns, xs, ys)), venue, raw
 
 
 def replay_lines(
-    root: Path, retime: dict[str, int] | None = None, clock: dict[int, float] | float | None = None
+    root: Path, retime: dict[str, int] | None = None, clock: dict[int, float] | float | None = None, causal: bool = False
 ) -> Iterator[tuple[int, str, bytes]]:
     """A recording's lines as ``replay`` feeds them: receive times put on the right clock first, then
     retimed (a Hyperliquid message from its block time, a Coinbase one from its corrected arrival)."""
     lines = raw_lines(root)
     if clock is not None:
-        lines = reclocked(lines, clock)
+        lines = reclocked(lines, clock, causal)
     if retime is not None:
         lines = retimed((x for x in lines if x[1] != "tick"), retime)
     return lines
@@ -360,6 +369,7 @@ def replay(
     retime: dict[str, int] | None = None,
     until_ms: int | None = None,
     clock: dict[int, float] | float | None = None,
+    causal: bool = False,
 ) -> None:
     """Feed a recorded run through ``engine`` in receive order (or ``retimed``); with ``until_ms``,
     only the messages received by then (to compare with a live run's ``summary.json``, whose
@@ -369,7 +379,7 @@ def replay(
     books = CoinbaseBooks()
     next_tick: int | None = None
     exact = retime is None and any(root.glob("tick-*.log.gz"))
-    for local_ns, venue, raw in replay_lines(root, retime, clock):
+    for local_ns, venue, raw in replay_lines(root, retime, clock, causal):
         local_ms = local_ns // 1_000_000
         if until_ms is not None and local_ms > until_ms:
             break

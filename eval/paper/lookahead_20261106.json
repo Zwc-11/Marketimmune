@@ -1,0 +1,74 @@
+{
+ "replay": "data/paper/live/seg-20261106T1806/raw",
+ "strategies": [
+  "guard@z=0.05/w=1/win=1/net=2000/stop=30",
+  "mm@h=2/skew=6",
+  "zgap@0.05",
+  "touch"
+ ],
+ "cuts": [
+  {
+   "cut_ms": 1793990180531,
+   "share": 0.33,
+   "compared_before_ms": 1793990179531,
+   "streams": {
+    "decisions": {
+     "rows": 20389,
+     "rows_cut": 20389,
+     "different": 0,
+     "first_difference": null
+    },
+    "fills": {
+     "rows": 1526,
+     "rows_cut": 1526,
+     "different": 0,
+     "first_difference": null
+    },
+    "taker": {
+     "rows": 4,
+     "rows_cut": 4,
+     "different": 0,
+     "first_difference": null
+    }
+   },
+   "signals": {
+    "rows": 157938,
+    "rows_cut": 157938,
+    "different": 0
+   },
+   "identical": true
+  },
+  {
+   "cut_ms": 1793991991004,
+   "share": 0.67,
+   "compared_before_ms": 1793991990004,
+   "streams": {
+    "decisions": {
+     "rows": 38006,
+     "rows_cut": 38006,
+     "different": 0,
+     "first_difference": null
+    },
+    "fills": {
+     "rows": 2868,
+     "rows_cut": 2868,
+     "different": 0,
+     "first_difference": null
+    },
+    "taker": {
+     "rows": 6,
+     "rows_cut": 6,
+     "different": 0,
+     "first_difference": null
+    }
+   },
+   "signals": {
+    "rows": 320883,
+    "rows_cut": 320883,
+    "different": 0
+   },
+   "identical": true
+  }
+ ],
+ "identical": true
+}

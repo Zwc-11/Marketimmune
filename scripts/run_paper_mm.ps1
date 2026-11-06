@@ -1,9 +1,11 @@
-# The market maker (marketimmune/paper/mm.py) live on paper (no order is ever sent), beside the
-# 24-hour and tuned runs (ports 8765 and 8766, their own windows):
+# The market maker (marketimmune/paper/mm.py) and the wallet-factor quoter (guard@, paper/strategies.py)
+# live on paper (no order is ever sent), beside the 24-hour and tuned runs (ports 8765 and 8766, their
+# own windows):
 #   powershell -ExecutionPolicy Bypass -File .\scripts\run_paper_mm.ps1
 #   ... -Hours 168 -Port 8767          # the defaults
 # Then open http://127.0.0.1:8767/#/paper. Ctrl+C stops it; the current segment is written first.
-# Settings and rules: docs\preregistration\paper-mm-20261106.md; replays: eval\paper\mm_20261106.md.
+# Settings and rules: docs\preregistration\paper-mm-20261106.md; replays: eval\paper\tune_mm_*_20261106.md,
+# eval\paper\tune_guard_home_20261106.md.
 # The clock is corrected from Coinbase's timestamps, as in the tuned run.
 param(
     [double]$Hours = 168,
@@ -28,10 +30,11 @@ if ($LASTEXITCODE -ne 0) {
 }
 if (-not (Test-Path "frontend\dist\index.html")) { throw "frontend\dist is missing: run 'npm run build' in frontend\ first" }
 
-$Registered = "mm@h=2/skew=6"
+$Registered = "mm@h=2/skew=6,guard@z=0.05/w=1.5/win=5"
 $Strategies = @(
-    "mm@h=2/skew=6",
+    "mm@h=2/skew=6", "guard@z=0.05/w=1.5/win=5",
     "mm@1.5", "mm@3", "mm@h=1.5/stop=0/dd=0/net=0/burst=0",
+    "guard@z=0.05/w=1/win=1", "guard@z=0.05/net=2000",
     "zgap@0.05", "touch"
 ) -join ","
 

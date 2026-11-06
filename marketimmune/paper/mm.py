@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, fields
-from typing import Any
+from typing import Any, Protocol
 
 from marketimmune.paper.events import Depth, Top
 from marketimmune.paper.signals import CoinState, on_tick
@@ -89,7 +89,8 @@ def parse(arg: str) -> MMParams:
 
 
 def is_mm(name: str) -> bool:
-    return name.partition("@")[0] == "mm"
+    """Strategies run by ``engine.MarketMaker`` (position tracking and the risk layer)."""
+    return name.partition("@")[0] in ("mm", "guard")
 
 
 def clip1(x: float) -> float:
@@ -199,11 +200,24 @@ class MarketMaking:
         return bid, ask
 
 
+class RiskParams(Protocol):
+    """What ``Portfolio`` reads of a strategy's parameters."""
+
+    @property
+    def dd(self) -> float: ...
+
+    @property
+    def pause(self) -> float: ...
+
+    @property
+    def stale(self) -> float: ...
+
+
 class Portfolio:
     """One ``mm`` strategy over all its coins: net dollars, equity peak and kill switch, and whether
     both feeds are alive (``seen``: the engine's last receive ms per venue)."""
 
-    def __init__(self, params: MMParams, seen: dict[str, int]) -> None:
+    def __init__(self, params: RiskParams, seen: dict[str, int]) -> None:
         self.p = params
         self.seen = seen
         self.net_usd = 0.0
@@ -246,5 +260,7 @@ def entry_after(entry: float | None, pos: float, side: int, px: float, qty: floa
     return entry, new, False
 
 
-def info(p: MMParams) -> dict[str, Any]:
-    return {k: getattr(p, k) for k in KEYS} | {"skew_bps": p.skew_bps, "nskew_bps": p.nskew_bps}
+def info(p: Any) -> dict[str, Any]:
+    """A strategy's parameters for the run's summary (``MMParams`` or ``strategies.GuardParams``)."""
+    out = {f.name: getattr(p, f.name) for f in fields(p)}
+    return out | ({"skew_bps": p.skew_bps, "nskew_bps": p.nskew_bps} if isinstance(p, MMParams) else {})

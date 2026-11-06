@@ -467,6 +467,92 @@ orders in 20 ms.
   prediction is that it loses; the live view now shows each strategy's net position beside its
   gross.
 
+## From the research: the wallet factor in the gap quoter (`guard@`, `eval/paper/results_20261106/`)
+
+A1 found two signals that hold out of sample: the Coinbase gap (3 of 3 coins at 1, 10 and 60 s)
+and the wallet score, each taker's past markout (3 of 3 at 1 and 10 s). The gap quoters use the
+first. `CoinState.informed` makes the second live: over the last 1 or 5 s, the takers' signed
+notional times each taker's wallet score as it stood when the trade arrived, over the notional, and
+`informed_z` divides it by its own volatility. `guard@z=<z>/w=<w>/win=<s>` is `zgap@<z>` that also
+pulls the side informed wallets are taking (`|wallet z| > w`). `paper.mm`'s position control and
+exits are available on it (`lean`, `net`, `stop`, `dd`).
+
+**No look-ahead** (`cli.paper_lookahead`, `eval/paper/lookahead_20261106.json`). The live segment
+of 18:06 UTC was replayed in full and again cut off at a third and at two thirds of the way. A
+decision that used anything received after the cut would differ before it. Before the two-thirds
+cut, every one of 38,006 side changes, 2,868 fills, 6 taker exits and 320,883 per-coin signal
+readings was identical. The check has power: with the clock correction the earlier replays used
+(each minute's offset interpolated between minute midpoints, so up to 30 s of later Coinbase
+timestamps), 472 decisions, 28 fills and 2,695 signal readings before the first cut differ
+(`lookahead_interpolated_clock_20261106.json`). Replays now correct the clock from earlier
+timestamps only (`--clock-offset coinbase-causal`, `paper_tune --causal-clock`). On the replays
+before this, the difference is confined to the clock-corrected 16:06 segment: `zgap@0.05` made
+-$13.0 an hour there with the interpolated clock and -$14.4 with the causal one.
+
+**What each signal predicts** (`cli.paper_factors`, `eval/paper/factors_20261106.json`). Every
+coin was sampled every 100 ms. Each signal was correlated with the seen mid's move over the next
+1, 10 and 60 s (the information coefficient), averaged over the nine coins:
+
+| Signal | 1 s | 10 s | 60 s | 10 s, held out |
+|---|---:|---:|---:|---:|
+| Coinbase gap z (A1) | 0.50 | 0.23 | 0.10 | 0.23 |
+| Microprice | 0.20 | 0.10 | 0.05 | 0.13 |
+| Wallet factor, 1 s (A1) | 0.075 | 0.035 | 0.015 | 0.056 |
+| Wallet factor, 5 s (A1) | 0.046 | 0.021 | 0.011 | 0.060 |
+| Taker imbalance, 5 s | 0.030 | 0.015 | 0.008 | 0.013 |
+| Hawkes burst | 0.025 | 0.017 | 0.006 | 0.015 |
+
+Over 1 s the wallet factor is positive in all nine coins at 1 and 10 s on the held-out hours, and
+in 53 of 54 coin-segments at 10 s in the selection hours. It is weak next to the gap. In a linear model of
+the 10 s move, adding it to the gap raised the held-out R^2 in only 4 of 9 coins. As a pull rule
+it does better than that.
+
+**Backtest** (`eval/paper/tune_guard_home_20261106.{json,md}`, `report_guard_*_20261106.json`): the
+8.19 selection hours, and the tuned run's 20:03-22:03 UTC held out. $250 quotes, 4 a coin, $5,000.
+
+| Strategy | Orders per $ | $/h | Held out | Against `zgap@0.05`, $/h [95%] | Held out against it | Mean net position | Correlation with BTC |
+|---|---:|---:|---:|---|---|---:|---:|
+| `zgap@0.05` (running in the tuned run) | 0.59 | +1.8 | +1.9 | | | $1,972 | 0.18 |
+| `guard@z=0.05/w=1.5/win=5` (pick) | 0.61 | +4.3 | +3.9 | +2.4 [-0.9, +6.1] | +2.0 [-1.2, +5.4] | $1,907 | 0.19 |
+| `guard@z=0.05/w=1/win=1` | 0.62 | +2.1 | +4.1 | +0.3 [-3.1, +3.9] | +2.2 [+1.3, +3.2] | $2,038 | 0.13 |
+| `guard@z=0.05/net=2000` | 0.60 | -2.5 | -5.5 | -4.2 [-9.6, +0.6] | -7.4 [-16.4, +0.7] | $1,241 | 0.04 |
+| `guard@z=0.05/lean=0.5` | 0.64 | -1.1 | +1.2 | -2.8 [-6.3, +0.4] | -0.7 [-4.7, +3.4] | $1,495 | -0.01 |
+| `guard@z=0.05/stop=30` | 0.51 | -4.4 | +2.8 | -6.0 [-9.3, -2.6] | +1.0 [-6.4, +8.8] | $1,897 | 0.08 |
+| `mm@h=2/skew=6` | 0.86 | -12.9 | -9.3 | -14.1 [-24.4, -5.3] | -11.1 [-29.9, +7.9] | $174 | -0.02 |
+| `touch` | 0.10 | -145.6 | -86.6 | | | $2,111 | -0.16 |
+
+- **8 of the 10 wallet settings beat `zgap@0.05` in-sample** (+$2.1 to +$4.3 an hour against
+  +$1.8). The pick is the same on four of five left-out folds; left-one-segment-out it makes +$3.1.
+  - On the held-out hours every setting is ahead too (+$2.2 to +$6.2 against +$1.9).
+  - The pick's paired interval includes zero in both periods. About 7 days of live data would
+    resolve +$2 an hour.
+- **Where it comes from:** the pick's spread, 1 s move and fees per filled dollar are those of
+  `zgap@0.05` (+0.17, -0.40, -1.50 bp against +0.15, -0.38, -1.50). Its position PnL is larger:
+  +2.60 bp against +2.06. Pulling the side informed wallets take keeps it out of positions that
+  are about to go against it.
+- **Position control costs the edge:**
+  - The $2,000 net cap cuts the correlation with BTC from 0.18 to 0.04 and the mean net
+    position by more than a third. It also loses $4.2 an hour against `zgap@0.05`.
+  - The stop loses $6.0 an hour in-sample.
+  - The profit is the position the Coinbase lead points to, and capping the position caps it.
+  - Over these hours the gap quoter's PnL moves with BTC, not against it (0.18). The negative
+    stretch on Caesar's screenshot was a short window of net-short inventory. `touch`, which
+    holds whatever fills, is the one that is reliably against BTC (-0.53 on the held-out hours).
+- **Is it new?** Not as a factor. Zhai (arXiv:2608.04373, August 2026) scores Hyperliquid wallets
+  by the 10 s markout of their aggressive orders and finds the scores add forecasting power beyond
+  anonymous order-flow features. Cartea and Sánchez-Betancourt use client identity in FX to detect
+  toxic flow, and Barone and Lillo (arXiv:2606.15715) study adverse selection on Hyperliquid.
+  Commercial tools sell wallet tracking. What is this project's own:
+  - the score updated online as each markout resolves, shrunk toward zero;
+  - its pre-registered test (A1);
+  - its use as a pull rule beside the Coinbase gap;
+  - a test against fees, latency, queue position and Hyperliquid's rate limit.
+  Zhai's paper leaves an implementable strategy out of scope.
+- **Registered:** `guard@z=0.05/w=1.5/win=5` against `zgap@0.05` on the same blocks, 7 days live
+  on paper in the market maker's window (`docs/preregistration/paper-mm-20261106.md`, second
+  hypothesis; `scripts/run_paper_mm.ps1`, port 8767). The results page draws on
+  `eval/paper/results_20261106/` (`scripts/paper_results_data.py`).
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
@@ -514,6 +600,10 @@ orders in 20 ms.
 | `eval/paper/clock_and_market_20261106.json` | The first live segment and the night replayed with and without the PC's clock error; the clock offset; each coin's trend and volatility in both periods |
 | `eval/paper/tune_mm_{home,tokyo,fee0,tokyo_rebate}_20261106.{json,md}` | The market maker's grid and risk-control switches with the gap quoters and `touch`, at 200 ms, from Tokyo, at a 0 bp maker fee, and from Tokyo at -0.3 bp; picks within the rate limit, left-one-segment-out estimates, and the held-out hour |
 | `eval/paper/report_mm_*_20261106.json` | The same runs' PnL split into spread, move within 1 s, fee and the rest, per strategy and coin (`cli.paper_report`); `home_heldout` is the held-out hour |
+| `eval/paper/tune_guard_home_20261106.{json,md}`, `report_guard_home{,_heldout}_20261106.json` | The wallet-factor quoter's grid (wallet threshold and window, position controls) with `zgap@0.05`, `mm` and `touch`; each strategy paired with `zgap@0.05` on the same blocks, with its drawdown, net position and correlation with BTC |
+| `eval/paper/factors_20261106.json` | Each signal's information coefficient at 1, 10 and 60 s per coin, selection and held out (`cli.paper_factors`) |
+| `eval/paper/lookahead_20261106.json`, `lookahead_interpolated_clock_20261106.json` | The prefix test with the causal clock correction (identical) and with the interpolated one (differs) (`cli.paper_lookahead`) |
+| `eval/paper/results_20261106/*.csv` | The tables the results page reads (`scripts/paper_results_data.py`) |
 | `eval/paper/journal_night_20261106.{json,md}` | The night's decision journals read by `cli.paper_journal`: fills by markout horizon and by what the strategy saw, side changes, pulls, actions |
 
 The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
