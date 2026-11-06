@@ -66,12 +66,15 @@ def resolve_training_partitions(
 
 
 def partition_leakage_status(partitions: tuple[TrainingPartition, ...]) -> tuple[bool, list[dict[str, Any]]]:
-    """True only when every partition has a passing no-look-ahead sidecar (fix B3)."""
+    """True only when every partition has a passing no-look-ahead sidecar (fix B3) and keeps
+    each row's ``feature_ts_ms``, which loading checks row by row (``check_feature_times``)."""
     details: list[dict[str, Any]] = []
     for partition in partitions:
         sidecar = partition.path.with_suffix(".leakage.json")
         entry: dict[str, Any] = {"coin": partition.coin, "date": partition.date}
-        if sidecar.exists():
+        if "feature_ts_ms" not in pq.read_schema(partition.path).names:
+            entry.update(passed=False, reason="no feature_ts_ms column: feature times cannot be checked")
+        elif sidecar.exists():
             report = json.loads(sidecar.read_text(encoding="utf-8"))
             entry.update(
                 passed=bool(report.get("passed")),
@@ -140,9 +143,26 @@ def prepare_training_frame(frame: pd.DataFrame, *, horizon: str) -> pd.DataFrame
     return frame.sort_values("ts_ms").reset_index(drop=True)
 
 
+def check_feature_times(frame: pd.DataFrame, path: Path) -> None:
+    """Every row's features were known strictly before its fill (``feature_ts_ms < ts_ms``).
+
+    The row builder checks this when it writes Gold; checking again here stops a stale,
+    rebuilt or external Gold file from training a model that then reports itself safe.
+    """
+    if "feature_ts_ms" not in frame.columns:
+        return
+    feature_ts = frame["feature_ts_ms"].to_numpy(dtype=np.float64, na_value=np.nan)
+    bad = ~(feature_ts < frame["ts_ms"].to_numpy(dtype=np.float64))
+    if bad.any():
+        raise ValueError(f"{path}: {int(bad.sum())} row(s) have features stamped at or after their fill (or no feature time)")
+
+
 def _read_partition(path: Path, *, horizon: str) -> pd.DataFrame:
-    """Only the columns the trainers use: features, label, markout, baseline and OOF keys."""
-    wanted = (*_BASE_COLUMNS, f"toxic_{horizon}", f"markout_bps_{horizon}", *FEATURE_COLUMNS, *OOF_EXTRA_COLUMNS)
+    """Only the columns the trainers use: features, label, markout, baseline, OOF keys and the
+    feature time, which is checked against the fill time."""
+    wanted = (*_BASE_COLUMNS, "feature_ts_ms", f"toxic_{horizon}", f"markout_bps_{horizon}", *FEATURE_COLUMNS, *OOF_EXTRA_COLUMNS)
     available = set(pq.read_schema(path).names)
     columns = [column for column in dict.fromkeys(wanted) if column in available]
-    return prepare_training_frame(pq.read_table(path, columns=columns).to_pandas(), horizon=horizon)
+    frame = pq.read_table(path, columns=columns).to_pandas()
+    check_feature_times(frame, path)
+    return prepare_training_frame(frame, horizon=horizon)

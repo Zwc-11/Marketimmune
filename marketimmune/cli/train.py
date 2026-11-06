@@ -43,9 +43,11 @@ from marketimmune.cli._train_data import (
     resolve_training_partitions,
     use_feature_set,
 )
+from marketimmune.labels.markout import MarkoutConfig
 from marketimmune.logger import init_logger
 from marketimmune.models.cross_validation import FoldArrays, temporal_fold_arrays
 from marketimmune.models.evaluation import (
+    QUOTE_ALL,
     ThresholdSelection,
     evaluate_holdout_predictions,
     evaluate_markout_predictions,
@@ -293,8 +295,9 @@ def estimate_prediction_latency_p95_ms(model: CatBoostClassifier, frame: pd.Data
 
 def _policy(
     probabilities: FloatArray, markouts: FloatArray, valid: npt.NDArray[np.bool_], folds: tuple[FoldArrays, ...]
-) -> tuple[FloatArray, tuple[dict[str, Any], ...], ThresholdSelection]:
-    """Fold-local thresholds for scoring, plus the threshold to deploy (chosen on all OOF rows)."""
+) -> tuple[FloatArray, tuple[dict[str, Any], ...], ThresholdSelection | None]:
+    """Fold-local thresholds for scoring, plus the threshold to deploy (chosen on all OOF rows;
+    None when no threshold keeps the quote rate inside the budget)."""
     bounds = {"min_quote_rate": MIN_QUOTE_RATE, "max_quote_rate": MAX_QUOTE_RATE}
     thresholds, summaries = fold_local_markout_thresholds(probabilities, markouts, folds=folds, threshold_grid=THRESHOLD_GRID, **bounds)
     return thresholds, summaries, select_markout_threshold(probabilities[valid], markouts[valid], THRESHOLD_GRID, **bounds)
@@ -308,11 +311,41 @@ def _joined(values: tuple[str, ...]) -> str:
     return values[0] if len(values) == 1 else ",".join(values)
 
 
+def label_gap_ms(horizon: str) -> float:
+    """How long after a fill its label can still be read: the horizon plus the label's largest
+    allowed lag past it (``MarkoutConfig.max_mid_lag_s``)."""
+    lag_s = MarkoutConfig().max_mid_lag_s or 0.0
+    return (float(horizon.rstrip("s")) + lag_s) * 1000.0
+
+
+def check_forward_holdout(dates: tuple[str, ...], holdout_dates: tuple[str, ...]) -> None:
+    """A forward holdout has no date in common with training and starts after its last date."""
+    shared = sorted(set(dates) & set(holdout_dates))
+    if shared:
+        raise ValueError(f"holdout dates {shared} are also training dates")
+    if holdout_dates and min(holdout_dates) <= max(dates):
+        raise ValueError(f"holdout {min(holdout_dates)} is not after the last training date {max(dates)}")
+
+
+def purge_holdout_gap(train: pd.DataFrame, holdout: pd.DataFrame, gap_ms: float) -> tuple[pd.DataFrame, int]:
+    """Holdout rows decided after the last training label could be known: a training fill at
+    ``t`` reads its label up to ``t + gap_ms``. Returns the kept rows and how many were dropped."""
+    cutoff = float(train["ts_ms"].max()) + gap_ms
+    keep = holdout["ts_ms"].to_numpy(dtype=np.float64) > cutoff
+    return holdout.loc[keep].reset_index(drop=True), int((~keep).sum())
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     use_feature_set(args.feature_set)
     coins, dates = parse_symbol_spec(args.coins), parse_date_spec(args.dates)
     holdout_dates = parse_date_spec(args.holdout_dates) if args.holdout_dates else ()
+    check_forward_holdout(dates, holdout_dates)
+    gap_ms = label_gap_ms(args.horizon)
+    if args.purge_ms is None:
+        args.purge_ms = max(60_000.0, gap_ms)
+    if args.purge_ms < gap_ms:
+        raise ValueError(f"--purge-ms {args.purge_ms:.0f} is shorter than a {args.horizon} label can take to be known ({gap_ms:.0f} ms)")
     partitions = resolve_training_partitions(args.lake_root, coins=coins, dates=dates)
     holdout_partitions = resolve_training_partitions(args.lake_root, coins=coins, dates=holdout_dates) if holdout_dates else ()
     label = dataset_label(partitions)
@@ -391,14 +424,14 @@ def main(argv: list[str] | None = None) -> int:
         "policy": {
             "threshold_mode": "auto_fold_local",
             "decision_threshold": None,
-            "deployment_decision_threshold": candidate_deployment.threshold,
+            "deployment_decision_threshold": None if candidate_deployment is None else candidate_deployment.threshold,
             "threshold_grid": list(THRESHOLD_GRID),
             "min_quote_rate": MIN_QUOTE_RATE,
             "max_quote_rate": MAX_QUOTE_RATE,
             "candidate_threshold_folds": list(candidate_folds),
-            "candidate_deployment_selection": candidate_deployment.to_dict(),
+            "candidate_deployment_selection": None if candidate_deployment is None else candidate_deployment.to_dict(),
             "baseline_threshold_folds": list(baseline_folds),
-            "baseline_deployment_selection": baseline_deployment.to_dict(),
+            "baseline_deployment_selection": None if baseline_deployment is None else baseline_deployment.to_dict(),
         },
         "calibration": {
             "method": "isotonic",
@@ -410,8 +443,18 @@ def main(argv: list[str] | None = None) -> int:
         },
         "catboost": {"iterations": args.iterations, "learning_rate": args.learning_rate, "depth": args.depth, "seed": args.seed},
     }
+    candidate_threshold = QUOTE_ALL if candidate_deployment is None else candidate_deployment.threshold
+    baseline_threshold = QUOTE_ALL if baseline_deployment is None else baseline_deployment.threshold
+    deployment: dict[str, Any] = {
+        "decision_threshold": None if candidate_deployment is None else candidate_deployment.threshold,
+        "reason": None if candidate_deployment is not None else "no threshold keeps the out-of-fold quote rate inside the budget",
+        "leakage_safe": leakage_safe,
+        "validated_on": None,
+    }
     if holdout_future is not None:
-        holdout_frame = holdout_future.result()
+        holdout_frame, holdout_purged = purge_holdout_gap(frame, holdout_future.result(), gap_ms)
+        if holdout_frame.empty:
+            raise ValueError("no holdout row is decided after the last training label is known")
         holdout_raw = result.model.predict_proba(feature_matrix(holdout_frame))[:, 1]
         payload["holdout_split"] = {
             **evaluate_holdout_split(
@@ -421,14 +464,28 @@ def main(argv: list[str] | None = None) -> int:
                 model_name=model_name,
                 raw_probabilities=holdout_raw,
                 probabilities=apply_isotonic_calibrator(calibrator, holdout_raw),
-                candidate_threshold=candidate_deployment.threshold,
-                baseline_threshold=baseline_deployment.threshold,
+                candidate_threshold=candidate_threshold,
+                baseline_threshold=baseline_threshold,
             ),
+            "purged_rows": holdout_purged,
+            "purge_gap_ms": gap_ms,
             "coins": list(coins),
             "dates": list(holdout_dates),
             "dataset_label": dataset_label(holdout_partitions),
             "partitions": _partition_list(holdout_partitions),
         }
+        # The deployed pair (final model, final calibrator, OOF-chosen threshold) has never been
+        # scored together before this; the holdout is the first later data it meets.
+        quote_rate = float(payload["holdout_split"]["quote_rate"])
+        deployment.update(
+            validated_on="holdout",
+            holdout_quote_rate=quote_rate,
+            within_quote_budget=MIN_QUOTE_RATE <= quote_rate <= MAX_QUOTE_RATE,
+        )
+    deployment["deployable"] = bool(
+        deployment["decision_threshold"] is not None and leakage_safe and deployment.get("within_quote_budget", False)
+    )
+    payload["deployment"] = deployment
     payload["oof_predictions"] = str(
         write_oof_predictions(
             args.report.with_suffix(".oof.parquet"),
@@ -456,19 +513,22 @@ def main(argv: list[str] | None = None) -> int:
             "horizon": args.horizon,
             "source": "final_model_calibration_tail",
             "policy_threshold_mode": "auto_fold_local",
-            "deployment_decision_threshold": candidate_deployment.threshold,
+            "deployment_decision_threshold": deployment["decision_threshold"],
+            "deployable": deployment["deployable"],
+            "model_name": model_name,
             "feature_columns": FEATURE_COLUMNS,
             "training_rows": len(frame),
             "oof_rows": int(valid.sum()),
         },
     )
     logger.info(
-        "PR-AUC=%.3f Brier=%.3f markout_lift_bps=%.3f quote_rate=%.3f threshold=%.3f latency_p95_ms=%.3f baseline_delta_bps=%.3f",
+        "PR-AUC=%.3f Brier=%.3f markout_lift_bps=%.3f quote_rate=%.3f threshold=%s deployable=%s latency_p95_ms=%.3f baseline_delta_bps=%.3f",
         report["pr_auc"],
         report["brier"],
         report["markout_lift_bps"],
         report["quote_rate"],
-        candidate_deployment.threshold,
+        deployment["decision_threshold"],
+        deployment["deployable"],
         payload["latency_p95_ms"],
         payload["baseline_comparison"][BASELINE_NAME]["markout_lift_bps"],
     )

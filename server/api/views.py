@@ -6,8 +6,10 @@ is-the-server-up check.
 
 from __future__ import annotations
 
+import hmac
 from pathlib import Path
 
+from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET
 
@@ -37,12 +39,24 @@ def markout_model_health(request: HttpRequest) -> JsonResponse:
     return JsonResponse(promoted_markout_model_health(samples=samples))
 
 
+LOOPBACK = {"127.0.0.1", "::1"}
+
+
+def may_write(request: HttpRequest) -> bool:
+    """A scoring pass writes to the database: allowed from this machine, or with the token."""
+    token = settings.MARKETIMMUNE_API_TOKEN
+    if token and hmac.compare_digest(request.headers.get("X-MarketImmune-Token", ""), token):
+        return True
+    return request.META.get("REMOTE_ADDR") in LOOPBACK
+
+
 @require_GET
 def markout_fill_decisions(request: HttpRequest) -> JsonResponse:
-    """``?limit=N`` rows; ``?refresh=1`` forces a scoring pass, ``0`` reads only, ``auto`` (default) scores when stale."""
+    """``?limit=N`` rows; ``?refresh=1`` forces a scoring pass, ``0`` reads only, ``auto`` (default)
+    scores when stale. A request that may not write (``may_write``) only reads."""
     limit = request.GET.get("limit")
-    payload = recent_markout_fill_decisions(
-        limit=None if limit is None else int(limit),
-        refresh=REFRESH_MODES[request.GET.get("refresh", "auto")],
-    )
+    refresh = REFRESH_MODES[request.GET.get("refresh", "auto")]
+    if not may_write(request):
+        refresh = False
+    payload = recent_markout_fill_decisions(limit=None if limit is None else int(limit), refresh=refresh)
     return JsonResponse(payload)

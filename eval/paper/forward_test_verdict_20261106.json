@@ -1,0 +1,112 @@
+{
+ "gap@0.25": {
+  "blocks": 15,
+  "total_usd": 119.04,
+  "usd_per_hour": 33.76,
+  "block_mean_ci98.75_usd_per_hour": [
+   -84.0,
+   160.3
+  ],
+  "block_mean_ci95_usd_per_hour": [
+   -61.3,
+   127.6
+  ],
+  "blocks_positive": "7/15",
+  "at_0.8bp_total_usd": 185.95,
+  "vs_touch_usd_per_hour": 709.4,
+  "vs_touch_ci95": [
+   581.8,
+   843.1
+  ],
+  "vs_touch_blocks_better": "15/15",
+  "makes_money_registered_rule": false
+ },
+ "gap@0.5": {
+  "blocks": 15,
+  "total_usd": 55.84,
+  "usd_per_hour": 15.84,
+  "block_mean_ci98.75_usd_per_hour": [
+   -103.0,
+   160.0
+  ],
+  "block_mean_ci95_usd_per_hour": [
+   -81.0,
+   124.6
+  ],
+  "blocks_positive": "7/15",
+  "at_0.8bp_total_usd": 148.39,
+  "vs_touch_usd_per_hour": 692.5,
+  "vs_touch_ci95": [
+   558.9,
+   828.5
+  ],
+  "vs_touch_blocks_better": "14/15",
+  "makes_money_registered_rule": false
+ },
+ "improve+gap@0.25": {
+  "blocks": 15,
+  "total_usd": 213.45,
+  "usd_per_hour": 60.53,
+  "block_mean_ci98.75_usd_per_hour": [
+   -59.0,
+   192.6
+  ],
+  "block_mean_ci95_usd_per_hour": [
+   -38.9,
+   164.2
+  ],
+  "blocks_positive": "9/15",
+  "at_0.8bp_total_usd": 302.87,
+  "vs_touch_usd_per_hour": 734.5,
+  "vs_touch_ci95": [
+   595.2,
+   875.0
+  ],
+  "vs_touch_blocks_better": "15/15",
+  "makes_money_registered_rule": false
+ },
+ "improve+gap@0.5": {
+  "blocks": 15,
+  "total_usd": 99.29,
+  "usd_per_hour": 28.16,
+  "block_mean_ci98.75_usd_per_hour": [
+   -107.5,
+   187.0
+  ],
+  "block_mean_ci95_usd_per_hour": [
+   -81.9,
+   153.1
+  ],
+  "blocks_positive": "8/15",
+  "at_0.8bp_total_usd": 217.86,
+  "vs_touch_usd_per_hour": 704.1,
+  "vs_touch_ci95": [
+   559.0,
+   853.8
+  ],
+  "vs_touch_blocks_better": "14/15",
+  "makes_money_registered_rule": false
+ },
+ "touch": {
+  "blocks": 15,
+  "total_usd": -2541.05,
+  "usd_per_hour": -720.66,
+  "block_mean_ci98.75_usd_per_hour": [
+   -846.7,
+   -530.7
+  ],
+  "block_mean_ci95_usd_per_hour": [
+   -808.9,
+   -561.5
+  ],
+  "blocks_positive": "0/15",
+  "at_0.8bp_total_usd": -2031.16,
+  "vs_touch_usd_per_hour": 0.0,
+  "vs_touch_ci95": [
+   0.0,
+   0.0
+  ],
+  "vs_touch_blocks_better": "0/15",
+  "makes_money_registered_rule": false
+ }
+}

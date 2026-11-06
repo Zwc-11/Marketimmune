@@ -358,3 +358,52 @@ def test_scorer_loads_compact_json_without_catboost(tmp_path: Path) -> None:
     assert high.raw_score == pytest.approx(1.0 / (1.0 + math.exp(-2.0)))
     assert high.action == "withhold_quote"
     assert low.action == "quote"
+
+
+def _artifacts(tmp_path: Path, calibrator: dict[str, object], report: dict[str, object]) -> list[Path]:
+    paths = [tmp_path / name for name in ("model.cbm", "model.isotonic.json", "report.json")]
+    paths[0].write_text("model", encoding="utf-8")
+    paths[1].write_text(json.dumps({"enabled": False, "feature_columns": ["maker_side"], **calibrator}), encoding="utf-8")
+    paths[2].write_text(json.dumps({"feature_columns": ["maker_side"], **report}), encoding="utf-8")
+    return paths
+
+
+@pytest.mark.parametrize(
+    ("calibrator", "report", "message"),
+    [
+        ({"deployment_decision_threshold": 0.5, "coin": "BTC"}, {"coin": "SOL"}, "coin"),
+        ({"deployment_decision_threshold": 0.5, "horizon": "60s"}, {"horizon": "10s"}, "horizon"),
+        ({"deployment_decision_threshold": 0.5, "model_name": "a"}, {"model_name": "b"}, "model_name"),
+        ({"deployment_decision_threshold": 0.5, "feature_columns": ["sz"]}, {}, "feature columns"),
+        ({"deployment_decision_threshold": 0.5}, {"deployment": {"deployable": False, "reason": "budget"}}, "not deployable"),
+        ({}, {}, "no decision threshold"),
+    ],
+)
+def test_load_refuses_artifacts_that_do_not_belong_together(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, calibrator: dict[str, object], report: dict[str, object], message: str
+) -> None:
+    # Audit B10: a model for another coin, horizon or schema must not become the live scorer.
+    _fake_catboost(monkeypatch)
+    with pytest.raises(ValueError, match=message):
+        HyperliquidMarkoutScorer.load(*_artifacts(tmp_path, calibrator, report))
+
+
+def test_non_finite_inputs_or_outputs_never_become_a_quote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Audit B11: min(1, max(0, nan)) is 0, which used to read as "quote".
+    _fake_catboost(monkeypatch)
+    scorer = HyperliquidMarkoutScorer.load(*_artifacts(tmp_path, {"deployment_decision_threshold": 0.5}, {}))
+    with pytest.raises(ValueError, match="Non-finite"):
+        scorer.predict({"maker_side": math.nan})
+    nan_model = HyperliquidMarkoutScorer(
+        model=FakeProbabilityModel(math.nan),
+        calibrator=scorer.calibrator,
+        report={},
+        model_path=tmp_path,
+        calibrator_path=tmp_path,
+        report_path=tmp_path,
+        model_name="nan",
+        feature_columns=("maker_side",),
+        decision_threshold=0.5,
+    )
+    with pytest.raises(ValueError, match="non-finite probability"):
+        nan_model.predict({"maker_side": 1.0})

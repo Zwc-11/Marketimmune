@@ -1,0 +1,3735 @@
+{
+ "runs": [
+  "data/paper/seg3-20261106T0559",
+  "data/paper/seg4-20261106T0757"
+ ],
+ "hours": 3.526,
+ "settings": {
+  "latency_ms": 200,
+  "quote_usd": 1000.0,
+  "max_quotes": 5,
+  "strategies": [
+   "touch",
+   "gap@1",
+   "gap@2",
+   "model@0.5",
+   "model@1",
+   "improve",
+   "improve+gap@2",
+   "taker@6",
+   "taker@10",
+   "gap@0.25",
+   "gap@0.5",
+   "improve+gap@0.25",
+   "improve+gap@0.5"
+  ],
+  "fees_bps": {
+   "maker": 1.4999999999999998,
+   "taker": 4.5
+  }
+ },
+ "feed_delay_ms_p10_p50_p90": [
+  {
+   "hl_top": [
+    289.0,
+    336.0,
+    461.0
+   ],
+   "hl_trade": [
+    301.0,
+    357.0,
+    525.0
+   ]
+  },
+  {
+   "hl_top": [
+    296.0,
+    344.0,
+    511.0
+   ],
+   "hl_trade": [
+    304.0,
+    364.0,
+    591.0
+   ]
+  }
+ ],
+ "connection_gaps": 13,
+ "by_strategy": [
+  {
+   "strategy": "gap@0.25",
+   "fills": 1627,
+   "notional_usd": 955817.72,
+   "total_usd": 119.04,
+   "usd_per_hour": 33.76,
+   "usd_per_hour_ci95": [
+    -61.32,
+    127.56
+   ],
+   "bps": 1.245,
+   "break_even_fee_bps": 2.745
+  },
+  {
+   "strategy": "gap@0.5",
+   "fills": 2348,
+   "notional_usd": 1322178.99,
+   "total_usd": 55.83,
+   "usd_per_hour": 15.83,
+   "usd_per_hour_ci95": [
+    -81.04,
+    124.56
+   ],
+   "bps": 0.422,
+   "break_even_fee_bps": 1.922
+  },
+  {
+   "strategy": "gap@1",
+   "fills": 4441,
+   "notional_usd": 2449901.48,
+   "total_usd": -469.57,
+   "usd_per_hour": -133.17,
+   "usd_per_hour_ci95": [
+    -238.68,
+    -5.04
+   ],
+   "bps": -1.917,
+   "break_even_fee_bps": -0.417
+  },
+  {
+   "strategy": "gap@2",
+   "fills": 9703,
+   "notional_usd": 5081696.62,
+   "total_usd": -1300.63,
+   "usd_per_hour": -368.87,
+   "usd_per_hour_ci95": [
+    -473.76,
+    -207.2
+   ],
+   "bps": -2.559,
+   "break_even_fee_bps": -1.059
+  },
+  {
+   "strategy": "improve",
+   "fills": 14786,
+   "notional_usd": 8123974.16,
+   "total_usd": -2633.86,
+   "usd_per_hour": -746.98,
+   "usd_per_hour_ci95": [
+    -825.4,
+    -593.24
+   ],
+   "bps": -3.242,
+   "break_even_fee_bps": -1.742
+  },
+  {
+   "strategy": "improve+gap@0.25",
+   "fills": 1860,
+   "notional_usd": 1277560.13,
+   "total_usd": 213.45,
+   "usd_per_hour": 60.54,
+   "usd_per_hour_ci95": [
+    -38.84,
+    164.16
+   ],
+   "bps": 1.671,
+   "break_even_fee_bps": 3.171
+  },
+  {
+   "strategy": "improve+gap@0.5",
+   "fills": 2604,
+   "notional_usd": 1693972.38,
+   "total_usd": 99.28,
+   "usd_per_hour": 28.16,
+   "usd_per_hour_ci95": [
+    -81.92,
+    153.12
+   ],
+   "bps": 0.586,
+   "break_even_fee_bps": 2.086
+  },
+  {
+   "strategy": "improve+gap@2",
+   "fills": 10258,
+   "notional_usd": 5775082.69,
+   "total_usd": -1273.52,
+   "usd_per_hour": -361.18,
+   "usd_per_hour_ci95": [
+    -463.96,
+    -194.72
+   ],
+   "bps": -2.205,
+   "break_even_fee_bps": -0.705
+  },
+  {
+   "strategy": "model@0.5",
+   "fills": 6071,
+   "notional_usd": 3205324.82,
+   "total_usd": -652.96,
+   "usd_per_hour": -185.18,
+   "usd_per_hour_ci95": [
+    -293.52,
+    -58.32
+   ],
+   "bps": -2.037,
+   "break_even_fee_bps": -0.537
+  },
+  {
+   "strategy": "model@1",
+   "fills": 10563,
+   "notional_usd": 5400590.72,
+   "total_usd": -1556.19,
+   "usd_per_hour": -441.35,
+   "usd_per_hour_ci95": [
+    -567.76,
+    -262.92
+   ],
+   "bps": -2.882,
+   "break_even_fee_bps": -1.382
+  },
+  {
+   "strategy": "taker@10",
+   "fills": 116,
+   "notional_usd": 114209.82,
+   "total_usd": -41.11,
+   "usd_per_hour": -11.66,
+   "usd_per_hour_ci95": [
+    -25.6,
+    -1.32
+   ],
+   "bps": -3.6,
+   "break_even_fee_bps": 0.9
+  },
+  {
+   "strategy": "taker@6",
+   "fills": 718,
+   "notional_usd": 710728.8,
+   "total_usd": -323.8,
+   "usd_per_hour": -91.83,
+   "usd_per_hour_ci95": [
+    -113.04,
+    -59.32
+   ],
+   "bps": -4.556,
+   "break_even_fee_bps": -0.056
+  },
+  {
+   "strategy": "touch",
+   "fills": 14143,
+   "notional_usd": 7284149.27,
+   "total_usd": -2541.07,
+   "usd_per_hour": -720.67,
+   "usd_per_hour_ci95": [
+    -808.88,
+    -561.48
+   ],
+   "bps": -3.488,
+   "break_even_fee_bps": -1.988
+  }
+ ],
+ "by_coin": [
+  {
+   "coin": "AVAX",
+   "strategy": "gap@0.25",
+   "fills": 67,
+   "notional_usd": 43217.34,
+   "total_usd": 19.04,
+   "usd_per_hour": 5.4,
+   "usd_per_hour_ci95": [
+    -21.56,
+    30.72
+   ],
+   "bps": {
+    "spread": 0.763,
+    "adverse_1s": -0.614,
+    "adverse_10s": -0.538,
+    "adverse_60s": -0.077,
+    "fee": -1.5,
+    "inventory": 5.756,
+    "total": 4.405
+   },
+   "break_even_fee_bps": 5.905
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "gap@0.5",
+   "fills": 74,
+   "notional_usd": 45595.56,
+   "total_usd": 18.61,
+   "usd_per_hour": 5.28,
+   "usd_per_hour_ci95": [
+    -22.88,
+    31.56
+   ],
+   "bps": {
+    "spread": 0.745,
+    "adverse_1s": -0.651,
+    "adverse_10s": -0.516,
+    "adverse_60s": 0.056,
+    "fee": -1.5,
+    "inventory": 5.488,
+    "total": 4.083
+   },
+   "break_even_fee_bps": 5.583
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "gap@1",
+   "fills": 93,
+   "notional_usd": 59348.24,
+   "total_usd": 1.04,
+   "usd_per_hour": 0.29,
+   "usd_per_hour_ci95": [
+    -27.96,
+    27.2
+   ],
+   "bps": {
+    "spread": 0.607,
+    "adverse_1s": -0.836,
+    "adverse_10s": 0.167,
+    "adverse_60s": -1.266,
+    "fee": -1.5,
+    "inventory": 1.904,
+    "total": 0.175
+   },
+   "break_even_fee_bps": 1.675
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "gap@2",
+   "fills": 195,
+   "notional_usd": 91164.24,
+   "total_usd": -12.49,
+   "usd_per_hour": -3.54,
+   "usd_per_hour_ci95": [
+    -29.24,
+    21.96
+   ],
+   "bps": {
+    "spread": 0.455,
+    "adverse_1s": -0.914,
+    "adverse_10s": -0.582,
+    "adverse_60s": -1.008,
+    "fee": -1.5,
+    "inventory": 0.589,
+    "total": -1.37
+   },
+   "break_even_fee_bps": 0.13
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "improve",
+   "fills": 657,
+   "notional_usd": 373850.11,
+   "total_usd": -140.71,
+   "usd_per_hour": -39.91,
+   "usd_per_hour_ci95": [
+    -57.76,
+    -17.88
+   ],
+   "bps": {
+    "spread": 0.22,
+    "adverse_1s": -0.917,
+    "adverse_10s": -1.229,
+    "adverse_60s": -1.372,
+    "fee": -1.5,
+    "inventory": -1.566,
+    "total": -3.764
+   },
+   "break_even_fee_bps": -2.264
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "improve+gap@0.25",
+   "fills": 116,
+   "notional_usd": 102521.46,
+   "total_usd": 18.09,
+   "usd_per_hour": 5.13,
+   "usd_per_hour_ci95": [
+    -13.48,
+    24.92
+   ],
+   "bps": {
+    "spread": 0.703,
+    "adverse_1s": -0.246,
+    "adverse_10s": -0.181,
+    "adverse_60s": -0.62,
+    "fee": -1.5,
+    "inventory": 2.808,
+    "total": 1.765
+   },
+   "break_even_fee_bps": 3.265
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "improve+gap@0.5",
+   "fills": 140,
+   "notional_usd": 122545.5,
+   "total_usd": 6.22,
+   "usd_per_hour": 1.76,
+   "usd_per_hour_ci95": [
+    -18.4,
+    22.76
+   ],
+   "bps": {
+    "spread": 0.694,
+    "adverse_1s": -0.231,
+    "adverse_10s": -0.193,
+    "adverse_60s": -0.79,
+    "fee": -1.5,
+    "inventory": 1.545,
+    "total": 0.508
+   },
+   "break_even_fee_bps": 2.008
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "improve+gap@2",
+   "fills": 301,
+   "notional_usd": 225044.64,
+   "total_usd": -9.57,
+   "usd_per_hour": -2.71,
+   "usd_per_hour_ci95": [
+    -29.16,
+    24.4
+   ],
+   "bps": {
+    "spread": 0.551,
+    "adverse_1s": -0.378,
+    "adverse_10s": -0.271,
+    "adverse_60s": -0.567,
+    "fee": -1.5,
+    "inventory": 0.902,
+    "total": -0.425
+   },
+   "break_even_fee_bps": 1.075
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "model@0.5",
+   "fills": 139,
+   "notional_usd": 59092.82,
+   "total_usd": -19.35,
+   "usd_per_hour": -5.49,
+   "usd_per_hour_ci95": [
+    -30.2,
+    18.8
+   ],
+   "bps": {
+    "spread": 0.593,
+    "adverse_1s": -0.806,
+    "adverse_10s": -0.2,
+    "adverse_60s": -0.588,
+    "fee": -1.5,
+    "inventory": -1.562,
+    "total": -3.274
+   },
+   "break_even_fee_bps": -1.774
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "model@1",
+   "fills": 303,
+   "notional_usd": 109137.48,
+   "total_usd": -88.22,
+   "usd_per_hour": -25.02,
+   "usd_per_hour_ci95": [
+    -48.36,
+    1.28
+   ],
+   "bps": {
+    "spread": 0.375,
+    "adverse_1s": -0.898,
+    "adverse_10s": -0.921,
+    "adverse_60s": -0.964,
+    "fee": -1.5,
+    "inventory": -6.06,
+    "total": -8.083
+   },
+   "break_even_fee_bps": -6.583
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "taker@10",
+   "fills": 6,
+   "notional_usd": 5996.08,
+   "total_usd": -2.77,
+   "usd_per_hour": -0.79,
+   "usd_per_hour_ci95": [
+    -1.68,
+    0.0
+   ],
+   "bps": {
+    "spread": -2.422,
+    "adverse_1s": 3.271,
+    "adverse_10s": 2.06,
+    "adverse_60s": 2.058,
+    "fee": -4.5,
+    "inventory": -0.971,
+    "total": -4.622
+   },
+   "break_even_fee_bps": -0.122
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "taker@6",
+   "fills": 42,
+   "notional_usd": 42047.95,
+   "total_usd": -14.48,
+   "usd_per_hour": -4.11,
+   "usd_per_hour_ci95": [
+    -5.88,
+    -1.88
+   ],
+   "bps": {
+    "spread": -1.527,
+    "adverse_1s": 2.015,
+    "adverse_10s": 3.066,
+    "adverse_60s": 2.305,
+    "fee": -4.5,
+    "inventory": 0.569,
+    "total": -3.443
+   },
+   "break_even_fee_bps": 1.057
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "touch",
+   "fills": 484,
+   "notional_usd": 184593.05,
+   "total_usd": -116.79,
+   "usd_per_hour": -33.12,
+   "usd_per_hour_ci95": [
+    -53.88,
+    -8.32
+   ],
+   "bps": {
+    "spread": -0.01,
+    "adverse_1s": -1.341,
+    "adverse_10s": -1.741,
+    "adverse_60s": -1.418,
+    "fee": -1.5,
+    "inventory": -3.476,
+    "total": -6.327
+   },
+   "break_even_fee_bps": -4.827
+  },
+  {
+   "coin": "BCH",
+   "strategy": "gap@0.25",
+   "fills": 156,
+   "notional_usd": 91467.33,
+   "total_usd": -2.1,
+   "usd_per_hour": -0.6,
+   "usd_per_hour_ci95": [
+    -69.44,
+    77.24
+   ],
+   "bps": {
+    "spread": 0.881,
+    "adverse_1s": -1.425,
+    "adverse_10s": -1.639,
+    "adverse_60s": -2.193,
+    "fee": -1.5,
+    "inventory": 1.814,
+    "total": -0.23
+   },
+   "break_even_fee_bps": 1.27
+  },
+  {
+   "coin": "BCH",
+   "strategy": "gap@0.5",
+   "fills": 181,
+   "notional_usd": 103547.79,
+   "total_usd": 38.99,
+   "usd_per_hour": 11.06,
+   "usd_per_hour_ci95": [
+    -62.36,
+    97.12
+   ],
+   "bps": {
+    "spread": 0.886,
+    "adverse_1s": -1.218,
+    "adverse_10s": -0.216,
+    "adverse_60s": -1.131,
+    "fee": -1.5,
+    "inventory": 5.597,
+    "total": 3.765
+   },
+   "break_even_fee_bps": 5.265
+  },
+  {
+   "coin": "BCH",
+   "strategy": "gap@1",
+   "fills": 235,
+   "notional_usd": 132106.57,
+   "total_usd": -56.17,
+   "usd_per_hour": -15.93,
+   "usd_per_hour_ci95": [
+    -92.72,
+    69.16
+   ],
+   "bps": {
+    "spread": 0.723,
+    "adverse_1s": -1.426,
+    "adverse_10s": -0.177,
+    "adverse_60s": -0.703,
+    "fee": -1.5,
+    "inventory": -2.049,
+    "total": -4.252
+   },
+   "break_even_fee_bps": -2.752
+  },
+  {
+   "coin": "BCH",
+   "strategy": "gap@2",
+   "fills": 346,
+   "notional_usd": 178471.43,
+   "total_usd": 42.37,
+   "usd_per_hour": 12.02,
+   "usd_per_hour_ci95": [
+    -62.64,
+    102.52
+   ],
+   "bps": {
+    "spread": 0.513,
+    "adverse_1s": -1.544,
+    "adverse_10s": -1.185,
+    "adverse_60s": 0.01,
+    "fee": -1.5,
+    "inventory": 4.905,
+    "total": 2.374
+   },
+   "break_even_fee_bps": 3.874
+  },
+  {
+   "coin": "BCH",
+   "strategy": "improve",
+   "fills": 783,
+   "notional_usd": 522144.63,
+   "total_usd": -236.41,
+   "usd_per_hour": -67.05,
+   "usd_per_hour_ci95": [
+    -113.12,
+    -20.56
+   ],
+   "bps": {
+    "spread": -1.133,
+    "adverse_1s": -2.221,
+    "adverse_10s": -3.216,
+    "adverse_60s": -3.082,
+    "fee": -1.5,
+    "inventory": 0.326,
+    "total": -4.528
+   },
+   "break_even_fee_bps": -3.028
+  },
+  {
+   "coin": "BCH",
+   "strategy": "improve+gap@0.25",
+   "fills": 203,
+   "notional_usd": 166699.02,
+   "total_usd": 48.37,
+   "usd_per_hour": 13.72,
+   "usd_per_hour_ci95": [
+    -46.2,
+    85.88
+   ],
+   "bps": {
+    "spread": 0.735,
+    "adverse_1s": -1.056,
+    "adverse_10s": -1.022,
+    "adverse_60s": -2.841,
+    "fee": -1.5,
+    "inventory": 4.723,
+    "total": 2.902
+   },
+   "break_even_fee_bps": 4.402
+  },
+  {
+   "coin": "BCH",
+   "strategy": "improve+gap@0.5",
+   "fills": 226,
+   "notional_usd": 179135.94,
+   "total_usd": 66.96,
+   "usd_per_hour": 18.99,
+   "usd_per_hour_ci95": [
+    -49.4,
+    101.6
+   ],
+   "bps": {
+    "spread": 0.702,
+    "adverse_1s": -0.992,
+    "adverse_10s": -0.455,
+    "adverse_60s": -2.356,
+    "fee": -1.5,
+    "inventory": 5.529,
+    "total": 3.738
+   },
+   "break_even_fee_bps": 5.238
+  },
+  {
+   "coin": "BCH",
+   "strategy": "improve+gap@2",
+   "fills": 411,
+   "notional_usd": 295875.73,
+   "total_usd": 89.5,
+   "usd_per_hour": 25.38,
+   "usd_per_hour_ci95": [
+    -52.36,
+    123.0
+   ],
+   "bps": {
+    "spread": 0.433,
+    "adverse_1s": -1.185,
+    "adverse_10s": -1.44,
+    "adverse_60s": -0.645,
+    "fee": -1.5,
+    "inventory": 5.277,
+    "total": 3.025
+   },
+   "break_even_fee_bps": 4.525
+  },
+  {
+   "coin": "BCH",
+   "strategy": "model@0.5",
+   "fills": 204,
+   "notional_usd": 117679.81,
+   "total_usd": 58.28,
+   "usd_per_hour": 16.53,
+   "usd_per_hour_ci95": [
+    -47.56,
+    87.24
+   ],
+   "bps": {
+    "spread": 0.781,
+    "adverse_1s": -1.802,
+    "adverse_10s": 0.567,
+    "adverse_60s": -0.074,
+    "fee": -1.5,
+    "inventory": 7.474,
+    "total": 4.953
+   },
+   "break_even_fee_bps": 6.453
+  },
+  {
+   "coin": "BCH",
+   "strategy": "model@1",
+   "fills": 293,
+   "notional_usd": 150430.72,
+   "total_usd": 32.08,
+   "usd_per_hour": 9.1,
+   "usd_per_hour_ci95": [
+    -54.6,
+    83.88
+   ],
+   "bps": {
+    "spread": 0.634,
+    "adverse_1s": -1.75,
+    "adverse_10s": -0.094,
+    "adverse_60s": -0.488,
+    "fee": -1.5,
+    "inventory": 4.748,
+    "total": 2.132
+   },
+   "break_even_fee_bps": 3.632
+  },
+  {
+   "coin": "BCH",
+   "strategy": "taker@10",
+   "fills": 82,
+   "notional_usd": 80226.86,
+   "total_usd": -36.12,
+   "usd_per_hour": -10.24,
+   "usd_per_hour_ci95": [
+    -24.28,
+    -0.64
+   ],
+   "bps": {
+    "spread": -3.13,
+    "adverse_1s": 3.686,
+    "adverse_10s": 3.468,
+    "adverse_60s": 2.547,
+    "fee": -4.5,
+    "inventory": -0.559,
+    "total": -4.503
+   },
+   "break_even_fee_bps": -0.003
+  },
+  {
+   "coin": "BCH",
+   "strategy": "taker@6",
+   "fills": 372,
+   "notional_usd": 365012.13,
+   "total_usd": -211.66,
+   "usd_per_hour": -60.03,
+   "usd_per_hour_ci95": [
+    -83.0,
+    -30.88
+   ],
+   "bps": {
+    "spread": -2.177,
+    "adverse_1s": 1.114,
+    "adverse_10s": 0.213,
+    "adverse_60s": 0.553,
+    "fee": -4.5,
+    "inventory": -0.236,
+    "total": -5.799
+   },
+   "break_even_fee_bps": -1.299
+  },
+  {
+   "coin": "BCH",
+   "strategy": "touch",
+   "fills": 685,
+   "notional_usd": 364272.91,
+   "total_usd": -214.49,
+   "usd_per_hour": -60.83,
+   "usd_per_hour_ci95": [
+    -97.48,
+    -21.56
+   ],
+   "bps": {
+    "spread": -1.311,
+    "adverse_1s": -2.786,
+    "adverse_10s": -3.705,
+    "adverse_60s": -3.033,
+    "fee": -1.5,
+    "inventory": -0.291,
+    "total": -5.888
+   },
+   "break_even_fee_bps": -4.388
+  },
+  {
+   "coin": "BTC",
+   "strategy": "gap@0.25",
+   "fills": 377,
+   "notional_usd": 223490.72,
+   "total_usd": -55.27,
+   "usd_per_hour": -15.68,
+   "usd_per_hour_ci95": [
+    -35.36,
+    6.56
+   ],
+   "bps": {
+    "spread": -0.056,
+    "adverse_1s": -0.561,
+    "adverse_10s": -0.66,
+    "adverse_60s": -0.773,
+    "fee": -1.5,
+    "inventory": -0.356,
+    "total": -2.473
+   },
+   "break_even_fee_bps": -0.973
+  },
+  {
+   "coin": "BTC",
+   "strategy": "gap@0.5",
+   "fills": 617,
+   "notional_usd": 350223.01,
+   "total_usd": -115.26,
+   "usd_per_hour": -32.69,
+   "usd_per_hour_ci95": [
+    -49.28,
+    -11.84
+   ],
+   "bps": {
+    "spread": -0.06,
+    "adverse_1s": -0.57,
+    "adverse_10s": -0.813,
+    "adverse_60s": -1.109,
+    "fee": -1.5,
+    "inventory": -1.161,
+    "total": -3.291
+   },
+   "break_even_fee_bps": -1.791
+  },
+  {
+   "coin": "BTC",
+   "strategy": "gap@1",
+   "fills": 1493,
+   "notional_usd": 828206.35,
+   "total_usd": -238.0,
+   "usd_per_hour": -67.5,
+   "usd_per_hour_ci95": [
+    -79.04,
+    -46.24
+   ],
+   "bps": {
+    "spread": -0.08,
+    "adverse_1s": -0.599,
+    "adverse_10s": -0.968,
+    "adverse_60s": -0.961,
+    "fee": -1.5,
+    "inventory": -0.694,
+    "total": -2.874
+   },
+   "break_even_fee_bps": -1.374
+  },
+  {
+   "coin": "BTC",
+   "strategy": "gap@2",
+   "fills": 3139,
+   "notional_usd": 1746782.42,
+   "total_usd": -497.08,
+   "usd_per_hour": -140.98,
+   "usd_per_hour_ci95": [
+    -151.16,
+    -115.48
+   ],
+   "bps": {
+    "spread": -0.115,
+    "adverse_1s": -0.684,
+    "adverse_10s": -1.093,
+    "adverse_60s": -1.429,
+    "fee": -1.5,
+    "inventory": -0.547,
+    "total": -2.846
+   },
+   "break_even_fee_bps": -1.346
+  },
+  {
+   "coin": "BTC",
+   "strategy": "improve",
+   "fills": 3818,
+   "notional_usd": 2210587.99,
+   "total_usd": -638.55,
+   "usd_per_hour": -181.1,
+   "usd_per_hour_ci95": [
+    -197.72,
+    -143.68
+   ],
+   "bps": {
+    "spread": -0.169,
+    "adverse_1s": -0.782,
+    "adverse_10s": -1.188,
+    "adverse_60s": -1.411,
+    "fee": -1.5,
+    "inventory": -0.438,
+    "total": -2.889
+   },
+   "break_even_fee_bps": -1.389
+  },
+  {
+   "coin": "BTC",
+   "strategy": "improve+gap@0.25",
+   "fills": 379,
+   "notional_usd": 228290.96,
+   "total_usd": -66.83,
+   "usd_per_hour": -18.95,
+   "usd_per_hour_ci95": [
+    -38.36,
+    4.0
+   ],
+   "bps": {
+    "spread": -0.068,
+    "adverse_1s": -0.542,
+    "adverse_10s": -0.634,
+    "adverse_60s": -0.944,
+    "fee": -1.5,
+    "inventory": -0.817,
+    "total": -2.928
+   },
+   "break_even_fee_bps": -1.428
+  },
+  {
+   "coin": "BTC",
+   "strategy": "improve+gap@0.5",
+   "fills": 634,
+   "notional_usd": 365230.0,
+   "total_usd": -122.63,
+   "usd_per_hour": -34.78,
+   "usd_per_hour_ci95": [
+    -51.84,
+    -13.24
+   ],
+   "bps": {
+    "spread": -0.064,
+    "adverse_1s": -0.54,
+    "adverse_10s": -0.822,
+    "adverse_60s": -1.094,
+    "fee": -1.5,
+    "inventory": -1.253,
+    "total": -3.358
+   },
+   "break_even_fee_bps": -1.858
+  },
+  {
+   "coin": "BTC",
+   "strategy": "improve+gap@2",
+   "fills": 3192,
+   "notional_usd": 1820380.22,
+   "total_usd": -508.46,
+   "usd_per_hour": -144.2,
+   "usd_per_hour_ci95": [
+    -154.08,
+    -118.28
+   ],
+   "bps": {
+    "spread": -0.124,
+    "adverse_1s": -0.659,
+    "adverse_10s": -1.067,
+    "adverse_60s": -1.374,
+    "fee": -1.5,
+    "inventory": -0.51,
+    "total": -2.793
+   },
+   "break_even_fee_bps": -1.293
+  },
+  {
+   "coin": "BTC",
+   "strategy": "model@0.5",
+   "fills": 2436,
+   "notional_usd": 1340060.18,
+   "total_usd": -366.67,
+   "usd_per_hour": -103.99,
+   "usd_per_hour_ci95": [
+    -114.56,
+    -83.0
+   ],
+   "bps": {
+    "spread": -0.091,
+    "adverse_1s": -0.633,
+    "adverse_10s": -1.0,
+    "adverse_60s": -1.271,
+    "fee": -1.5,
+    "inventory": -0.513,
+    "total": -2.736
+   },
+   "break_even_fee_bps": -1.236
+  },
+  {
+   "coin": "BTC",
+   "strategy": "model@1",
+   "fills": 3580,
+   "notional_usd": 1985424.95,
+   "total_usd": -553.11,
+   "usd_per_hour": -156.86,
+   "usd_per_hour_ci95": [
+    -169.16,
+    -126.84
+   ],
+   "bps": {
+    "spread": -0.135,
+    "adverse_1s": -0.724,
+    "adverse_10s": -1.141,
+    "adverse_60s": -1.356,
+    "fee": -1.5,
+    "inventory": -0.427,
+    "total": -2.786
+   },
+   "break_even_fee_bps": -1.286
+  },
+  {
+   "coin": "BTC",
+   "strategy": "taker@10",
+   "fills": 2,
+   "notional_usd": 1995.57,
+   "total_usd": -0.4,
+   "usd_per_hour": -0.11,
+   "usd_per_hour_ci95": [
+    -0.32,
+    0.0
+   ],
+   "bps": {
+    "spread": -0.662,
+    "adverse_1s": 0.563,
+    "adverse_10s": 2.516,
+    "adverse_60s": 4.436,
+    "fee": -4.5,
+    "inventory": 2.615,
+    "total": -1.984
+   },
+   "break_even_fee_bps": 2.516
+  },
+  {
+   "coin": "BTC",
+   "strategy": "taker@6",
+   "fills": 16,
+   "notional_usd": 15990.89,
+   "total_usd": -5.03,
+   "usd_per_hour": -1.43,
+   "usd_per_hour_ci95": [
+    -1.96,
+    -0.76
+   ],
+   "bps": {
+    "spread": -0.467,
+    "adverse_1s": 0.95,
+    "adverse_10s": 1.268,
+    "adverse_60s": 1.045,
+    "fee": -4.5,
+    "inventory": 0.872,
+    "total": -3.145
+   },
+   "break_even_fee_bps": 1.355
+  },
+  {
+   "coin": "BTC",
+   "strategy": "touch",
+   "fills": 3791,
+   "notional_usd": 2141963.56,
+   "total_usd": -621.41,
+   "usd_per_hour": -176.24,
+   "usd_per_hour_ci95": [
+    -191.84,
+    -140.36
+   ],
+   "bps": {
+    "spread": -0.161,
+    "adverse_1s": -0.806,
+    "adverse_10s": -1.205,
+    "adverse_60s": -1.442,
+    "fee": -1.5,
+    "inventory": -0.434,
+    "total": -2.901
+   },
+   "break_even_fee_bps": -1.401
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "gap@0.25",
+   "fills": 161,
+   "notional_usd": 116102.19,
+   "total_usd": 42.63,
+   "usd_per_hour": 12.09,
+   "usd_per_hour_ci95": [
+    -1.88,
+    24.32
+   ],
+   "bps": {
+    "spread": 0.022,
+    "adverse_1s": -0.256,
+    "adverse_10s": -0.327,
+    "adverse_60s": -0.649,
+    "fee": -1.5,
+    "inventory": 5.405,
+    "total": 3.672
+   },
+   "break_even_fee_bps": 5.172
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "gap@0.5",
+   "fills": 201,
+   "notional_usd": 141261.92,
+   "total_usd": 18.12,
+   "usd_per_hour": 5.14,
+   "usd_per_hour_ci95": [
+    -8.16,
+    18.64
+   ],
+   "bps": {
+    "spread": -0.015,
+    "adverse_1s": -0.234,
+    "adverse_10s": -0.253,
+    "adverse_60s": 0.068,
+    "fee": -1.5,
+    "inventory": 3.032,
+    "total": 1.283
+   },
+   "break_even_fee_bps": 2.783
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "gap@1",
+   "fills": 242,
+   "notional_usd": 172077.58,
+   "total_usd": -5.22,
+   "usd_per_hour": -1.48,
+   "usd_per_hour_ci95": [
+    -15.24,
+    12.84
+   ],
+   "bps": {
+    "spread": -0.111,
+    "adverse_1s": -0.35,
+    "adverse_10s": -0.312,
+    "adverse_60s": -0.705,
+    "fee": -1.5,
+    "inventory": 1.658,
+    "total": -0.303
+   },
+   "break_even_fee_bps": 1.197
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "gap@2",
+   "fills": 368,
+   "notional_usd": 223687.54,
+   "total_usd": -46.52,
+   "usd_per_hour": -13.19,
+   "usd_per_hour_ci95": [
+    -36.08,
+    11.36
+   ],
+   "bps": {
+    "spread": -0.141,
+    "adverse_1s": -0.574,
+    "adverse_10s": -0.624,
+    "adverse_60s": -0.755,
+    "fee": -1.5,
+    "inventory": 0.135,
+    "total": -2.08
+   },
+   "break_even_fee_bps": -0.58
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "improve",
+   "fills": 757,
+   "notional_usd": 479697.74,
+   "total_usd": -96.26,
+   "usd_per_hour": -27.3,
+   "usd_per_hour_ci95": [
+    -45.84,
+    -6.92
+   ],
+   "bps": {
+    "spread": -0.112,
+    "adverse_1s": -0.798,
+    "adverse_10s": -1.057,
+    "adverse_60s": -0.606,
+    "fee": -1.5,
+    "inventory": 0.404,
+    "total": -2.007
+   },
+   "break_even_fee_bps": -0.507
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "improve+gap@0.25",
+   "fills": 269,
+   "notional_usd": 232626.25,
+   "total_usd": 31.88,
+   "usd_per_hour": 9.04,
+   "usd_per_hour_ci95": [
+    -1.64,
+    19.32
+   ],
+   "bps": {
+    "spread": 0.118,
+    "adverse_1s": -0.094,
+    "adverse_10s": -0.063,
+    "adverse_60s": -0.095,
+    "fee": -1.5,
+    "inventory": 2.847,
+    "total": 1.37
+   },
+   "break_even_fee_bps": 2.87
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "improve+gap@0.5",
+   "fills": 318,
+   "notional_usd": 270857.33,
+   "total_usd": 19.29,
+   "usd_per_hour": 5.47,
+   "usd_per_hour_ci95": [
+    -8.96,
+    19.08
+   ],
+   "bps": {
+    "spread": 0.105,
+    "adverse_1s": -0.153,
+    "adverse_10s": -0.091,
+    "adverse_60s": 0.243,
+    "fee": -1.5,
+    "inventory": 2.261,
+    "total": 0.712
+   },
+   "break_even_fee_bps": 2.212
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "improve+gap@2",
+   "fills": 552,
+   "notional_usd": 392940.23,
+   "total_usd": -30.64,
+   "usd_per_hour": -8.69,
+   "usd_per_hour_ci95": [
+    -28.64,
+    10.72
+   ],
+   "bps": {
+    "spread": 0.007,
+    "adverse_1s": -0.342,
+    "adverse_10s": -0.283,
+    "adverse_60s": 0.102,
+    "fee": -1.5,
+    "inventory": 1.056,
+    "total": -0.78
+   },
+   "break_even_fee_bps": 0.72
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "model@0.5",
+   "fills": 293,
+   "notional_usd": 179071.85,
+   "total_usd": -17.71,
+   "usd_per_hour": -5.02,
+   "usd_per_hour_ci95": [
+    -20.8,
+    12.48
+   ],
+   "bps": {
+    "spread": -0.024,
+    "adverse_1s": -0.409,
+    "adverse_10s": -0.282,
+    "adverse_60s": -0.464,
+    "fee": -1.5,
+    "inventory": 0.943,
+    "total": -0.989
+   },
+   "break_even_fee_bps": 0.511
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "model@1",
+   "fills": 429,
+   "notional_usd": 231238.83,
+   "total_usd": -39.52,
+   "usd_per_hour": -11.21,
+   "usd_per_hour_ci95": [
+    -35.0,
+    14.12
+   ],
+   "bps": {
+    "spread": -0.144,
+    "adverse_1s": -0.652,
+    "adverse_10s": -0.596,
+    "adverse_60s": -0.051,
+    "fee": -1.5,
+    "inventory": 0.587,
+    "total": -1.709
+   },
+   "break_even_fee_bps": -0.209
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "taker@10",
+   "fills": 4,
+   "notional_usd": 3996.84,
+   "total_usd": -0.04,
+   "usd_per_hour": -0.01,
+   "usd_per_hour_ci95": [
+    -0.2,
+    0.2
+   ],
+   "bps": {
+    "spread": -0.595,
+    "adverse_1s": 0.822,
+    "adverse_10s": 2.868,
+    "adverse_60s": 3.043,
+    "fee": -4.5,
+    "inventory": 4.18,
+    "total": -0.092
+   },
+   "break_even_fee_bps": 4.408
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "taker@6",
+   "fills": 26,
+   "notional_usd": 26021.41,
+   "total_usd": -8.12,
+   "usd_per_hour": -2.3,
+   "usd_per_hour_ci95": [
+    -3.32,
+    -1.08
+   ],
+   "bps": {
+    "spread": -1.808,
+    "adverse_1s": 1.915,
+    "adverse_10s": 2.901,
+    "adverse_60s": 2.565,
+    "fee": -4.5,
+    "inventory": 1.273,
+    "total": -3.12
+   },
+   "break_even_fee_bps": 1.38
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "touch",
+   "fills": 565,
+   "notional_usd": 309807.14,
+   "total_usd": -104.96,
+   "usd_per_hour": -29.77,
+   "usd_per_hour_ci95": [
+    -50.6,
+    -5.32
+   ],
+   "bps": {
+    "spread": -0.276,
+    "adverse_1s": -1.144,
+    "adverse_10s": -1.562,
+    "adverse_60s": -1.782,
+    "fee": -1.5,
+    "inventory": -0.468,
+    "total": -3.388
+   },
+   "break_even_fee_bps": -1.888
+  },
+  {
+   "coin": "ETH",
+   "strategy": "gap@0.25",
+   "fills": 202,
+   "notional_usd": 125758.87,
+   "total_usd": 64.56,
+   "usd_per_hour": 18.31,
+   "usd_per_hour_ci95": [
+    -4.8,
+    38.12
+   ],
+   "bps": {
+    "spread": 0.101,
+    "adverse_1s": -0.549,
+    "adverse_10s": -0.684,
+    "adverse_60s": -1.253,
+    "fee": -1.5,
+    "inventory": 7.082,
+    "total": 5.134
+   },
+   "break_even_fee_bps": 6.634
+  },
+  {
+   "coin": "ETH",
+   "strategy": "gap@0.5",
+   "fills": 322,
+   "notional_usd": 183034.53,
+   "total_usd": 44.45,
+   "usd_per_hour": 12.61,
+   "usd_per_hour_ci95": [
+    -6.52,
+    30.56
+   ],
+   "bps": {
+    "spread": 0.077,
+    "adverse_1s": -0.593,
+    "adverse_10s": -0.705,
+    "adverse_60s": -1.153,
+    "fee": -1.5,
+    "inventory": 4.445,
+    "total": 2.429
+   },
+   "break_even_fee_bps": 3.929
+  },
+  {
+   "coin": "ETH",
+   "strategy": "gap@1",
+   "fills": 861,
+   "notional_usd": 473969.56,
+   "total_usd": -82.67,
+   "usd_per_hour": -23.45,
+   "usd_per_hour_ci95": [
+    -46.72,
+    1.52
+   ],
+   "bps": {
+    "spread": 0.026,
+    "adverse_1s": -0.562,
+    "adverse_10s": -0.812,
+    "adverse_60s": -1.101,
+    "fee": -1.5,
+    "inventory": 0.291,
+    "total": -1.744
+   },
+   "break_even_fee_bps": -0.244
+  },
+  {
+   "coin": "ETH",
+   "strategy": "gap@2",
+   "fills": 2568,
+   "notional_usd": 1274809.64,
+   "total_usd": -361.13,
+   "usd_per_hour": -102.42,
+   "usd_per_hour_ci95": [
+    -125.24,
+    -70.36
+   ],
+   "bps": {
+    "spread": -0.013,
+    "adverse_1s": -0.732,
+    "adverse_10s": -1.04,
+    "adverse_60s": -1.239,
+    "fee": -1.5,
+    "inventory": -0.588,
+    "total": -2.833
+   },
+   "break_even_fee_bps": -1.333
+  },
+  {
+   "coin": "ETH",
+   "strategy": "improve",
+   "fills": 3499,
+   "notional_usd": 1784585.85,
+   "total_usd": -581.69,
+   "usd_per_hour": -164.97,
+   "usd_per_hour_ci95": [
+    -196.2,
+    -116.52
+   ],
+   "bps": {
+    "spread": -0.098,
+    "adverse_1s": -0.972,
+    "adverse_10s": -1.368,
+    "adverse_60s": -1.43,
+    "fee": -1.5,
+    "inventory": -0.69,
+    "total": -3.26
+   },
+   "break_even_fee_bps": -1.76
+  },
+  {
+   "coin": "ETH",
+   "strategy": "improve+gap@0.25",
+   "fills": 201,
+   "notional_usd": 125752.46,
+   "total_usd": 59.32,
+   "usd_per_hour": 16.82,
+   "usd_per_hour_ci95": [
+    -7.36,
+    37.64
+   ],
+   "bps": {
+    "spread": 0.098,
+    "adverse_1s": -0.546,
+    "adverse_10s": -0.706,
+    "adverse_60s": -1.196,
+    "fee": -1.5,
+    "inventory": 6.665,
+    "total": 4.717
+   },
+   "break_even_fee_bps": 6.217
+  },
+  {
+   "coin": "ETH",
+   "strategy": "improve+gap@0.5",
+   "fills": 324,
+   "notional_usd": 185294.93,
+   "total_usd": 44.08,
+   "usd_per_hour": 12.5,
+   "usd_per_hour_ci95": [
+    -6.32,
+    30.44
+   ],
+   "bps": {
+    "spread": 0.072,
+    "adverse_1s": -0.581,
+    "adverse_10s": -0.723,
+    "adverse_60s": -1.112,
+    "fee": -1.5,
+    "inventory": 4.388,
+    "total": 2.379
+   },
+   "break_even_fee_bps": 3.879
+  },
+  {
+   "coin": "ETH",
+   "strategy": "improve+gap@2",
+   "fills": 2608,
+   "notional_usd": 1307049.84,
+   "total_usd": -362.3,
+   "usd_per_hour": -102.75,
+   "usd_per_hour_ci95": [
+    -126.04,
+    -70.0
+   ],
+   "bps": {
+    "spread": -0.018,
+    "adverse_1s": -0.717,
+    "adverse_10s": -1.015,
+    "adverse_60s": -1.182,
+    "fee": -1.5,
+    "inventory": -0.537,
+    "total": -2.772
+   },
+   "break_even_fee_bps": -1.272
+  },
+  {
+   "coin": "ETH",
+   "strategy": "model@0.5",
+   "fills": 1239,
+   "notional_usd": 627343.53,
+   "total_usd": -156.55,
+   "usd_per_hour": -44.4,
+   "usd_per_hour_ci95": [
+    -65.16,
+    -20.04
+   ],
+   "bps": {
+    "spread": 0.035,
+    "adverse_1s": -0.593,
+    "adverse_10s": -0.867,
+    "adverse_60s": -0.779,
+    "fee": -1.5,
+    "inventory": -0.437,
+    "total": -2.495
+   },
+   "break_even_fee_bps": -0.995
+  },
+  {
+   "coin": "ETH",
+   "strategy": "model@1",
+   "fills": 2723,
+   "notional_usd": 1342958.81,
+   "total_usd": -388.27,
+   "usd_per_hour": -110.12,
+   "usd_per_hour_ci95": [
+    -132.16,
+    -76.96
+   ],
+   "bps": {
+    "spread": -0.013,
+    "adverse_1s": -0.747,
+    "adverse_10s": -1.065,
+    "adverse_60s": -1.132,
+    "fee": -1.5,
+    "inventory": -0.631,
+    "total": -2.891
+   },
+   "break_even_fee_bps": -1.391
+  },
+  {
+   "coin": "ETH",
+   "strategy": "taker@10",
+   "fills": 0,
+   "notional_usd": 0.0,
+   "total_usd": 0.0,
+   "usd_per_hour": 0.0,
+   "usd_per_hour_ci95": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "coin": "ETH",
+   "strategy": "taker@6",
+   "fills": 24,
+   "notional_usd": 24009.26,
+   "total_usd": -7.21,
+   "usd_per_hour": -2.04,
+   "usd_per_hour_ci95": [
+    -3.0,
+    -0.84
+   ],
+   "bps": {
+    "spread": -0.748,
+    "adverse_1s": 1.281,
+    "adverse_10s": 2.208,
+    "adverse_60s": 2.218,
+    "fee": -4.5,
+    "inventory": 0.964,
+    "total": -3.003
+   },
+   "break_even_fee_bps": 1.497
+  },
+  {
+   "coin": "ETH",
+   "strategy": "touch",
+   "fills": 3488,
+   "notional_usd": 1753818.59,
+   "total_usd": -577.98,
+   "usd_per_hour": -163.92,
+   "usd_per_hour_ci95": [
+    -194.64,
+    -116.36
+   ],
+   "bps": {
+    "spread": -0.089,
+    "adverse_1s": -0.979,
+    "adverse_10s": -1.378,
+    "adverse_60s": -1.421,
+    "fee": -1.5,
+    "inventory": -0.727,
+    "total": -3.296
+   },
+   "break_even_fee_bps": -1.796
+  },
+  {
+   "coin": "LINK",
+   "strategy": "gap@0.25",
+   "fills": 65,
+   "notional_usd": 24339.01,
+   "total_usd": 36.66,
+   "usd_per_hour": 10.4,
+   "usd_per_hour_ci95": [
+    -2.96,
+    24.52
+   ],
+   "bps": {
+    "spread": 0.486,
+    "adverse_1s": -0.153,
+    "adverse_10s": 0.062,
+    "adverse_60s": -1.925,
+    "fee": -1.5,
+    "inventory": 16.227,
+    "total": 15.06
+   },
+   "break_even_fee_bps": 16.56
+  },
+  {
+   "coin": "LINK",
+   "strategy": "gap@0.5",
+   "fills": 75,
+   "notional_usd": 30023.86,
+   "total_usd": 54.92,
+   "usd_per_hour": 15.58,
+   "usd_per_hour_ci95": [
+    2.52,
+    26.76
+   ],
+   "bps": {
+    "spread": 0.435,
+    "adverse_1s": -0.277,
+    "adverse_10s": 0.055,
+    "adverse_60s": -1.337,
+    "fee": -1.5,
+    "inventory": 19.634,
+    "total": 18.292
+   },
+   "break_even_fee_bps": 19.792
+  },
+  {
+   "coin": "LINK",
+   "strategy": "gap@1",
+   "fills": 95,
+   "notional_usd": 39448.25,
+   "total_usd": 56.53,
+   "usd_per_hour": 16.03,
+   "usd_per_hour_ci95": [
+    -3.24,
+    33.56
+   ],
+   "bps": {
+    "spread": 0.357,
+    "adverse_1s": -0.332,
+    "adverse_10s": -0.129,
+    "adverse_60s": -1.46,
+    "fee": -1.5,
+    "inventory": 15.807,
+    "total": 14.331
+   },
+   "break_even_fee_bps": 15.831
+  },
+  {
+   "coin": "LINK",
+   "strategy": "gap@2",
+   "fills": 138,
+   "notional_usd": 61031.44,
+   "total_usd": 17.06,
+   "usd_per_hour": 4.84,
+   "usd_per_hour_ci95": [
+    -24.88,
+    32.88
+   ],
+   "bps": {
+    "spread": 0.244,
+    "adverse_1s": -0.6,
+    "adverse_10s": -0.315,
+    "adverse_60s": -2.515,
+    "fee": -1.5,
+    "inventory": 4.651,
+    "total": 2.795
+   },
+   "break_even_fee_bps": 4.295
+  },
+  {
+   "coin": "LINK",
+   "strategy": "improve",
+   "fills": 449,
+   "notional_usd": 147143.79,
+   "total_usd": -69.06,
+   "usd_per_hour": -19.58,
+   "usd_per_hour_ci95": [
+    -46.68,
+    7.08
+   ],
+   "bps": {
+    "spread": -0.16,
+    "adverse_1s": -1.842,
+    "adverse_10s": -2.887,
+    "adverse_60s": -4.989,
+    "fee": -1.5,
+    "inventory": -1.19,
+    "total": -4.693
+   },
+   "break_even_fee_bps": -3.193
+  },
+  {
+   "coin": "LINK",
+   "strategy": "improve+gap@0.25",
+   "fills": 69,
+   "notional_usd": 27363.29,
+   "total_usd": 32.21,
+   "usd_per_hour": 9.13,
+   "usd_per_hour_ci95": [
+    -0.64,
+    18.44
+   ],
+   "bps": {
+    "spread": 0.45,
+    "adverse_1s": -0.102,
+    "adverse_10s": -0.08,
+    "adverse_60s": -3.104,
+    "fee": -1.5,
+    "inventory": 12.923,
+    "total": 11.77
+   },
+   "break_even_fee_bps": 13.27
+  },
+  {
+   "coin": "LINK",
+   "strategy": "improve+gap@0.5",
+   "fills": 79,
+   "notional_usd": 32450.88,
+   "total_usd": 52.61,
+   "usd_per_hour": 14.92,
+   "usd_per_hour_ci95": [
+    -0.0,
+    29.08
+   ],
+   "bps": {
+    "spread": 0.429,
+    "adverse_1s": -0.225,
+    "adverse_10s": -0.141,
+    "adverse_60s": -2.284,
+    "fee": -1.5,
+    "inventory": 17.509,
+    "total": 16.214
+   },
+   "break_even_fee_bps": 17.714
+  },
+  {
+   "coin": "LINK",
+   "strategy": "improve+gap@2",
+   "fills": 129,
+   "notional_usd": 61293.32,
+   "total_usd": -1.67,
+   "usd_per_hour": -0.47,
+   "usd_per_hour_ci95": [
+    -35.12,
+    31.6
+   ],
+   "bps": {
+    "spread": 0.187,
+    "adverse_1s": -0.725,
+    "adverse_10s": -0.672,
+    "adverse_60s": -2.967,
+    "fee": -1.5,
+    "inventory": 1.766,
+    "total": -0.272
+   },
+   "break_even_fee_bps": 1.228
+  },
+  {
+   "coin": "LINK",
+   "strategy": "model@0.5",
+   "fills": 109,
+   "notional_usd": 40218.96,
+   "total_usd": 17.6,
+   "usd_per_hour": 4.99,
+   "usd_per_hour_ci95": [
+    -16.32,
+    24.84
+   ],
+   "bps": {
+    "spread": 0.412,
+    "adverse_1s": -0.414,
+    "adverse_10s": -0.053,
+    "adverse_60s": -2.497,
+    "fee": -1.5,
+    "inventory": 5.878,
+    "total": 4.376
+   },
+   "break_even_fee_bps": 5.876
+  },
+  {
+   "coin": "LINK",
+   "strategy": "model@1",
+   "fills": 196,
+   "notional_usd": 68278.22,
+   "total_usd": -32.12,
+   "usd_per_hour": -9.11,
+   "usd_per_hour_ci95": [
+    -35.92,
+    17.08
+   ],
+   "bps": {
+    "spread": 0.242,
+    "adverse_1s": -0.749,
+    "adverse_10s": -0.825,
+    "adverse_60s": -3.52,
+    "fee": -1.5,
+    "inventory": -2.698,
+    "total": -4.705
+   },
+   "break_even_fee_bps": -3.205
+  },
+  {
+   "coin": "LINK",
+   "strategy": "taker@10",
+   "fills": 8,
+   "notional_usd": 8001.77,
+   "total_usd": 0.03,
+   "usd_per_hour": 0.01,
+   "usd_per_hour_ci95": [
+    -0.36,
+    0.36
+   ],
+   "bps": {
+    "spread": -1.63,
+    "adverse_1s": 1.979,
+    "adverse_10s": 4.773,
+    "adverse_60s": 2.852,
+    "fee": -4.5,
+    "inventory": 4.191,
+    "total": 0.04
+   },
+   "break_even_fee_bps": 4.54
+  },
+  {
+   "coin": "LINK",
+   "strategy": "taker@6",
+   "fills": 68,
+   "notional_usd": 68052.37,
+   "total_usd": -20.66,
+   "usd_per_hour": -5.86,
+   "usd_per_hour_ci95": [
+    -9.0,
+    -1.92
+   ],
+   "bps": {
+    "spread": -1.539,
+    "adverse_1s": 1.689,
+    "adverse_10s": 3.112,
+    "adverse_60s": 2.756,
+    "fee": -4.5,
+    "inventory": 1.313,
+    "total": -3.036
+   },
+   "break_even_fee_bps": 1.464
+  },
+  {
+   "coin": "LINK",
+   "strategy": "touch",
+   "fills": 455,
+   "notional_usd": 142481.76,
+   "total_usd": -77.25,
+   "usd_per_hour": -21.91,
+   "usd_per_hour_ci95": [
+    -47.0,
+    2.6
+   ],
+   "bps": {
+    "spread": -0.12,
+    "adverse_1s": -1.858,
+    "adverse_10s": -2.741,
+    "adverse_60s": -4.858,
+    "fee": -1.5,
+    "inventory": -1.943,
+    "total": -5.422
+   },
+   "break_even_fee_bps": -3.922
+  },
+  {
+   "coin": "LTC",
+   "strategy": "gap@0.25",
+   "fills": 154,
+   "notional_usd": 79462.05,
+   "total_usd": -51.78,
+   "usd_per_hour": -14.68,
+   "usd_per_hour_ci95": [
+    -34.88,
+    7.04
+   ],
+   "bps": {
+    "spread": 0.421,
+    "adverse_1s": -0.244,
+    "adverse_10s": -0.037,
+    "adverse_60s": 0.647,
+    "fee": -1.5,
+    "inventory": -5.193,
+    "total": -6.516
+   },
+   "break_even_fee_bps": -5.016
+  },
+  {
+   "coin": "LTC",
+   "strategy": "gap@0.5",
+   "fills": 183,
+   "notional_usd": 97892.45,
+   "total_usd": -50.36,
+   "usd_per_hour": -14.28,
+   "usd_per_hour_ci95": [
+    -34.8,
+    7.6
+   ],
+   "bps": {
+    "spread": 0.356,
+    "adverse_1s": -0.293,
+    "adverse_10s": -0.047,
+    "adverse_60s": 0.666,
+    "fee": -1.5,
+    "inventory": -3.708,
+    "total": -5.145
+   },
+   "break_even_fee_bps": -3.645
+  },
+  {
+   "coin": "LTC",
+   "strategy": "gap@1",
+   "fills": 215,
+   "notional_usd": 121286.97,
+   "total_usd": -55.45,
+   "usd_per_hour": -15.73,
+   "usd_per_hour_ci95": [
+    -37.32,
+    7.12
+   ],
+   "bps": {
+    "spread": 0.32,
+    "adverse_1s": -0.274,
+    "adverse_10s": -0.091,
+    "adverse_60s": 0.167,
+    "fee": -1.5,
+    "inventory": -3.117,
+    "total": -4.572
+   },
+   "break_even_fee_bps": -3.072
+  },
+  {
+   "coin": "LTC",
+   "strategy": "gap@2",
+   "fills": 348,
+   "notional_usd": 201691.69,
+   "total_usd": -60.7,
+   "usd_per_hour": -17.21,
+   "usd_per_hour_ci95": [
+    -38.2,
+    3.96
+   ],
+   "bps": {
+    "spread": 0.099,
+    "adverse_1s": -0.433,
+    "adverse_10s": -0.241,
+    "adverse_60s": -0.588,
+    "fee": -1.5,
+    "inventory": -1.175,
+    "total": -3.009
+   },
+   "break_even_fee_bps": -1.509
+  },
+  {
+   "coin": "LTC",
+   "strategy": "improve",
+   "fills": 698,
+   "notional_usd": 463770.13,
+   "total_usd": -139.33,
+   "usd_per_hour": -39.51,
+   "usd_per_hour_ci95": [
+    -64.92,
+    -10.76
+   ],
+   "bps": {
+    "spread": 0.02,
+    "adverse_1s": -0.582,
+    "adverse_10s": -0.555,
+    "adverse_60s": -0.971,
+    "fee": -1.5,
+    "inventory": -0.943,
+    "total": -3.004
+   },
+   "break_even_fee_bps": -1.504
+  },
+  {
+   "coin": "LTC",
+   "strategy": "improve+gap@0.25",
+   "fills": 174,
+   "notional_usd": 130925.81,
+   "total_usd": -5.6,
+   "usd_per_hour": -1.59,
+   "usd_per_hour_ci95": [
+    -21.84,
+    19.56
+   ],
+   "bps": {
+    "spread": 0.468,
+    "adverse_1s": -0.193,
+    "adverse_10s": 0.055,
+    "adverse_60s": 0.268,
+    "fee": -1.5,
+    "inventory": 0.798,
+    "total": -0.428
+   },
+   "break_even_fee_bps": 1.072
+  },
+  {
+   "coin": "LTC",
+   "strategy": "improve+gap@0.5",
+   "fills": 199,
+   "notional_usd": 157132.69,
+   "total_usd": -12.14,
+   "usd_per_hour": -3.44,
+   "usd_per_hour_ci95": [
+    -23.48,
+    18.04
+   ],
+   "bps": {
+    "spread": 0.4,
+    "adverse_1s": -0.208,
+    "adverse_10s": -0.066,
+    "adverse_60s": -0.08,
+    "fee": -1.5,
+    "inventory": 0.536,
+    "total": -0.773
+   },
+   "break_even_fee_bps": 0.727
+  },
+  {
+   "coin": "LTC",
+   "strategy": "improve+gap@2",
+   "fills": 464,
+   "notional_usd": 334522.76,
+   "total_usd": -72.96,
+   "usd_per_hour": -20.69,
+   "usd_per_hour_ci95": [
+    -39.72,
+    0.52
+   ],
+   "bps": {
+    "spread": 0.17,
+    "adverse_1s": -0.357,
+    "adverse_10s": -0.189,
+    "adverse_60s": -0.641,
+    "fee": -1.5,
+    "inventory": -0.494,
+    "total": -2.181
+   },
+   "break_even_fee_bps": -0.681
+  },
+  {
+   "coin": "LTC",
+   "strategy": "model@0.5",
+   "fills": 273,
+   "notional_usd": 148987.62,
+   "total_usd": -89.74,
+   "usd_per_hour": -25.45,
+   "usd_per_hour_ci95": [
+    -46.28,
+    -3.32
+   ],
+   "bps": {
+    "spread": 0.266,
+    "adverse_1s": -0.367,
+    "adverse_10s": -0.389,
+    "adverse_60s": -0.62,
+    "fee": -1.5,
+    "inventory": -4.423,
+    "total": -6.024
+   },
+   "break_even_fee_bps": -4.524
+  },
+  {
+   "coin": "LTC",
+   "strategy": "model@1",
+   "fills": 434,
+   "notional_usd": 233816.21,
+   "total_usd": -80.7,
+   "usd_per_hour": -22.89,
+   "usd_per_hour_ci95": [
+    -45.32,
+    -0.36
+   ],
+   "bps": {
+    "spread": 0.1,
+    "adverse_1s": -0.481,
+    "adverse_10s": -0.531,
+    "adverse_60s": -0.583,
+    "fee": -1.5,
+    "inventory": -1.571,
+    "total": -3.452
+   },
+   "break_even_fee_bps": -1.952
+  },
+  {
+   "coin": "LTC",
+   "strategy": "taker@10",
+   "fills": 4,
+   "notional_usd": 4033.8,
+   "total_usd": 0.13,
+   "usd_per_hour": 0.04,
+   "usd_per_hour_ci95": [
+    0.0,
+    0.12
+   ],
+   "bps": {
+    "spread": -2.559,
+    "adverse_1s": 4.052,
+    "adverse_10s": 8.862,
+    "adverse_60s": 8.436,
+    "fee": -4.5,
+    "inventory": 3.341,
+    "total": 0.334
+   },
+   "break_even_fee_bps": 4.834
+  },
+  {
+   "coin": "LTC",
+   "strategy": "taker@6",
+   "fills": 60,
+   "notional_usd": 60126.52,
+   "total_usd": -20.25,
+   "usd_per_hour": -5.74,
+   "usd_per_hour_ci95": [
+    -7.84,
+    -3.24
+   ],
+   "bps": {
+    "spread": -1.317,
+    "adverse_1s": 1.436,
+    "adverse_10s": 1.794,
+    "adverse_60s": 2.286,
+    "fee": -4.5,
+    "inventory": 1.013,
+    "total": -3.368
+   },
+   "break_even_fee_bps": 1.132
+  },
+  {
+   "coin": "LTC",
+   "strategy": "touch",
+   "fills": 574,
+   "notional_usd": 310324.13,
+   "total_usd": -101.41,
+   "usd_per_hour": -28.76,
+   "usd_per_hour_ci95": [
+    -53.4,
+    -4.56
+   ],
+   "bps": {
+    "spread": -0.068,
+    "adverse_1s": -0.783,
+    "adverse_10s": -0.967,
+    "adverse_60s": -1.362,
+    "fee": -1.5,
+    "inventory": -0.917,
+    "total": -3.268
+   },
+   "break_even_fee_bps": -1.768
+  },
+  {
+   "coin": "SOL",
+   "strategy": "gap@0.25",
+   "fills": 285,
+   "notional_usd": 142421.98,
+   "total_usd": 55.54,
+   "usd_per_hour": 15.75,
+   "usd_per_hour_ci95": [
+    -0.08,
+    29.24
+   ],
+   "bps": {
+    "spread": -0.075,
+    "adverse_1s": -0.472,
+    "adverse_10s": -0.774,
+    "adverse_60s": -1.256,
+    "fee": -1.5,
+    "inventory": 5.947,
+    "total": 3.9
+   },
+   "break_even_fee_bps": 5.4
+  },
+  {
+   "coin": "SOL",
+   "strategy": "gap@0.5",
+   "fills": 465,
+   "notional_usd": 221497.11,
+   "total_usd": 71.96,
+   "usd_per_hour": 20.41,
+   "usd_per_hour_ci95": [
+    6.12,
+    33.04
+   ],
+   "bps": {
+    "spread": -0.06,
+    "adverse_1s": -0.551,
+    "adverse_10s": -0.638,
+    "adverse_60s": -1.228,
+    "fee": -1.5,
+    "inventory": 5.36,
+    "total": 3.249
+   },
+   "break_even_fee_bps": 4.749
+  },
+  {
+   "coin": "SOL",
+   "strategy": "gap@1",
+   "fills": 861,
+   "notional_usd": 402370.86,
+   "total_usd": -13.14,
+   "usd_per_hour": -3.73,
+   "usd_per_hour_ci95": [
+    -18.72,
+    11.76
+   ],
+   "bps": {
+    "spread": -0.114,
+    "adverse_1s": -0.583,
+    "adverse_10s": -0.773,
+    "adverse_60s": -0.939,
+    "fee": -1.5,
+    "inventory": 1.87,
+    "total": -0.327
+   },
+   "break_even_fee_bps": 1.173
+  },
+  {
+   "coin": "SOL",
+   "strategy": "gap@2",
+   "fills": 1984,
+   "notional_usd": 926027.74,
+   "total_usd": -205.51,
+   "usd_per_hour": -58.28,
+   "usd_per_hour_ci95": [
+    -69.12,
+    -39.88
+   ],
+   "bps": {
+    "spread": -0.191,
+    "adverse_1s": -0.813,
+    "adverse_10s": -1.191,
+    "adverse_60s": -1.445,
+    "fee": -1.5,
+    "inventory": 0.284,
+    "total": -2.219
+   },
+   "break_even_fee_bps": -0.719
+  },
+  {
+   "coin": "SOL",
+   "strategy": "improve",
+   "fills": 2814,
+   "notional_usd": 1375196.56,
+   "total_usd": -420.37,
+   "usd_per_hour": -119.22,
+   "usd_per_hour_ci95": [
+    -134.08,
+    -89.8
+   ],
+   "bps": {
+    "spread": -0.3,
+    "adverse_1s": -1.111,
+    "adverse_10s": -1.461,
+    "adverse_60s": -1.61,
+    "fee": -1.5,
+    "inventory": -0.145,
+    "total": -3.057
+   },
+   "break_even_fee_bps": -1.557
+  },
+  {
+   "coin": "SOL",
+   "strategy": "improve+gap@0.25",
+   "fills": 286,
+   "notional_usd": 150854.94,
+   "total_usd": 76.57,
+   "usd_per_hour": 21.72,
+   "usd_per_hour_ci95": [
+    6.32,
+    36.04
+   ],
+   "bps": {
+    "spread": -0.082,
+    "adverse_1s": -0.422,
+    "adverse_10s": -0.668,
+    "adverse_60s": -1.2,
+    "fee": -1.5,
+    "inventory": 7.08,
+    "total": 5.076
+   },
+   "break_even_fee_bps": 6.576
+  },
+  {
+   "coin": "SOL",
+   "strategy": "improve+gap@0.5",
+   "fills": 451,
+   "notional_usd": 229257.13,
+   "total_usd": 63.32,
+   "usd_per_hour": 17.96,
+   "usd_per_hour_ci95": [
+    2.4,
+    31.88
+   ],
+   "bps": {
+    "spread": -0.065,
+    "adverse_1s": -0.509,
+    "adverse_10s": -0.574,
+    "adverse_60s": -1.244,
+    "fee": -1.5,
+    "inventory": 4.836,
+    "total": 2.762
+   },
+   "break_even_fee_bps": 4.262
+  },
+  {
+   "coin": "SOL",
+   "strategy": "improve+gap@2",
+   "fills": 1973,
+   "notional_usd": 953981.86,
+   "total_usd": -196.09,
+   "usd_per_hour": -55.61,
+   "usd_per_hour_ci95": [
+    -68.72,
+    -35.0
+   ],
+   "bps": {
+    "spread": -0.189,
+    "adverse_1s": -0.78,
+    "adverse_10s": -1.162,
+    "adverse_60s": -1.437,
+    "fee": -1.5,
+    "inventory": 0.413,
+    "total": -2.056
+   },
+   "break_even_fee_bps": -0.556
+  },
+  {
+   "coin": "SOL",
+   "strategy": "model@0.5",
+   "fills": 1001,
+   "notional_usd": 450291.05,
+   "total_usd": -29.15,
+   "usd_per_hour": -8.27,
+   "usd_per_hour_ci95": [
+    -17.8,
+    2.44
+   ],
+   "bps": {
+    "spread": -0.113,
+    "adverse_1s": -0.652,
+    "adverse_10s": -0.828,
+    "adverse_60s": -0.956,
+    "fee": -1.5,
+    "inventory": 1.618,
+    "total": -0.647
+   },
+   "break_even_fee_bps": 0.853
+  },
+  {
+   "coin": "SOL",
+   "strategy": "model@1",
+   "fills": 1982,
+   "notional_usd": 898746.95,
+   "total_usd": -223.3,
+   "usd_per_hour": -63.33,
+   "usd_per_hour_ci95": [
+    -73.32,
+    -46.04
+   ],
+   "bps": {
+    "spread": -0.178,
+    "adverse_1s": -0.771,
+    "adverse_10s": -1.194,
+    "adverse_60s": -1.675,
+    "fee": -1.5,
+    "inventory": -0.036,
+    "total": -2.485
+   },
+   "break_even_fee_bps": -0.985
+  },
+  {
+   "coin": "SOL",
+   "strategy": "taker@10",
+   "fills": 4,
+   "notional_usd": 4010.86,
+   "total_usd": -0.43,
+   "usd_per_hour": -0.12,
+   "usd_per_hour_ci95": [
+    -0.44,
+    0.08
+   ],
+   "bps": {
+    "spread": -0.85,
+    "adverse_1s": 3.304,
+    "adverse_10s": 3.638,
+    "adverse_60s": 2.802,
+    "fee": -4.5,
+    "inventory": 0.976,
+    "total": -1.071
+   },
+   "break_even_fee_bps": 3.429
+  },
+  {
+   "coin": "SOL",
+   "strategy": "taker@6",
+   "fills": 22,
+   "notional_usd": 22029.14,
+   "total_usd": -5.97,
+   "usd_per_hour": -1.69,
+   "usd_per_hour_ci95": [
+    -2.64,
+    -0.6
+   ],
+   "bps": {
+    "spread": -1.066,
+    "adverse_1s": 2.144,
+    "adverse_10s": 2.718,
+    "adverse_60s": 2.225,
+    "fee": -4.5,
+    "inventory": 0.714,
+    "total": -2.708
+   },
+   "break_even_fee_bps": 1.792
+  },
+  {
+   "coin": "SOL",
+   "strategy": "touch",
+   "fills": 2820,
+   "notional_usd": 1331917.87,
+   "total_usd": -413.22,
+   "usd_per_hour": -117.19,
+   "usd_per_hour_ci95": [
+    -131.84,
+    -89.44
+   ],
+   "bps": {
+    "spread": -0.298,
+    "adverse_1s": -1.126,
+    "adverse_10s": -1.489,
+    "adverse_60s": -1.646,
+    "fee": -1.5,
+    "inventory": -0.178,
+    "total": -3.102
+   },
+   "break_even_fee_bps": -1.602
+  },
+  {
+   "coin": "XRP",
+   "strategy": "gap@0.25",
+   "fills": 160,
+   "notional_usd": 109558.23,
+   "total_usd": 9.76,
+   "usd_per_hour": 2.77,
+   "usd_per_hour_ci95": [
+    -13.88,
+    18.64
+   ],
+   "bps": {
+    "spread": 0.134,
+    "adverse_1s": -0.495,
+    "adverse_10s": -0.416,
+    "adverse_60s": 0.548,
+    "fee": -1.5,
+    "inventory": 2.753,
+    "total": 0.891
+   },
+   "break_even_fee_bps": 2.391
+  },
+  {
+   "coin": "XRP",
+   "strategy": "gap@0.5",
+   "fills": 230,
+   "notional_usd": 149102.76,
+   "total_usd": -25.6,
+   "usd_per_hour": -7.26,
+   "usd_per_hour_ci95": [
+    -24.8,
+    9.24
+   ],
+   "bps": {
+    "spread": 0.159,
+    "adverse_1s": -0.57,
+    "adverse_10s": -0.338,
+    "adverse_60s": 0.305,
+    "fee": -1.5,
+    "inventory": 0.194,
+    "total": -1.717
+   },
+   "break_even_fee_bps": -0.217
+  },
+  {
+   "coin": "XRP",
+   "strategy": "gap@1",
+   "fills": 346,
+   "notional_usd": 221087.1,
+   "total_usd": -76.49,
+   "usd_per_hour": -21.69,
+   "usd_per_hour_ci95": [
+    -37.76,
+    -4.36
+   ],
+   "bps": {
+    "spread": 0.097,
+    "adverse_1s": -0.632,
+    "adverse_10s": -0.251,
+    "adverse_60s": -0.004,
+    "fee": -1.5,
+    "inventory": -1.425,
+    "total": -3.46
+   },
+   "break_even_fee_bps": -1.96
+  },
+  {
+   "coin": "XRP",
+   "strategy": "gap@2",
+   "fills": 617,
+   "notional_usd": 378030.48,
+   "total_usd": -176.63,
+   "usd_per_hour": -50.09,
+   "usd_per_hour_ci95": [
+    -70.84,
+    -22.28
+   ],
+   "bps": {
+    "spread": 0.005,
+    "adverse_1s": -0.774,
+    "adverse_10s": -0.705,
+    "adverse_60s": -0.355,
+    "fee": -1.5,
+    "inventory": -2.403,
+    "total": -4.672
+   },
+   "break_even_fee_bps": -3.172
+  },
+  {
+   "coin": "XRP",
+   "strategy": "improve",
+   "fills": 1311,
+   "notional_usd": 766997.36,
+   "total_usd": -311.48,
+   "usd_per_hour": -88.34,
+   "usd_per_hour_ci95": [
+    -106.0,
+    -57.72
+   ],
+   "bps": {
+    "spread": -0.196,
+    "adverse_1s": -1.359,
+    "adverse_10s": -1.453,
+    "adverse_60s": -1.078,
+    "fee": -1.5,
+    "inventory": -1.006,
+    "total": -4.061
+   },
+   "break_even_fee_bps": -2.561
+  },
+  {
+   "coin": "XRP",
+   "strategy": "improve+gap@0.25",
+   "fills": 163,
+   "notional_usd": 112525.94,
+   "total_usd": 19.44,
+   "usd_per_hour": 5.51,
+   "usd_per_hour_ci95": [
+    -11.48,
+    21.08
+   ],
+   "bps": {
+    "spread": 0.13,
+    "adverse_1s": -0.516,
+    "adverse_10s": -0.313,
+    "adverse_60s": 0.308,
+    "fee": -1.5,
+    "inventory": 3.613,
+    "total": 1.727
+   },
+   "break_even_fee_bps": 3.227
+  },
+  {
+   "coin": "XRP",
+   "strategy": "improve+gap@0.5",
+   "fills": 233,
+   "notional_usd": 152067.98,
+   "total_usd": -18.43,
+   "usd_per_hour": -5.23,
+   "usd_per_hour_ci95": [
+    -23.12,
+    11.72
+   ],
+   "bps": {
+    "spread": 0.151,
+    "adverse_1s": -0.575,
+    "adverse_10s": -0.236,
+    "adverse_60s": 0.121,
+    "fee": -1.5,
+    "inventory": 0.713,
+    "total": -1.212
+   },
+   "break_even_fee_bps": 0.288
+  },
+  {
+   "coin": "XRP",
+   "strategy": "improve+gap@2",
+   "fills": 628,
+   "notional_usd": 383994.09,
+   "total_usd": -181.33,
+   "usd_per_hour": -51.43,
+   "usd_per_hour_ci95": [
+    -71.12,
+    -24.32
+   ],
+   "bps": {
+    "spread": 0.001,
+    "adverse_1s": -0.777,
+    "adverse_10s": -0.703,
+    "adverse_60s": -0.49,
+    "fee": -1.5,
+    "inventory": -2.446,
+    "total": -4.722
+   },
+   "break_even_fee_bps": -3.222
+  },
+  {
+   "coin": "XRP",
+   "strategy": "model@0.5",
+   "fills": 377,
+   "notional_usd": 242579.0,
+   "total_usd": -49.67,
+   "usd_per_hour": -14.09,
+   "usd_per_hour_ci95": [
+    -31.84,
+    4.04
+   ],
+   "bps": {
+    "spread": 0.101,
+    "adverse_1s": -0.721,
+    "adverse_10s": -0.528,
+    "adverse_60s": 0.297,
+    "fee": -1.5,
+    "inventory": 0.072,
+    "total": -2.048
+   },
+   "break_even_fee_bps": -0.548
+  },
+  {
+   "coin": "XRP",
+   "strategy": "model@1",
+   "fills": 623,
+   "notional_usd": 380558.55,
+   "total_usd": -183.03,
+   "usd_per_hour": -51.91,
+   "usd_per_hour_ci95": [
+    -71.04,
+    -24.28
+   ],
+   "bps": {
+    "spread": 0.049,
+    "adverse_1s": -0.856,
+    "adverse_10s": -0.661,
+    "adverse_60s": -0.292,
+    "fee": -1.5,
+    "inventory": -2.502,
+    "total": -4.81
+   },
+   "break_even_fee_bps": -3.31
+  },
+  {
+   "coin": "XRP",
+   "strategy": "taker@10",
+   "fills": 6,
+   "notional_usd": 5948.04,
+   "total_usd": -1.51,
+   "usd_per_hour": -0.43,
+   "usd_per_hour_ci95": [
+    -1.0,
+    0.0
+   ],
+   "bps": {
+    "spread": -1.683,
+    "adverse_1s": 2.945,
+    "adverse_10s": 3.085,
+    "adverse_60s": 2.664,
+    "fee": -4.5,
+    "inventory": 0.701,
+    "total": -2.537
+   },
+   "break_even_fee_bps": 1.963
+  },
+  {
+   "coin": "XRP",
+   "strategy": "taker@6",
+   "fills": 88,
+   "notional_usd": 87439.13,
+   "total_usd": -30.42,
+   "usd_per_hour": -8.63,
+   "usd_per_hour_ci95": [
+    -13.12,
+    -3.52
+   ],
+   "bps": {
+    "spread": -1.192,
+    "adverse_1s": 1.958,
+    "adverse_10s": 2.241,
+    "adverse_60s": 2.198,
+    "fee": -4.5,
+    "inventory": 0.254,
+    "total": -3.479
+   },
+   "break_even_fee_bps": 1.021
+  },
+  {
+   "coin": "XRP",
+   "strategy": "touch",
+   "fills": 1281,
+   "notional_usd": 744970.26,
+   "total_usd": -313.56,
+   "usd_per_hour": -88.93,
+   "usd_per_hour_ci95": [
+    -106.2,
+    -59.16
+   ],
+   "bps": {
+    "spread": -0.177,
+    "adverse_1s": -1.356,
+    "adverse_10s": -1.418,
+    "adverse_60s": -1.139,
+    "fee": -1.5,
+    "inventory": -1.176,
+    "total": -4.209
+   },
+   "break_even_fee_bps": -2.709
+  }
+ ],
+ "vs_touch": [
+  {
+   "coin": "AVAX",
+   "strategy": "gap@0.25",
+   "usd_per_hour": 36.22,
+   "ci95": [
+    8.8,
+    68.44
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "gap@0.5",
+   "usd_per_hour": 36.11,
+   "ci95": [
+    8.2,
+    69.16
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "gap@1",
+   "usd_per_hour": 31.42,
+   "ci95": [
+    4.36,
+    63.84
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "gap@2",
+   "usd_per_hour": 27.81,
+   "ci95": [
+    3.16,
+    58.64
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "improve",
+   "usd_per_hour": -6.38,
+   "ci95": [
+    -14.44,
+    0.16
+   ],
+   "blocks_better": "7/15"
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "improve+gap@0.25",
+   "usd_per_hour": 35.97,
+   "ci95": [
+    6.68,
+    67.08
+   ],
+   "blocks_better": "9/15"
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "improve+gap@0.5",
+   "usd_per_hour": 32.8,
+   "ci95": [
+    6.32,
+    62.76
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "improve+gap@2",
+   "usd_per_hour": 28.59,
+   "ci95": [
+    0.84,
+    63.52
+   ],
+   "blocks_better": "11/15"
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "model@0.5",
+   "usd_per_hour": 25.98,
+   "ci95": [
+    5.88,
+    47.8
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "AVAX",
+   "strategy": "model@1",
+   "usd_per_hour": 7.62,
+   "ci95": [
+    -2.32,
+    19.24
+   ],
+   "blocks_better": "9/15"
+  },
+  {
+   "coin": "BCH",
+   "strategy": "gap@0.25",
+   "usd_per_hour": 56.64,
+   "ci95": [
+    -29.96,
+    161.56
+   ],
+   "blocks_better": "9/15"
+  },
+  {
+   "coin": "BCH",
+   "strategy": "gap@0.5",
+   "usd_per_hour": 67.59,
+   "ci95": [
+    -22.04,
+    182.4
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "BCH",
+   "strategy": "gap@1",
+   "usd_per_hour": 42.22,
+   "ci95": [
+    -52.0,
+    154.04
+   ],
+   "blocks_better": "9/15"
+  },
+  {
+   "coin": "BCH",
+   "strategy": "gap@2",
+   "usd_per_hour": 68.5,
+   "ci95": [
+    -12.16,
+    186.44
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "BCH",
+   "strategy": "improve",
+   "usd_per_hour": -5.85,
+   "ci95": [
+    -20.76,
+    6.88
+   ],
+   "blocks_better": "9/15"
+  },
+  {
+   "coin": "BCH",
+   "strategy": "improve+gap@0.25",
+   "usd_per_hour": 70.1,
+   "ci95": [
+    -5.6,
+    172.6
+   ],
+   "blocks_better": "11/15"
+  },
+  {
+   "coin": "BCH",
+   "strategy": "improve+gap@0.5",
+   "usd_per_hour": 75.05,
+   "ci95": [
+    -2.96,
+    187.72
+   ],
+   "blocks_better": "11/15"
+  },
+  {
+   "coin": "BCH",
+   "strategy": "improve+gap@2",
+   "usd_per_hour": 81.06,
+   "ci95": [
+    -2.84,
+    209.48
+   ],
+   "blocks_better": "11/15"
+  },
+  {
+   "coin": "BCH",
+   "strategy": "model@0.5",
+   "usd_per_hour": 72.74,
+   "ci95": [
+    4.4,
+    166.4
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "BCH",
+   "strategy": "model@1",
+   "usd_per_hour": 65.75,
+   "ci95": [
+    0.32,
+    165.8
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "BTC",
+   "strategy": "gap@0.25",
+   "usd_per_hour": 150.97,
+   "ci95": [
+    113.4,
+    190.56
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "BTC",
+   "strategy": "gap@0.5",
+   "usd_per_hour": 134.97,
+   "ci95": [
+    102.08,
+    168.6
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "BTC",
+   "strategy": "gap@1",
+   "usd_per_hour": 102.24,
+   "ci95": [
+    73.4,
+    133.12
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "BTC",
+   "strategy": "gap@2",
+   "usd_per_hour": 33.15,
+   "ci95": [
+    22.04,
+    46.24
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "BTC",
+   "strategy": "improve",
+   "usd_per_hour": -4.57,
+   "ci95": [
+    -6.64,
+    -2.48
+   ],
+   "blocks_better": "1/15"
+  },
+  {
+   "coin": "BTC",
+   "strategy": "improve+gap@0.25",
+   "usd_per_hour": 147.89,
+   "ci95": [
+    112.08,
+    185.8
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "BTC",
+   "strategy": "improve+gap@0.5",
+   "usd_per_hour": 133.01,
+   "ci95": [
+    100.4,
+    166.44
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "BTC",
+   "strategy": "improve+gap@2",
+   "usd_per_hour": 30.12,
+   "ci95": [
+    18.68,
+    43.56
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "BTC",
+   "strategy": "model@0.5",
+   "usd_per_hour": 67.93,
+   "ci95": [
+    52.44,
+    86.44
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "BTC",
+   "strategy": "model@1",
+   "usd_per_hour": 18.21,
+   "ci95": [
+    11.08,
+    26.16
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "gap@0.25",
+   "usd_per_hour": 39.36,
+   "ci95": [
+    16.8,
+    64.36
+   ],
+   "blocks_better": "13/15"
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "gap@0.5",
+   "usd_per_hour": 32.82,
+   "ci95": [
+    11.76,
+    56.12
+   ],
+   "blocks_better": "12/15"
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "gap@1",
+   "usd_per_hour": 26.6,
+   "ci95": [
+    10.16,
+    45.28
+   ],
+   "blocks_better": "13/15"
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "gap@2",
+   "usd_per_hour": 15.58,
+   "ci95": [
+    1.16,
+    32.44
+   ],
+   "blocks_better": "9/15"
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "improve",
+   "usd_per_hour": 2.32,
+   "ci95": [
+    -8.16,
+    13.84
+   ],
+   "blocks_better": "6/15"
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "improve+gap@0.25",
+   "usd_per_hour": 36.49,
+   "ci95": [
+    14.08,
+    61.12
+   ],
+   "blocks_better": "11/15"
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "improve+gap@0.5",
+   "usd_per_hour": 33.13,
+   "ci95": [
+    11.4,
+    57.12
+   ],
+   "blocks_better": "12/15"
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "improve+gap@2",
+   "usd_per_hour": 19.82,
+   "ci95": [
+    3.88,
+    39.76
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "model@0.5",
+   "usd_per_hour": 23.27,
+   "ci95": [
+    5.28,
+    46.12
+   ],
+   "blocks_better": "11/15"
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "model@1",
+   "usd_per_hour": 17.45,
+   "ci95": [
+    2.32,
+    35.76
+   ],
+   "blocks_better": "9/15"
+  },
+  {
+   "coin": "ETH",
+   "strategy": "gap@0.25",
+   "usd_per_hour": 171.34,
+   "ci95": [
+    120.96,
+    224.0
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "ETH",
+   "strategy": "gap@0.5",
+   "usd_per_hour": 165.98,
+   "ci95": [
+    120.64,
+    213.72
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "ETH",
+   "strategy": "gap@1",
+   "usd_per_hour": 132.08,
+   "ci95": [
+    102.2,
+    159.76
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "ETH",
+   "strategy": "gap@2",
+   "usd_per_hour": 57.83,
+   "ci95": [
+    37.2,
+    79.88
+   ],
+   "blocks_better": "14/15"
+  },
+  {
+   "coin": "ETH",
+   "strategy": "improve",
+   "usd_per_hour": -0.99,
+   "ci95": [
+    -2.24,
+    0.6
+   ],
+   "blocks_better": "2/15"
+  },
+  {
+   "coin": "ETH",
+   "strategy": "improve+gap@0.25",
+   "usd_per_hour": 169.95,
+   "ci95": [
+    119.44,
+    222.48
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "ETH",
+   "strategy": "improve+gap@0.5",
+   "usd_per_hour": 165.88,
+   "ci95": [
+    121.2,
+    213.48
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "ETH",
+   "strategy": "improve+gap@2",
+   "usd_per_hour": 57.51,
+   "ci95": [
+    38.12,
+    79.0
+   ],
+   "blocks_better": "14/15"
+  },
+  {
+   "coin": "ETH",
+   "strategy": "model@0.5",
+   "usd_per_hour": 112.38,
+   "ci95": [
+    79.12,
+    147.04
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "ETH",
+   "strategy": "model@1",
+   "usd_per_hour": 50.59,
+   "ci95": [
+    33.96,
+    68.24
+   ],
+   "blocks_better": "14/15"
+  },
+  {
+   "coin": "LINK",
+   "strategy": "gap@0.25",
+   "usd_per_hour": 30.37,
+   "ci95": [
+    0.04,
+    65.04
+   ],
+   "blocks_better": "8/15"
+  },
+  {
+   "coin": "LINK",
+   "strategy": "gap@0.5",
+   "usd_per_hour": 35.25,
+   "ci95": [
+    7.84,
+    67.28
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "LINK",
+   "strategy": "gap@1",
+   "usd_per_hour": 35.68,
+   "ci95": [
+    6.16,
+    69.2
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "LINK",
+   "strategy": "gap@2",
+   "usd_per_hour": 25.15,
+   "ci95": [
+    -2.44,
+    52.68
+   ],
+   "blocks_better": "11/15"
+  },
+  {
+   "coin": "LINK",
+   "strategy": "improve",
+   "usd_per_hour": 2.19,
+   "ci95": [
+    -3.76,
+    8.32
+   ],
+   "blocks_better": "9/15"
+  },
+  {
+   "coin": "LINK",
+   "strategy": "improve+gap@0.25",
+   "usd_per_hour": 29.19,
+   "ci95": [
+    5.36,
+    56.2
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "LINK",
+   "strategy": "improve+gap@0.5",
+   "usd_per_hour": 34.63,
+   "ci95": [
+    10.44,
+    61.44
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "LINK",
+   "strategy": "improve+gap@2",
+   "usd_per_hour": 20.16,
+   "ci95": [
+    -10.36,
+    48.68
+   ],
+   "blocks_better": "11/15"
+  },
+  {
+   "coin": "LINK",
+   "strategy": "model@0.5",
+   "usd_per_hour": 25.29,
+   "ci95": [
+    0.64,
+    49.96
+   ],
+   "blocks_better": "11/15"
+  },
+  {
+   "coin": "LINK",
+   "strategy": "model@1",
+   "usd_per_hour": 12.03,
+   "ci95": [
+    -5.52,
+    27.32
+   ],
+   "blocks_better": "12/15"
+  },
+  {
+   "coin": "LTC",
+   "strategy": "gap@0.25",
+   "usd_per_hour": 13.24,
+   "ci95": [
+    -0.0,
+    26.12
+   ],
+   "blocks_better": "12/15"
+  },
+  {
+   "coin": "LTC",
+   "strategy": "gap@0.5",
+   "usd_per_hour": 13.61,
+   "ci95": [
+    0.76,
+    25.6
+   ],
+   "blocks_better": "12/15"
+  },
+  {
+   "coin": "LTC",
+   "strategy": "gap@1",
+   "usd_per_hour": 12.26,
+   "ci95": [
+    -1.16,
+    24.44
+   ],
+   "blocks_better": "12/15"
+  },
+  {
+   "coin": "LTC",
+   "strategy": "gap@2",
+   "usd_per_hour": 10.86,
+   "ci95": [
+    3.88,
+    18.68
+   ],
+   "blocks_better": "12/15"
+  },
+  {
+   "coin": "LTC",
+   "strategy": "improve",
+   "usd_per_hour": -10.11,
+   "ci95": [
+    -22.36,
+    1.8
+   ],
+   "blocks_better": "6/15"
+  },
+  {
+   "coin": "LTC",
+   "strategy": "improve+gap@0.25",
+   "usd_per_hour": 25.55,
+   "ci95": [
+    3.4,
+    48.44
+   ],
+   "blocks_better": "13/15"
+  },
+  {
+   "coin": "LTC",
+   "strategy": "improve+gap@0.5",
+   "usd_per_hour": 23.81,
+   "ci95": [
+    2.12,
+    46.32
+   ],
+   "blocks_better": "12/15"
+  },
+  {
+   "coin": "LTC",
+   "strategy": "improve+gap@2",
+   "usd_per_hour": 7.59,
+   "ci95": [
+    -9.8,
+    26.16
+   ],
+   "blocks_better": "10/15"
+  },
+  {
+   "coin": "LTC",
+   "strategy": "model@0.5",
+   "usd_per_hour": 3.11,
+   "ci95": [
+    -8.12,
+    14.88
+   ],
+   "blocks_better": "11/15"
+  },
+  {
+   "coin": "LTC",
+   "strategy": "model@1",
+   "usd_per_hour": 5.52,
+   "ci95": [
+    0.2,
+    11.68
+   ],
+   "blocks_better": "11/15"
+  },
+  {
+   "coin": "SOL",
+   "strategy": "gap@0.25",
+   "usd_per_hour": 125.0,
+   "ci95": [
+    93.72,
+    157.44
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "SOL",
+   "strategy": "gap@0.5",
+   "usd_per_hour": 129.38,
+   "ci95": [
+    101.96,
+    157.6
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "SOL",
+   "strategy": "gap@1",
+   "usd_per_hour": 106.69,
+   "ci95": [
+    84.4,
+    129.96
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "SOL",
+   "strategy": "gap@2",
+   "usd_per_hour": 55.39,
+   "ci95": [
+    41.68,
+    71.12
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "SOL",
+   "strategy": "improve",
+   "usd_per_hour": -1.91,
+   "ci95": [
+    -4.8,
+    1.16
+   ],
+   "blocks_better": "4/15"
+  },
+  {
+   "coin": "SOL",
+   "strategy": "improve+gap@0.25",
+   "usd_per_hour": 130.61,
+   "ci95": [
+    102.36,
+    160.84
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "SOL",
+   "strategy": "improve+gap@0.5",
+   "usd_per_hour": 127.08,
+   "ci95": [
+    98.8,
+    156.92
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "SOL",
+   "strategy": "improve+gap@2",
+   "usd_per_hour": 57.9,
+   "ci95": [
+    44.96,
+    72.68
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "SOL",
+   "strategy": "model@0.5",
+   "usd_per_hour": 102.42,
+   "ci95": [
+    80.6,
+    125.12
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "SOL",
+   "strategy": "model@1",
+   "usd_per_hour": 50.64,
+   "ci95": [
+    39.52,
+    61.24
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "XRP",
+   "strategy": "gap@0.25",
+   "usd_per_hour": 86.22,
+   "ci95": [
+    63.04,
+    109.48
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "XRP",
+   "strategy": "gap@0.5",
+   "usd_per_hour": 76.79,
+   "ci95": [
+    56.96,
+    96.72
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "XRP",
+   "strategy": "gap@1",
+   "usd_per_hour": 63.22,
+   "ci95": [
+    44.96,
+    82.52
+   ],
+   "blocks_better": "14/15"
+  },
+  {
+   "coin": "XRP",
+   "strategy": "gap@2",
+   "usd_per_hour": 36.52,
+   "ci95": [
+    25.56,
+    48.44
+   ],
+   "blocks_better": "14/15"
+  },
+  {
+   "coin": "XRP",
+   "strategy": "improve",
+   "usd_per_hour": 0.56,
+   "ci95": [
+    -0.8,
+    2.08
+   ],
+   "blocks_better": "8/15"
+  },
+  {
+   "coin": "XRP",
+   "strategy": "improve+gap@0.25",
+   "usd_per_hour": 88.8,
+   "ci95": [
+    64.32,
+    112.8
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "XRP",
+   "strategy": "improve+gap@0.5",
+   "usd_per_hour": 78.7,
+   "ci95": [
+    57.96,
+    100.0
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "XRP",
+   "strategy": "improve+gap@2",
+   "usd_per_hour": 35.26,
+   "ci95": [
+    24.96,
+    46.36
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "XRP",
+   "strategy": "model@0.5",
+   "usd_per_hour": 70.37,
+   "ci95": [
+    51.24,
+    90.68
+   ],
+   "blocks_better": "15/15"
+  },
+  {
+   "coin": "XRP",
+   "strategy": "model@1",
+   "usd_per_hour": 34.81,
+   "ci95": [
+    23.88,
+    46.28
+   ],
+   "blocks_better": "14/15"
+  }
+ ],
+ "model_oos_r2": {
+  "BTC": {
+   "fits": 22,
+   "mean_oos_r2": 0.3979
+  },
+  "ETH": {
+   "fits": 22,
+   "mean_oos_r2": 0.481
+  },
+  "SOL": {
+   "fits": 22,
+   "mean_oos_r2": 0.4467
+  },
+  "XRP": {
+   "fits": 22,
+   "mean_oos_r2": 0.4491
+  },
+  "LTC": {
+   "fits": 22,
+   "mean_oos_r2": 0.2736
+  },
+  "BCH": {
+   "fits": 22,
+   "mean_oos_r2": 0.3299
+  },
+  "LINK": {
+   "fits": 22,
+   "mean_oos_r2": 0.3976
+  },
+  "AVAX": {
+   "fits": 22,
+   "mean_oos_r2": 0.3404
+  },
+  "DOGE": {
+   "fits": 22,
+   "mean_oos_r2": 0.3341
+  }
+ }
+}

@@ -155,14 +155,20 @@ def build_hyperliquid_training_rows(
 ) -> list[dict[str, Any]]:
     """Label rows joined to features known strictly before each fill, in ``label_rows`` order.
 
-    A fill with no earlier L2 row is skipped. Asset rows without ``ts_ms`` are static daily
-    context, used for a coin that has no timed asset rows.
+    A fill with no earlier L2 row is skipped. A fill with no earlier asset context gets no
+    ``asset_*`` values (missing, so the trainer drops it), never a later one. Funding, basis
+    and open interest change through the day, so an asset row without ``ts_ms`` is an error:
+    it cannot be placed before or after any fill.
     """
     if not label_rows:
         return []
+    untimed = [row.get("coin") for row in asset_ctx_rows if row.get("ts_ms") is None]
+    if untimed:
+        raise ValueError(
+            f"{len(untimed)} asset context row(s) without ts_ms (coins {sorted(set(map(str, untimed)))[:5]}); dynamic context needs its time"
+        )
     l2_index = {coin: _with_ofi(index) for coin, index in _coin_index(l2_rows).items()}
-    asset_index = _coin_index([row for row in asset_ctx_rows if "ts_ms" in row])
-    asset_static = {str(row.get("coin")): row for row in asset_ctx_rows if "ts_ms" not in row}
+    asset_index = _coin_index(asset_ctx_rows)
     coins = [str(label["coin"]) for label in label_rows]
     fill_ts = np.fromiter((label["ts_ms"] for label in label_rows), dtype=np.float64, count=len(label_rows))
     l2_pos = _asof_positions(coins, fill_ts, l2_index)
@@ -178,11 +184,9 @@ def build_hyperliquid_training_rows(
             row[f"l2_{name}"] = float(l2.rows[l2_i][name])
         for name, values in l2.columns.items():
             row[f"l2_{name}"] = values[l2_i]
-        asset_ctx = asset_static.get(coin) if coin not in asset_index else None
         if asset_i >= 0:
             asset_ctx = asset_index[coin].rows[asset_i]
             row["feature_ts_ms"] = max(row["feature_ts_ms"], float(asset_index[coin].ts_ms[asset_i]))
-        if asset_ctx is not None:
             for name in ASSET_FEATURES:
                 if asset_ctx.get(name) is not None:
                     row[f"asset_{name}"] = float(asset_ctx[name])

@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--fill-hour", action="append", default=[], help="node_fills_by_block hours, same syntax")
     ap.add_argument("--lake-root", type=Path, default=Path("data"))
     ap.add_argument("--skip-asset-ctxs", action="store_true", help="do not fetch asset_ctxs/<date>.csv.lz4")
+    ap.add_argument("--replace", action="store_true", help="rebuild a coin-day that an earlier run built from other hours")
     args = ap.parse_args(argv)
     result = run_backfill(
         HyperliquidLakeLayout(args.lake_root),
@@ -32,6 +33,7 @@ def main(argv: list[str] | None = None) -> int:
         hours=parse_hours(args.hour),
         fill_hours=parse_hours(args.fill_hour) if args.fill_hour else (),
         include_asset_ctxs=not args.skip_asset_ctxs,
+        replace=args.replace,
     )
     summary = {
         "coin": result.coin,

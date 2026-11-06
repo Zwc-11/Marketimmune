@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -115,3 +116,15 @@ def test_promoted_markout_model_health_reports_missing_artifacts(
         "calibrator",
         "report",
     }
+
+
+def test_health_reports_an_undeployable_model_instead_of_failing(tmp_path: Path, monkeypatch: Any) -> None:
+    paths = [tmp_path / "model.cbm", tmp_path / "model.isotonic.json", tmp_path / "report.json"]
+    paths[0].write_text("model", encoding="utf-8")
+    paths[1].write_text(json.dumps({"enabled": False, "feature_columns": ["maker_side"]}), encoding="utf-8")
+    paths[2].write_text(
+        json.dumps({"feature_columns": ["maker_side"], "deployment": {"deployable": False, "reason": "no threshold"}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(markout_model_service, "settings", FakeSettings(tmp_path, *paths))
+    payload = markout_model_service.promoted_markout_model_health()
+    assert payload["available"] is False and "not deployable" in payload["message"]

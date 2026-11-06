@@ -1,4 +1,4 @@
-export type PageId = 'terminal' | 'model';
+export type PageId = 'terminal' | 'paper' | 'model';
 
 export interface PageDef {
     id: PageId;
@@ -9,6 +9,7 @@ export interface PageDef {
 
 export const PAGES: PageDef[] = [
     { id: 'terminal', path: '/terminal', label: 'Terminal', title: 'SOL-PERP terminal' },
+    { id: 'paper', path: '/paper', label: 'Paper trading', title: 'Live paper trading' },
     { id: 'model', path: '/model', label: 'Model', title: 'Markout model report' },
 ];
 

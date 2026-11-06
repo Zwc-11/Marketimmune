@@ -151,9 +151,21 @@ def test_build_training_rows_ignores_other_coin_asset_context() -> None:
     rows = build_hyperliquid_training_rows(
         [LABEL],
         [_l2(1_500, 100.0)],
-        [{"coin": "ETH", "basis_bps": 9.0}],
+        [{"coin": "ETH", "ts_ms": 1_000, "basis_bps": 9.0}],
     )
     assert "asset_basis_bps" not in rows[0]
+
+
+def test_untimed_asset_context_is_refused_not_spread_over_the_day() -> None:
+    # Audit B02: an end-of-day funding value must not be given to an early fill.
+    with pytest.raises(ValueError, match="without ts_ms"):
+        build_hyperliquid_training_rows([LABEL], [_l2(1_500, 100.0)], [{"coin": LABEL["coin"], "funding": 999.0}])
+
+
+def test_a_fill_before_the_first_asset_context_has_none() -> None:
+    later = {"coin": LABEL["coin"], "ts_ms": float(LABEL["ts_ms"]) + 1.0, "funding": 999.0, "basis_bps": 1.0}
+    rows = build_hyperliquid_training_rows([LABEL], [_l2(1_500, 100.0)], [later])
+    assert rows and not any(key.startswith("asset_") for key in rows[0])
 
 
 def test_prepare_markout_feature_row_matches_deployment_contract() -> None:

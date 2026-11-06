@@ -9,11 +9,23 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-marketimmune-dev-key")
+# Local development by default: debug on, and only this machine's host names accepted. A
+# shared deployment sets DJANGO_DEBUG=0, its own DJANGO_SECRET_KEY (required then) and
+# MARKETIMMUNE_ALLOWED_HOSTS; scoring writes from other machines need MARKETIMMUNE_API_TOKEN.
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = ["*"]
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=0")
+    SECRET_KEY = "django-insecure-marketimmune-local-dev-only"
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("MARKETIMMUNE_ALLOWED_HOSTS", "127.0.0.1,localhost,[::1]").split(",") if h.strip()]
+# Requests from another machine may only read; with this token in X-MarketImmune-Token they may
+# also trigger a scoring pass (which writes to the database).
+MARKETIMMUNE_API_TOKEN = os.environ.get("MARKETIMMUNE_API_TOKEN", "")
 
 INSTALLED_APPS = ["django.contrib.staticfiles", "server.api"]
 MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "django.middleware.common.CommonMiddleware"]

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paper Trading Live</title>
+<style>
+  :root {
+    --bg: #0b0e13; --panel: #121722; --line: #1f2735; --fg: #d8dee9; --muted: #7d8799;
+    --up: #3fb68b; --down: #e5534b; --warn: #d29922; --accent: #6cb6ff;
+    --c1: #6cb6ff; --c2: #3fb68b; --c3: #c39bff; --c4: #f0b35a; --ctl: #9aa4b2;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+  .tag { font: 11px var(--mono); padding: 2px 7px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
+  .pill { font: 600 11px var(--mono); padding: 2px 8px; border-radius: 10px; }
+  .live { background: rgba(63,182,139,.15); color: var(--up); }
+  .stale { background: rgba(229,83,75,.15); color: var(--down); }
+  .meta { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; padding: 12px 16px 24px; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-width: 0; }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .kpis { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .kpi .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  .kpi .v { font: 600 22px var(--mono); margin-top: 2px; }
+  .kpi .s { color: var(--muted); font: 11px var(--mono); }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  th { text-align: right; color: var(--muted); font-weight: 500; padding: 4px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { text-align: right; padding: 4px 6px; border-bottom: 1px solid #161c28; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  .up { color: var(--up); } .down { color: var(--down); } .mute { color: var(--muted); }
+  .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+  .cand { font-size: 10px; color: var(--accent); margin-left: 6px; }
+  .scroll { overflow-x: auto; }
+  #chart { width: 100%; height: 280px; display: block; }
+  select { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; font: 12px var(--mono); }
+  .gapbar { display: inline-block; height: 8px; vertical-align: middle; border-radius: 2px; }
+  .note { color: var(--muted); font-size: 11px; margin-top: 8px; }
+  .full { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>MarketImmune · live paper trading</h1>
+  <span class="tag">PAPER · no order is sent</span>
+  <span id="status" class="pill stale">CONNECTING</span>
+  <span class="meta" id="clock">–</span>
+  <span class="meta" id="feed">–</span>
+</header>
+<main>
+  <div class="kpis">
+    <div class="kpi"><div class="k">Best candidate</div><div class="v" id="k-best">–</div><div class="s" id="k-best-s">–</div></div>
+    <div class="kpi"><div class="k">Control (touch)</div><div class="v" id="k-ctl">–</div><div class="s" id="k-ctl-s">–</div></div>
+    <div class="kpi"><div class="k">Best candidate vs control</div><div class="v" id="k-diff">–</div><div class="s" id="k-diff-s">–</div></div>
+    <div class="kpi"><div class="k">Running</div><div class="v" id="k-hours">–</div><div class="s" id="k-hours-s">–</div></div>
+  </div>
+  <section class="full">
+    <h2>Cumulative PnL by strategy (USD, nine coins)</h2>
+    <svg id="chart" viewBox="0 0 1000 280" preserveAspectRatio="none"></svg>
+    <div class="note">Each segment is marked to the mid at its end. Fees: maker 1.5 bp, taker 4.5 bp.</div>
+  </section>
+  <section>
+    <h2>Leaderboard</h2>
+    <div class="scroll"><table id="board"><thead><tr>
+      <th>Strategy</th><th>PnL $</th><th>$/h</th><th>bps/$</th><th>Fills</th><th>Gross pos $</th><th>Actions/min</th>
+    </tr></thead><tbody></tbody></table></div>
+    <div class="note">bps/$: PnL per filled dollar. Actions: orders plus cancels, what Hyperliquid's rate limit counts.</div>
+  </section>
+  <section>
+    <h2>Coins <select id="pick"></select></h2>
+    <div class="scroll"><table id="coins"><thead><tr>
+      <th>Coin</th><th>Mid</th><th>Spread bp</th><th>Gap bp</th><th></th><th>Position $</th><th>PnL $</th>
+    </tr></thead><tbody></tbody></table></div>
+    <div class="note">Gap: Coinbase mid over Hyperliquid's, less its 5-minute average. Positive: Hyperliquid's asks are at risk.</div>
+  </section>
+  <section class="full">
+    <h2>Fill tape (latest 20)</h2>
+    <div class="scroll"><table id="tape"><thead><tr>
+      <th>Time</th><th>Coin</th><th>Strategy</th><th>Side</th><th>Price</th><th>$</th>
+    </tr></thead><tbody></tbody></table></div>
+  </section>
+</main>
+<script>
+const COLORS = {"improve+gap@0.25": "var(--c1)", "gap@0.25": "var(--c2)", "improve+gap@0.5": "var(--c3)", "gap@0.5": "var(--c4)", "touch": "var(--ctl)"};
+const usd = (x, d = 0) => x == null ? "–" : (x < 0 ? "-$" : "$") + Math.abs(x).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d});
+const sgn = (x, d = 2) => x == null ? "–" : (x > 0 ? "+" : "") + x.toFixed(d);
+const cls = x => x == null ? "mute" : x > 0 ? "up" : x < 0 ? "down" : "";
+const el = (tag, text, c) => { const e = document.createElement(tag); e.textContent = text; if (c) e.className = c; return e; };
+let picked = "improve+gap@0.25";
+document.getElementById("pick").addEventListener("change", e => { picked = e.target.value; });
+
+function hms(ms) { const s = Math.floor(ms / 1000); return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, "0")).join(":"); }
+
+function chart(history) {
+  const svg = document.getElementById("chart");
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  const names = Object.keys(history).filter(k => history[k].length > 1);
+  if (!names.length) return;
+  let t0 = Infinity, t1 = -Infinity, lo = 0, hi = 0;
+  for (const k of names) for (const [t, v] of history[k]) { t0 = Math.min(t0, t); t1 = Math.max(t1, t); lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  const W = 1000, H = 280, L = 56, R = 190, T = 10, B = 12;
+  const x = t => L + (t - t0) / Math.max(1, t1 - t0) * (W - L - R);
+  const y = v => T + (hi - v) / Math.max(1e-9, hi - lo) * (H - T - B);
+  const ns = "http://www.w3.org/2000/svg";
+  const add = (tag, attrs, text) => { const e = document.createElementNS(ns, tag); for (const [a, b] of Object.entries(attrs)) e.setAttribute(a, b); if (text != null) e.textContent = text; svg.appendChild(e); return e; };
+  for (const v of [lo, 0, hi]) {
+    add("line", {x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: v === 0 ? "#3a4456" : "#1f2735", "stroke-width": 1, "vector-effect": "non-scaling-stroke"});
+    add("text", {x: L - 6, y: y(v) + 4, "text-anchor": "end", fill: "#7d8799", "font-size": 10, "font-family": "monospace"}, usd(v));
+  }
+  const order = names.sort((a, b) => (COLORS[a] ? 1 : 0) - (COLORS[b] ? 1 : 0));
+  const labels = [];
+  for (const k of order) {
+    const pts = history[k].map(([t, v]) => `${x(t).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    const c = COLORS[k] || "#3a4456";
+    add("polyline", {points: pts, fill: "none", stroke: c, "stroke-width": COLORS[k] ? 2 : 1, "vector-effect": "non-scaling-stroke"});
+    if (COLORS[k]) { const last = history[k][history[k].length - 1]; labels.push([y(last[1]), k, c, last[1]]); }
+  }
+  labels.sort((a, b) => a[0] - b[0]);
+  let prev = -99;
+  for (const [yy, k, c, v] of labels) { const yl = Math.max(yy, prev + 12); prev = yl; add("text", {x: W - R + 6, y: yl + 4, fill: c, "font-size": 10, "font-family": "monospace"}, `${k} ${usd(v)}`); }
+}
+
+function fill(tbody, rows) {
+  const tb = document.querySelector(tbody);
+  tb.replaceChildren(...rows.map(cells => { const tr = document.createElement("tr"); for (const c of cells) tr.appendChild(c); return tr; }));
+}
+
+async function tick() {
+  let s;
+  try { s = await (await fetch("state.json", {cache: "no-store"})).json(); }
+  catch (e) { const st = document.getElementById("status"); st.textContent = "NO CONNECTION"; st.className = "pill stale"; return; }
+  const age = s.last_event_ms ? s.now_ms - s.last_event_ms : Infinity;
+  const st = document.getElementById("status");
+  st.textContent = age < 3000 ? "LIVE" : "STALE " + Math.round(age / 1000) + " s"; st.className = "pill " + (age < 3000 ? "live" : "stale");
+  document.getElementById("clock").textContent = `segment ${s.segment} · ${hms(s.now_ms - s.started_ms)} running`;
+  const d = s.feed_delay_ms.hl_top || [];
+  document.getElementById("feed").textContent = `Hyperliquid delay p50 ${d[1] ?? "–"} ms · reconnects ${s.reconnects} · orders ${s.settings.latency_ms ?? "–"} ms`;
+  const by = Object.fromEntries(s.strategies.map(r => [r.strategy, r]));
+  const best = by["improve+gap@0.25"], ctl = by["touch"];
+  if (best) { const e = document.getElementById("k-best"); e.textContent = usd(best.pnl, 2); e.className = "v " + cls(best.pnl); document.getElementById("k-best-s").textContent = `improve+gap@0.25 · ${sgn(best.bps)} bps · ${usd(best.per_hour)}/h`; }
+  if (ctl) { const e = document.getElementById("k-ctl"); e.textContent = usd(ctl.pnl, 2); e.className = "v " + cls(ctl.pnl); document.getElementById("k-ctl-s").textContent = `${sgn(ctl.bps)} bps · ${usd(ctl.per_hour)}/h`; }
+  if (best && ctl) { const v = best.pnl - ctl.pnl; const e = document.getElementById("k-diff"); e.textContent = usd(v, 2); e.className = "v " + cls(v); document.getElementById("k-diff-s").textContent = s.hours > 0.01 ? `${usd(v / s.hours)}/h` : "–"; }
+  document.getElementById("k-hours").textContent = s.hours.toFixed(2) + " h";
+  document.getElementById("k-hours-s").textContent = `${s.coins.length} coins · ${s.strategies.length} strategies`;
+  fill("#board tbody", s.strategies.map(r => {
+    const name = el("td", ""); const sw = el("span", "", "sw"); sw.style.background = COLORS[r.strategy] || "#3a4456"; name.append(sw, document.createTextNode(r.strategy));
+    if (r.candidate) name.appendChild(el("span", "candidate", "cand"));
+    return [name, el("td", usd(r.pnl, 2), cls(r.pnl)), el("td", usd(r.per_hour), cls(r.per_hour)), el("td", sgn(r.bps), cls(r.bps)), el("td", r.fills.toLocaleString()), el("td", usd(r.gross_usd)), el("td", r.actions_per_min == null ? "–" : r.actions_per_min.toFixed(0))];
+  }));
+  const pick = document.getElementById("pick");
+  if (pick.options.length !== s.strategies.length) { pick.replaceChildren(...s.strategies.map(r => { const o = el("option", r.strategy); o.value = r.strategy; return o; }).sort((a, b) => a.value.localeCompare(b.value))); pick.value = picked; }
+  fill("#coins tbody", s.coins.map(c => {
+    const bar = el("span", "", "gapbar"); const g = c.gap_bps ?? 0; bar.style.width = Math.min(60, Math.abs(g) * 12) + "px"; bar.style.background = g > 0 ? "var(--up)" : "var(--down)";
+    const barTd = el("td", ""); barTd.style.textAlign = "left"; barTd.appendChild(bar);
+    const pos = (c.positions || {})[picked], pnl = (c.pnl || {})[picked];
+    return [el("td", c.coin), el("td", c.mid == null ? "–" : c.mid.toPrecision(6)), el("td", c.spread_bps == null ? "–" : c.spread_bps.toFixed(2)), el("td", sgn(c.gap_bps), cls(c.gap_bps)), barTd, el("td", usd(pos), cls(pos)), el("td", usd(pnl, 2), cls(pnl))];
+  }));
+  fill("#tape tbody", s.tape.slice(0, 20).map(f => [el("td", new Date(f.t_ms).toLocaleTimeString()), el("td", f.coin), el("td", f.strategy), el("td", f.side > 0 ? "BUY" : "SELL", f.side > 0 ? "up" : "down"), el("td", String(f.px)), el("td", usd(f.usd))]));
+  chart(s.history);
+}
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

@@ -212,10 +212,30 @@ class MatchFill:
 _RECORD_FIELDS = tuple(f.name for f in fields(MatchFill) if f.name != "trade_hash")
 
 
-def pair_fill_legs(fills: Sequence[NodeFill]) -> list[MatchFill]:
-    """Merge the taker and maker legs of each match, keyed on ``(coin, ts_ms, tid)``, in first-seen order."""
-    legs_by_match: dict[tuple[str, int, int | None], list[NodeFill]] = {}
+def leg_key(fill: NodeFill) -> tuple[str, int, int | None, str | None, int | None, str, bool]:
+    """What makes a leg one leg: the match, the wallet, its order, side and role."""
+    return (fill.coin, fill.ts_ms, fill.tid, fill.user, fill.oid, fill.side, fill.crossed)
+
+
+def dedupe_fill_legs(fills: Sequence[NodeFill]) -> tuple[list[NodeFill], int]:
+    """``fills`` with repeats of the same leg dropped (overlapping source objects deliver one
+    leg twice), in first-seen order, and how many were dropped."""
+    seen: set[tuple[str, int, int | None, str | None, int | None, str, bool]] = set()
+    unique: list[NodeFill] = []
     for fill in fills:
+        key = leg_key(fill)
+        if key not in seen:
+            seen.add(key)
+            unique.append(fill)
+    return unique, len(fills) - len(unique)
+
+
+def pair_fill_legs(fills: Sequence[NodeFill]) -> list[MatchFill]:
+    """One maker opportunity per match: the taker and maker legs of each ``(coin, ts_ms, tid)``
+    merged, in first-seen order, after :func:`dedupe_fill_legs`. A match that does not have
+    exactly one taker and one maker leg is an error, not a guess at which leg is which."""
+    legs_by_match: dict[tuple[str, int, int | None], list[NodeFill]] = {}
+    for fill in dedupe_fill_legs(fills)[0]:
         legs_by_match.setdefault((fill.coin, fill.ts_ms, fill.tid), []).append(fill)
     return [_merge_legs(legs) for legs in legs_by_match.values()]
 

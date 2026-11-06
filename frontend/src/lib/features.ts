@@ -93,7 +93,29 @@ export function featureValues(
     };
 }
 
-/** Order values by the model's column list; unknown columns become null (fail splits). */
-export function vectorFor(columns: readonly string[], values: Record<string, number>): (number | null)[] {
-    return columns.map((name) => (name in values ? values[name] : null));
+/** The columns `featureValues` computes; a model reading anything else is refused. */
+export const FEATURE_NAMES: readonly string[] = [
+    'sz',
+    'maker_side',
+    'fee_bps',
+    'l2_spread_bps',
+    'l2_microprice_offset_bps',
+    'l2_top_imbalance',
+    'l2_ofi_event',
+    'l2_ofi_1s',
+    'l2_ofi_5s',
+    'l2_ofi_10s',
+    'fill_vs_mid_bps',
+    'asset_basis_bps',
+    'asset_funding',
+    'asset_open_interest',
+    'asset_premium',
+];
+
+/** Order values by the model's column list. An unknown column is an error, not a missing value. */
+export function vectorFor(columns: readonly string[], values: Record<string, number>): number[] {
+    return columns.map((name) => {
+        if (!(name in values)) throw new Error(`no live value for model feature ${name}`);
+        return values[name];
+    });
 }

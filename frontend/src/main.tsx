@@ -9,6 +9,7 @@ import './styles/base.css';
 import './styles/shell.css';
 import './styles/panels.css';
 import './styles/reports.css';
+import './styles/paper.css';
 import { App } from './App';
 import { ServerApiProvider } from './data/serverApi';
 
