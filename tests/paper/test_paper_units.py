@@ -177,3 +177,14 @@ def test_improve_steps_inside_wide_spreads_only() -> None:
     assert Improve().quotes(coin, 0, 0.0, 5.0) == (270.0, 270.02)
     coin.basis, coin.ref = 0.0, RefTop("BCH", 0, 270.1, 270.1)  # Coinbase 3.3 bps above
     assert Improve(2.0).quotes(coin, 0, 0.0, 5.0) == (270.0, None)
+
+
+def test_strategies_by_name() -> None:
+    from marketimmune.paper.strategies import Improve, quoter, taker_threshold
+
+    assert isinstance(quoter("touch"), Touch) and quoter("gap@1.5").threshold_bps == 1.5  # type: ignore[attr-defined]
+    assert isinstance(quoter("model@0.25"), ModelPull) and quoter("improve+gap@1").gap_bps == 1.0  # type: ignore[attr-defined]
+    assert isinstance(quoter("improve"), Improve)
+    assert taker_threshold("taker@6") == 6.0 and taker_threshold("gap@6") is None
+    with pytest.raises(AssertionError, match="unknown"):
+        quoter("spread@2")

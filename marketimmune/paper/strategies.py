@@ -82,16 +82,27 @@ class Improve(Touch):
         return bid, ask
 
 
-def maker_quoters() -> dict[str, Quoter]:
-    return {
-        "touch": Touch(),
-        "gap@1": GapPull(1.0),
-        "gap@2": GapPull(2.0),
-        "model@0.5": ModelPull(0.5),
-        "model@1": ModelPull(1.0),
-        "improve": Improve(),
-        "improve+gap@2": Improve(2.0),
-    }
+LIVE_STRATEGIES = ("touch", "gap@1", "gap@2", "model@0.5", "model@1", "improve", "improve+gap@2", "taker@6", "taker@10")
 
 
-TAKER_THRESHOLDS_BPS = {"taker@6": 6.0, "taker@10": 10.0}
+def quoter(name: str) -> Quoter:
+    """A maker strategy from its name: ``touch``, ``gap@<bps>``, ``model@<bps>``, ``improve`` or
+    ``improve+gap@<bps>``."""
+    kind, _, arg = name.partition("@")
+    if name == "touch":
+        return Touch()
+    if name == "improve":
+        return Improve()
+    if kind == "gap":
+        return GapPull(float(arg))
+    if kind == "model":
+        return ModelPull(float(arg))
+    if kind == "improve+gap":
+        return Improve(float(arg))
+    raise AssertionError(f"unknown maker strategy {name!r}")
+
+
+def taker_threshold(name: str) -> float | None:
+    """``taker@<bps>`` -> its gap threshold; None for a maker."""
+    kind, _, arg = name.partition("@")
+    return float(arg) if kind == "taker" else None

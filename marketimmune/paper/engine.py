@@ -1,7 +1,8 @@
 """The paper engine: routes events to each coin's state and to every strategy instance, and writes
 the run's fills, mids, equity curve, model log and feed delays.
 
-Each coin runs every strategy in ``maker_quoters`` and every ``GapTaker`` threshold. Instances do not
+Each coin runs every strategy named in ``strategies`` (``paper.strategies.quoter``; ``taker@<bps>``
+for the gap taker). Instances do not
 see each other: each one's orders face the real trades alone. Quantities are fixed at the first
 Hyperliquid top of the run: ``quote_usd / mid``. Decisions are taken at most every ``EVAL_MS`` per
 coin, on a new Hyperliquid top or a new Coinbase top.
@@ -21,7 +22,7 @@ from marketimmune.logger import init_logger
 from marketimmune.paper.events import Depth, Event, RefTop, Top, Trade
 from marketimmune.paper.orders import Account, PaperOrder
 from marketimmune.paper.signals import CoinState, Wallets
-from marketimmune.paper.strategies import TAKER_THRESHOLDS_BPS, Quoter, maker_quoters
+from marketimmune.paper.strategies import LIVE_STRATEGIES, Quoter, quoter, taker_threshold
 
 logger = init_logger(__name__)
 BPS = 1e4
@@ -139,8 +140,10 @@ class Engine:
         maker_fee_bps: float = 1.5,
         taker_fee_bps: float = 4.5,
         sz_decimals: dict[str, int] | None = None,
+        strategies: tuple[str, ...] = LIVE_STRATEGIES,
     ) -> None:
         self.coins = coins
+        self.strategies = strategies
         self.latency_ms = latency_ms
         self.quote_usd = quote_usd
         self.max_quotes = max_quotes
@@ -167,8 +170,11 @@ class Engine:
 
     def _start_coin(self, coin: str, mid: float) -> None:
         qty = self.quote_usd / mid
-        self.makers[coin] = [Maker(n, q, qty, self.max_quotes * qty, self.latency_ms, self.maker_fee) for n, q in maker_quoters().items()]
-        self.takers[coin] = [Taker(n, t, qty, self.latency_ms, self.taker_fee) for n, t in TAKER_THRESHOLDS_BPS.items()]
+        makers = [n for n in self.strategies if taker_threshold(n) is None]
+        self.makers[coin] = [Maker(n, quoter(n), qty, self.max_quotes * qty, self.latency_ms, self.maker_fee) for n in makers]
+        self.takers[coin] = [
+            Taker(n, t, qty, self.latency_ms, self.taker_fee) for n in self.strategies if (t := taker_threshold(n)) is not None
+        ]
 
     def handle(self, ev: Event, local_ms: int) -> None:
         coin = self.states.get(ev.coin)
@@ -261,7 +267,12 @@ class Engine:
             "started_ms": self.started_ms,
             "last_ms": self.last_ms,
             "hours": round((self.last_ms - (self.started_ms or self.last_ms)) / 3.6e6, 3),
-            "settings": {"latency_ms": self.latency_ms, "quote_usd": self.quote_usd, "max_quotes": self.max_quotes},
+            "settings": {
+                "latency_ms": self.latency_ms,
+                "quote_usd": self.quote_usd,
+                "max_quotes": self.max_quotes,
+                "strategies": list(self.strategies),
+            },
             "settings_fees_bps": {"maker": self.maker_fee * BPS, "taker": self.taker_fee * BPS},
             "counts": self.counts,
             "feed_delay_ms_p10_p50_p90": lags,

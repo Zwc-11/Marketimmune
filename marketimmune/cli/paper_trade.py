@@ -22,7 +22,8 @@ from pathlib import Path
 from marketimmune.logger import init_logger
 from marketimmune.paper.engine import Engine
 from marketimmune.paper.live import replay, run_live
-from marketimmune.utils import parse_symbol_spec
+from marketimmune.paper.strategies import LIVE_STRATEGIES
+from marketimmune.utils import parse_symbol_spec, split_csv
 
 logger = init_logger(__name__)
 COINS = "BTC,ETH,SOL,XRP,LTC,BCH,LINK,AVAX,DOGE"
@@ -62,6 +63,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--maker-fee-bps", type=float, default=1.5)
     parser.add_argument("--taker-fee-bps", type=float, default=4.5)
     parser.add_argument("--no-raw", action="store_true", help="do not keep the raw messages")
+    parser.add_argument(
+        "--strategies", default=",".join(LIVE_STRATEGIES), help="touch, gap@<bps>, model@<bps>, improve, improve+gap@<bps>, taker@<bps>"
+    )
     args = parser.parse_args(argv)
     engine = Engine(
         parse_symbol_spec(args.coins),
@@ -71,6 +75,7 @@ def main(argv: list[str] | None = None) -> int:
         maker_fee_bps=args.maker_fee_bps,
         taker_fee_bps=args.taker_fee_bps,
         sz_decimals=sz_decimals(args.out, args.replay),
+        strategies=split_csv(args.strategies),
     )
     if args.state_dir is not None:
         engine.load_state(args.state_dir)
