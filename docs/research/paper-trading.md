@@ -328,15 +328,15 @@ From 16:06 to 18:06 UTC every strategy lost: the four candidates -$163 to -$212 
   (206 ms at 18:44). Hyperliquid's minimum delay moved by the same amount. So the dashboard's 612 ms
   Hyperliquid delay is about 340 ms of real delay (the cloud's) plus the clock.
   - The engine times paper orders on the local clock against Hyperliquid's block times. A fast
-    clock delays every order and cancel by its offset: 420-560 ms, not the registered 200 ms.
+    clock delays every order and cancel by its offset: 420-550 ms, not the registered 200 ms.
   - On the night's held-out hours, a replay as recorded matches the live forward test
     (`improve+gap@0.25` +$61 an hour; live +$60.5). With a clock 285 ms fast it is -$27 an hour,
     and every candidate turns negative (-$27 to -$124). Cancels land late, so fills rise by half.
   - On the first live segment, taking the measured offset off every receive time
     (`--clock-offset coinbase`) moves `improve+gap@0.25` from -$162 to -$97 an hour and cuts its
     fills by 35%.
-- **The afternoon market did not trend.** In the night's held-out hours eight of nine coins rose
-  steadily (+66 to +138 bps; median 15-minute variance ratio 1.07). From 16:06 to 18:06 none moved
+- **The afternoon market did not trend.** In the night's held-out hours seven of nine coins rose
+  steadily (+66 to +138 bps) and BCH fell 236 (median 15-minute variance ratio 1.07). From 16:06 to 18:06 none moved
   far (within -56 and +11 bps), one-minute volatility was a third higher (10.2 against 7.6 bps a
   minute), and moves reverted over 15 minutes (variance ratio 0.89).
   - With the clock fixed, the candidates' fills look like the night's over the first minute

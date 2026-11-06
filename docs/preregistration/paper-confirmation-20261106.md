@@ -73,7 +73,7 @@ run.
   Coinbase's message timestamps (least receive delay per minute; 14-25 ms in the cloud), it drifted
   +61 ms an hour and was slewed back by Windows from 18:09 (206 ms at 18:44). The engine times paper
   orders on the local clock against Hyperliquid's block times, so orders and cancels reached the book
-  420-560 ms after each decision, not the registered 200 ms. The live PnL therefore does not measure
+  420-550 ms after each decision, not the registered 200 ms. The live PnL therefore does not measure
   the registered setting (replays: `eval/paper/clock_and_market_20261106.json`).
   - **Proposed scoring, for Caesar to decide before the result is seen:** replay the run's raw
     recordings with each minute's offset taken off (`cli.paper_trade --replay ... --clock-offset
