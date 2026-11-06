@@ -188,3 +188,12 @@ def test_strategies_by_name() -> None:
     assert taker_threshold("taker@6") == 6.0 and taker_threshold("gap@6") is None
     with pytest.raises(AssertionError, match="unknown"):
         quoter("spread@2")
+
+
+def test_fastjson_round_trips_with_and_without_orjson(monkeypatch: pytest.MonkeyPatch) -> None:
+    from marketimmune.paper import fastjson
+
+    msg = {"channel": "bbo", "data": {"coin": "SOL", "time": 1, "bbo": [None, {"px": "1.5"}]}}
+    assert fastjson.loads(fastjson.dumps(msg)) == msg
+    monkeypatch.setattr(fastjson, "orjson", None)
+    assert fastjson.loads(fastjson.dumps(msg)) == msg and fastjson.loads(b'{"a": 1}') == {"a": 1}

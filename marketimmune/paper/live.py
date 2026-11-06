@@ -19,10 +19,10 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-import orjson
 import websockets
 
 from marketimmune.logger import init_logger
+from marketimmune.paper import fastjson
 from marketimmune.paper.dashboard import Board
 from marketimmune.paper.engine import Engine
 from marketimmune.paper.events import STALE_TRADE_MS, CoinbaseBooks, parse_hl
@@ -71,7 +71,7 @@ async def hl_feed(engine: Engine, writer: RawWriter | None) -> None:
             async with websockets.connect(HL_URL, max_size=2**24, ping_interval=None) as ws:
                 for coin in engine.coins:
                     for channel in HL_CHANNELS:
-                        await ws.send(orjson.dumps({"method": "subscribe", "subscription": {"type": channel, "coin": coin}}).decode())
+                        await ws.send(fastjson.dumps({"method": "subscribe", "subscription": {"type": channel, "coin": coin}}).decode())
                         await asyncio.sleep(0.02)
                 logger.info(f"hyperliquid: subscribed {len(engine.coins)} coins")
                 backoff = 1.0
@@ -81,7 +81,7 @@ async def hl_feed(engine: Engine, writer: RawWriter | None) -> None:
                     local_ns = time.time_ns()
                     if writer is not None:
                         writer.write("hl", local_ns, raw)
-                    for ev in parse_hl(orjson.loads(raw), local_ns // 1_000_000):
+                    for ev in parse_hl(fastjson.loads(raw), local_ns // 1_000_000):
                         engine.handle(ev, local_ns // 1_000_000)
                     if time.monotonic() - last_ping > HL_PING_S:
                         await ws.send('{"method":"ping"}')
@@ -102,8 +102,8 @@ async def cb_feed(engine: Engine, writer: RawWriter | None) -> None:
         books = CoinbaseBooks()
         try:
             async with websockets.connect(CB_URL, max_size=2**26, ping_interval=20) as ws:
-                await ws.send(orjson.dumps({"type": "subscribe", "product_ids": products, "channel": "level2"}).decode())
-                await ws.send(orjson.dumps({"type": "subscribe", "channel": "heartbeats"}).decode())
+                await ws.send(fastjson.dumps({"type": "subscribe", "product_ids": products, "channel": "level2"}).decode())
+                await ws.send(fastjson.dumps({"type": "subscribe", "channel": "heartbeats"}).decode())
                 logger.info(f"coinbase: subscribed {len(products)} products")
                 backoff = 1.0
                 while True:
@@ -111,7 +111,7 @@ async def cb_feed(engine: Engine, writer: RawWriter | None) -> None:
                     local_ns = time.time_ns()
                     if writer is not None:
                         writer.write("cb", local_ns, raw)
-                    for ev in books.apply(orjson.loads(raw), local_ns // 1_000_000):
+                    for ev in books.apply(fastjson.loads(raw), local_ns // 1_000_000):
                         engine.handle(ev, local_ns // 1_000_000)
         except asyncio.CancelledError:
             raise
@@ -204,10 +204,10 @@ def retimed(lines: Iterator[tuple[int, str, bytes]], retime: dict[str, int]) -> 
     for seq, (local_ns, venue, raw) in enumerate(lines):
         local_ms = local_ns // 1_000_000
         if venue == "hl":
-            msg = orjson.loads(raw)
+            msg = fastjson.loads(raw)
             if msg.get("channel") == "trades":
                 msg["data"] = [x for x in msg["data"] if local_ms - int(x["time"]) <= STALE_TRADE_MS]
-                raw = orjson.dumps(msg)
+                raw = fastjson.dumps(msg)
             t = block_ms(msg)
             if t is None:
                 continue
@@ -238,7 +238,7 @@ def replay(engine: Engine, root: Path, retime: dict[str, int] | None = None) -> 
         while next_tick <= local_ms:
             engine.tick(next_tick)
             next_tick += TICK_MS
-        msg: dict[str, Any] = orjson.loads(raw)
+        msg: dict[str, Any] = fastjson.loads(raw)
         if venue == "hl":
             events = parse_hl(msg, local_ms)
         else:
