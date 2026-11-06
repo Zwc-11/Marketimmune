@@ -268,8 +268,8 @@ the run is on):
 | `signals.jsonl.gz` | coin and second: mid, spread, Coinbase mid, gap, gap z, 10 s forecast, 1 s model, 1 s volatility, buy and sell bursts |
 | `minutes.jsonl.gz` | strategy, coin and minute: orders and cancels sent, fills, time quoted on both sides / one side / none, sides the budget dropped, position, PnL |
 
-The order actions themselves (1,200-1,800 a minute per strategy over the nine coins) are counted,
-not listed. At the night's pace the journal of 21 strategies is about 11 MB an hour; the raw
+The order actions themselves (500-1,800 a minute per strategy over the nine coins) are counted,
+not listed. At the night's pace the journal of 21 strategies is about 12 MB an hour; the raw
 recording is 60-120 MB an hour.
 
 - **It only reads.** A replay with and without it gives the same fills, byte for byte
@@ -310,8 +310,8 @@ recording is 60-120 MB an hour.
   are right on average, by less than the fee.
 - **Fills alone at a new level do better than fills behind a queue.** -1.6 bps against -2.5 at
   1 minute for `improve+gap@0.25`, -1.0 against -2.4 for `gap@0.25`.
-- **Rate limit:** 0.05-0.3 order actions per USD filled for every quoter but the reservation pair
-  (0.75), under Hyperliquid's one per USD.
+- **Rate limit:** 0.05-0.35 order actions per USD filled for every quoter but the reservation pair
+  (0.75), all under Hyperliquid's one per USD.
 
 Ideas these point to, none tested: a hysteresis band on the pull threshold (fewer flips, fewer
 actions, queue kept); a position target from a forecast over 15 minutes rather than 10 s; holding
