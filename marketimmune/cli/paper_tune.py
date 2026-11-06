@@ -111,7 +111,7 @@ def run_chain(segments: list[Segment], config: str, args: argparse.Namespace, st
         if args.budget_usd is not None:
             cmd += ["--budget-usd", str(args.budget_usd)]
         if seg.chain in args.clock:
-            cmd += ["--clock-offset", "coinbase"]
+            cmd += ["--clock-offset", "coinbase-causal" if args.causal_clock else "coinbase"]
         if args.retime:
             cmd += ["--retime", args.retime]
         cmd += ["--maker-fee-bps", str(args.maker_fee_bps), "--taker-fee-bps", str(args.taker_fee_bps)]
@@ -252,6 +252,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--chain", action="append", required=True, help="name=raw1[~],raw2,... in order")
     parser.add_argument("--clock", default="", help="chains whose receive times to correct from Coinbase timestamps")
+    parser.add_argument("--causal-clock", action="store_true", help="correct the clock from earlier timestamps only (no look-ahead)")
     parser.add_argument("--config", action="append", default=None, help="quote USD x quotes a coin, e.g. 250x4")
     parser.add_argument("--budget-usd", type=float, default=5_000.0)
     parser.add_argument("--latency-ms", type=int, default=200)
@@ -305,6 +306,7 @@ def main(argv: list[str] | None = None) -> int:
         "retime": args.retime or None,
         "fees_bps": {"maker": args.maker_fee_bps, "taker": args.taker_fee_bps},
         "clock_corrected": sorted(args.clock),
+        "causal_clock": args.causal_clock,
         "max_orders_per_usd": args.max_orders_per_usd,
         "options": len(pnl),
         "excluded": len(over),

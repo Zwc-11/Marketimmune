@@ -69,7 +69,8 @@ def main(argv: list[str] | None = None) -> int:
         "--clock-offset",
         default=None,
         help="replay: how far ahead the recording machine's clock was, taken off every receive time: "
-        "'coinbase' to estimate it per minute from Coinbase's timestamps, or ms (negative plays a fast clock)",
+        "'coinbase' to estimate it per minute from Coinbase's timestamps ('coinbase-causal': each minute's estimate used "
+        "only after it ends, no look-ahead), or ms (negative plays a fast clock)",
     )
     parser.add_argument("--latency-ms", type=int, default=200, help="decision to order (or cancel) in the book")
     parser.add_argument("--quote-usd", type=float, default=1_000.0)
@@ -105,12 +106,12 @@ def main(argv: list[str] | None = None) -> int:
             engine.load_state(args.state_dir)
         retime = {k: int(v) for k, v in (kv.split("=") for kv in args.retime.split(",") if kv)}
         clock: dict[int, float] | float | None = None
-        if args.clock_offset == "coinbase":
+        if args.clock_offset in ("coinbase", "coinbase-causal"):
             clock = clock_offsets(args.replay)
             logger.info(f"clock ahead of Coinbase by {min(clock.values()):.0f} to {max(clock.values()):.0f} ms over the recording")
         elif args.clock_offset is not None:
             clock = float(args.clock_offset)
-        replay(engine, args.replay, retime or None, args.until_ms, clock)
+        replay(engine, args.replay, retime or None, args.until_ms, clock, causal=args.clock_offset == "coinbase-causal")
         engine.write(args.out, final=True)
         if args.state_dir is not None:
             engine.save_state(args.state_dir)

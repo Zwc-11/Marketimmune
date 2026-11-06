@@ -1,0 +1,174 @@
+{
+ "replay": "data/paper/live/seg-20261106T1806/raw",
+ "strategies": [
+  "guard@z=0.05/w=1/win=1/net=2000/stop=30",
+  "mm@h=2/skew=6",
+  "zgap@0.05",
+  "touch"
+ ],
+ "cuts": [
+  {
+   "cut_ms": 1793990180531,
+   "share": 0.33,
+   "compared_before_ms": 1793990179531,
+   "streams": {
+    "decisions": {
+     "rows": 20483,
+     "rows_cut": 20483,
+     "different": 472,
+     "first_difference": {
+      "t": 1793990130881,
+      "s": "guard@z=0.05/w=1/win=1/net=2000/stop=30",
+      "c": "LTC",
+      "want": "none",
+      "sides": "none",
+      "why": "gap z -0.17 < -0.05: bid pulled; wallets z +2.71: ask pulled",
+      "pos": -9.72099848,
+      "pos_usd": -514.63,
+      "ctx": {
+       "mid": 52.9405,
+       "spr": 1.322,
+       "cb": 52.8725,
+       "gap": -0.186,
+       "z": -0.172,
+       "fc": -0.067,
+       "m1": -0.189,
+       "sig": 0.786,
+       "bb": 0.0,
+       "sb": 16.425
+      }
+     }
+    },
+    "fills": {
+     "rows": 1521,
+     "rows_cut": 1521,
+     "different": 28,
+     "first_difference": {
+      "t": 1793990143577,
+      "blk": 1793990143039,
+      "s": "guard@z=0.05/w=1/win=1/net=2000/stop=30",
+      "c": "DOGE",
+      "kind": "maker",
+      "side": -1,
+      "px": 0.073113,
+      "qty": 3432.88705802,
+      "fee": 0.037648,
+      "pos": -3432.88705802,
+      "placed": 1793990142489,
+      "live": 1793990142689,
+      "q0": 0.0,
+      "ahead": 0.0,
+      "through": true,
+      "mid0": 0.0731135,
+      "ctx": {
+       "mid": 0.0731115,
+       "spr": 0.684,
+       "cb": 0.07305,
+       "gap": -0.529,
+       "z": -0.63,
+       "fc": -0.28,
+       "m1": -0.277,
+       "sig": 0.684,
+       "bb": 0.0,
+       "sb": 0.0
+      }
+     }
+    },
+    "taker": {
+     "rows": 4,
+     "rows_cut": 4,
+     "different": 0,
+     "first_difference": null
+    }
+   },
+   "signals": {
+    "rows": 157938,
+    "rows_cut": 157938,
+    "different": 2695
+   },
+   "identical": false
+  },
+  {
+   "cut_ms": 1793991991004,
+   "share": 0.67,
+   "compared_before_ms": 1793991990004,
+   "streams": {
+    "decisions": {
+     "rows": 38243,
+     "rows_cut": 38243,
+     "different": 127,
+     "first_difference": {
+      "t": 1793991933765,
+      "s": "guard@z=0.05/w=1/win=1/net=2000/stop=30",
+      "c": "BTC",
+      "want": "none",
+      "sides": "none",
+      "why": "gap z -0.24 < -0.05: bid pulled; net -$2,006: no asks",
+      "pos": 0.00113887,
+      "pos_usd": 86.28,
+      "ctx": {
+       "mid": 75762.5,
+       "spr": 0.132,
+       "cb": 75651.775,
+       "gap": -0.206,
+       "z": -0.237,
+       "fc": -0.124,
+       "m1": -0.077,
+       "sig": 0.442,
+       "bb": 3.966,
+       "sb": 0.446
+      }
+     }
+    },
+    "fills": {
+     "rows": 2857,
+     "rows_cut": 2857,
+     "different": 15,
+     "first_difference": {
+      "t": 1793991933710,
+      "blk": 1793991933399,
+      "s": "touch",
+      "c": "BTC",
+      "kind": "maker",
+      "side": -1,
+      "px": 75755.0,
+      "qty": 0.00134,
+      "fee": 0.015227,
+      "pos": -0.00373,
+      "placed": 1793991933063,
+      "live": 1793991933263,
+      "q0": 0.00134,
+      "ahead": 0.0,
+      "through": false,
+      "mid0": 75754.5,
+      "ctx": {
+       "mid": 75754.5,
+       "spr": 0.132,
+       "cb": 75653.17499999999,
+       "gap": 1.037,
+       "z": 1.197,
+       "fc": 0.624,
+       "m1": 0.2,
+       "sig": 0.441,
+       "bb": 0.578,
+       "sb": 0.633
+      }
+     }
+    },
+    "taker": {
+     "rows": 5,
+     "rows_cut": 5,
+     "different": 0,
+     "first_difference": null
+    }
+   },
+   "signals": {
+    "rows": 320883,
+    "rows_cut": 320883,
+    "different": 1315
+   },
+   "identical": false
+  }
+ ],
+ "identical": false
+}

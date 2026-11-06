@@ -29,10 +29,10 @@ import pyarrow.parquet as pq
 from marketimmune.logger import init_logger
 from marketimmune.paper.events import Depth, Event, RefTop, Top, Trade
 from marketimmune.paper.journal import SIDES, SIGNAL_MS, Journal, context, num
-from marketimmune.paper.mm import MarketMaking, Portfolio, entry_after, info, is_mm, parse, sweep
+from marketimmune.paper.mm import MarketMaking, Portfolio, entry_after, info, is_mm, sweep
 from marketimmune.paper.orders import Account, PaperOrder
 from marketimmune.paper.signals import CoinState, Wallets
-from marketimmune.paper.strategies import LIVE_STRATEGIES, Quoter, quoter, taker_threshold
+from marketimmune.paper.strategies import LIVE_STRATEGIES, Guard, Quoter, quoter, taker_threshold
 
 logger = init_logger(__name__)
 BPS = 1e4
@@ -205,6 +205,13 @@ class Maker:
         self.orders = [o for o in self.orders if o.qty > 0 and o.t_cancel > ev.t_ms]
 
 
+def risky(name: str) -> MarketMaking | Guard:
+    """The quoter of a strategy ``MarketMaker`` runs (``paper.mm.is_mm``)."""
+    q = quoter(name)
+    assert isinstance(q, (MarketMaking, Guard)), name
+    return q
+
+
 class MarketMaker(Maker):
     """``mm@...`` in one coin (``paper.mm``): quotes from ``MarketMaking.targets``, live orders kept
     within a tolerance, and the exits a taker order closes (stop, hold, kill switch)."""
@@ -212,7 +219,7 @@ class MarketMaker(Maker):
     def __init__(
         self,
         name: str,
-        quoter: MarketMaking,
+        quoter: MarketMaking | Guard,
         qty: float,
         max_position: float,
         latency_ms: int,
@@ -251,6 +258,8 @@ class MarketMaker(Maker):
         self.absorbed = len(log)
 
     def keep(self, coin: CoinState, side: int, live_px: float, px: float) -> bool:
+        if self.params.tol <= 0:
+            return live_px == px
         tick = coin.tick or 0.0
         top = coin.top
         tol = max(tick, self.params.tol * self.mm.half_spread(coin) / BPS * (top.mid if top else live_px))
@@ -506,7 +515,7 @@ class Engine:
         self.started_ms: int | None = None
         self.last_ms = 0
         self.seen: dict[str, int] = {}  # venue -> last receive ms of any of its events
-        self.portfolios: dict[str, Portfolio] = {s: Portfolio(parse(s.partition("@")[2]), self.seen) for s in strategies if is_mm(s)}
+        self.portfolios: dict[str, Portfolio] = {s: Portfolio(risky(s).p, self.seen) for s in strategies if is_mm(s)}
 
     def instances(self) -> list[tuple[str, Maker | Taker]]:
         out: list[tuple[str, Maker | Taker]] = []
@@ -520,7 +529,7 @@ class Engine:
         self.makers[coin] = [
             MarketMaker(
                 n,
-                MarketMaking(self.portfolios[n].p),
+                risky(n),
                 qty,
                 self.max_quotes * qty,
                 self.latency_ms,

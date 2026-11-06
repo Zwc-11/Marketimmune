@@ -1,0 +1,17 @@
+check,cut,what,compared,different
+Clock corrected from earlier timestamps (used),33%,decisions,20389,0
+Clock corrected from earlier timestamps (used),33%,fills,1526,0
+Clock corrected from earlier timestamps (used),33%,taker,4,0
+Clock corrected from earlier timestamps (used),33%,signals,157938,0
+Clock corrected from earlier timestamps (used),67%,decisions,38006,0
+Clock corrected from earlier timestamps (used),67%,fills,2868,0
+Clock corrected from earlier timestamps (used),67%,taker,6,0
+Clock corrected from earlier timestamps (used),67%,signals,320883,0
+Clock interpolated from the next 30 s,33%,decisions,20483,472
+Clock interpolated from the next 30 s,33%,fills,1521,28
+Clock interpolated from the next 30 s,33%,taker,4,0
+Clock interpolated from the next 30 s,33%,signals,157938,2695
+Clock interpolated from the next 30 s,67%,decisions,38243,127
+Clock interpolated from the next 30 s,67%,fills,2857,15
+Clock interpolated from the next 30 s,67%,taker,5,0
+Clock interpolated from the next 30 s,67%,signals,320883,1315

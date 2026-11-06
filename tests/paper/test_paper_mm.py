@@ -133,3 +133,42 @@ def test_engine_summary_records_the_parameters() -> None:
     settings = e.summary()["settings"]["mm"]["mm@h=2/net=1000"]
     assert settings["h"] == 2.0 and settings["net"] == 1000.0 and settings["skew_bps"] == 2.0
     assert math.isinf(e.room("mm@h=2/net=1000", "BCH"))
+
+
+def test_wallet_factor_weights_each_takers_score() -> None:
+    c = _coin()
+    c.flow.extend([(100, 2_000.0, 2_000.0, 3.0), (200, -1_000.0, 1_000.0, -1.0), (900, 1_000.0, 1_000.0, 0.0)])
+    assert c.informed(1_000) == pytest.approx((2_000 * 3.0 + 1_000 * 1.0) / 4_000)  # a seller whose sells lost: +1
+    assert c.informed(1_000, 500) == 0.0  # only the score-0 buyer in the last 0.5 s
+    assert c.informed(10_000) == 0.0
+
+
+def test_guard_pulls_on_the_gap_and_on_informed_wallets() -> None:
+    from marketimmune.paper.strategies import Guard, GuardParams, parse_guard
+
+    assert parse_guard("") == GuardParams() and parse_guard("z=0.1/w=1/net=2000").w == 1.0
+    with pytest.raises(AssertionError, match="unknown guard parameter"):
+        parse_guard("h=1")
+    c = _coin()
+    c.gap_var = 1.0
+    c.flow.append((0, 1_000.0, 1_000.0, 2.0))  # an informed buyer: wallet factor +2 bps
+    c.informed_var = {1_000: 1.0, 5_000: 1.0}  # wallet z +2 over either window
+    g = Guard(parse_guard("z=0.5/w=1"))
+    assert g.targets(c, 0, 0.0, 4.0, 0.0) == (270.01, None)  # gap z 0: both sides; wallets z +2: no ask
+    assert "wallets z +2.00: ask pulled" in g.why
+    assert Guard(parse_guard("z=0.5")).targets(c, 0, 0.0, 4.0, 0.0) == (270.01, 270.09)  # wallet factor off
+    c.ref = RefTop("BCH", 0, 270.05 * math.exp(-1e-4), 270.05 * math.exp(-1e-4))  # Coinbase 1 bp lower: gap z -1
+    assert Guard(parse_guard("z=0.5")).targets(c, 0, 0.0, 4.0, 0.0) == (None, 270.09)
+    lean = Guard(parse_guard("z=5/lean=0.5/net=1000"))
+    assert lean.targets(c, 0, 2.0, 4.0, 0.0) == (None, 270.09)  # half the limit long: only sell
+    assert lean.targets(c, 0, 0.0, 4.0, -1_500.0) == (270.01, None)  # net short past $1,000: only buy
+    assert "net -$1,500: no asks" in lean.why
+
+
+def test_guard_runs_with_the_risk_layer() -> None:
+    e, m = _engine("guard@z=0.05/stop=10/net=1000")
+    assert m.current[1] is not None and m.current[1].px == 270.01  # one tick inside the 10-tick spread
+    assert e.summary()["settings"]["mm"]["guard@z=0.05/stop=10/net=1000"]["net"] == 1000.0
+    e.handle(Trade("BCH", 1_150, 270.0, 5.0, False, "0xa"), 1_160)  # through the bid: long
+    e.handle(Top("BCH", 1_200, 269.6, 1.0, 269.7, 1.0), 1_240)  # 13 bps against it
+    assert m.pending is not None and m.pending[2] == "stop"
