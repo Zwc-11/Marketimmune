@@ -496,6 +496,192 @@ class Optimal:
         return bid, ask
 
 
+@dataclass(frozen=True, slots=True)
+class LeadParams:
+    """The lead-lag quoters' settings (``disloc@``, ``lead@``, ``sweep@``) and the shared risk layer.
+
+    ``d``: entry distance from the Coinbase fair price, bps. ``x``: exit distance past fair, bps
+    (0: exit at fair). ``h0``, ``a``, ``skew``: ``lead@``'s half-width h = h0 + a * sigma_1s (bps)
+    and its centre fair * (1 - skew * h * units / 1e4). ``move``, ``win``, ``wait``: ``sweep@``
+    arms after Hyperliquid moved ``move`` bps in ``win`` s while the gap opened by half of that, for
+    ``wait`` s."""
+
+    d: float = 3.0
+    x: float = 0.0
+    h0: float = 2.0
+    a: float = 0.0
+    skew: float = 0.5
+    move: float = 4.0
+    win: float = 3.0
+    wait: float = 5.0
+    lean: float = 1.0
+    net: float = 0.0
+    stop: float = 0.0
+    hold: float = 0.0
+    dd: float = 0.0
+    pause: float = 600.0
+    cool: float = 60.0
+    stale: float = 3.0
+    tol: float = 0.0
+
+
+LEAD_KEYS = tuple(f.name for f in fields(LeadParams))
+
+
+def parse_lead(arg: str) -> LeadParams:
+    values: dict[str, float] = {}
+    for part in arg.split("/") if arg else ():
+        key, _, value = part.partition("=")
+        if key not in LEAD_KEYS:
+            raise AssertionError(f"unknown lead-lag parameter {key!r} (one of {', '.join(LEAD_KEYS)})")
+        values[key] = float(value)
+    return LeadParams(**values)
+
+
+def fair_price(coin: CoinState) -> float | None:
+    """Coinbase's mid carried to Hyperliquid's basis: Hyperliquid's mid moved by the demeaned gap."""
+    gap, top = coin.gap(), coin.top
+    if gap is None or top is None:
+        return None
+    return top.mid * math.exp(gap / BPS)
+
+
+def _down(px: float, tick: float | None) -> float:
+    return math.floor(px / tick + 1e-9) * tick if tick else px
+
+
+def _up(px: float, tick: float | None) -> float:
+    return math.ceil(px / tick - 1e-9) * tick if tick else px
+
+
+class LeadLag:
+    """Base of the lead-lag quoters: quotes are prices around the Coinbase fair price, always
+    passive (a bid at most the best bid, an ask at least the best ask), with ``Guard``'s net cap."""
+
+    kind = "lead"
+
+    def __init__(self, params: LeadParams) -> None:
+        self.p = params
+        self.why = "not started"
+        self.qty = 0.0  # quote size in coins (set by engine.MarketMaker)
+
+    def half_spread(self, coin: CoinState) -> float:
+        return self.p.d
+
+    def quotes(self, coin: CoinState, local_ms: int, position: float, max_position: float) -> Quotes:
+        return self.targets(coin, local_ms, position, max_position, 0.0)
+
+    def reason(self, coin: CoinState, local_ms: int) -> str:
+        return self.why
+
+    def raw(self, coin: CoinState, fair: float, local_ms: int, position: float, max_position: float) -> Quotes:
+        raise NotImplementedError
+
+    def targets(self, coin: CoinState, local_ms: int, position: float, max_position: float, net_usd: float) -> Quotes:
+        fair, top, tick = fair_price(coin), coin.top, coin.tick
+        if fair is None or top is None:
+            self.why = "no Coinbase fair price yet: no quotes"
+            return None, None
+        bid, ask = self.raw(coin, fair, local_ms, position, max_position)
+        if bid is not None:
+            bid = min(_down(bid, tick), top.bid)
+        if ask is not None:
+            ask = max(_up(ask, tick), top.ask)
+        if self.p.net > 0:
+            if net_usd >= self.p.net:
+                bid = None
+            if net_usd <= -self.p.net:
+                ask = None
+        return bid, ask
+
+
+class Dislocation(LeadLag):
+    """``disloc@d=<bps>/x=<bps>/...``: rests a bid ``d`` bps under the Coinbase fair price and an ask
+    ``d`` over it, so it is filled when Hyperliquid alone moves away from Coinbase; with a position it
+    rests the exit ``x`` bps past fair on the other side (at the touch when that is better)."""
+
+    kind = "disloc"
+
+    def raw(self, coin: CoinState, fair: float, local_ms: int, position: float, max_position: float) -> Quotes:
+        p, units = self.p, (position / self.qty if self.qty else 0.0)
+        bid = fair * (1 - p.d / BPS) if position < max_position - 1e-9 * max(self.qty, 1e-12) else None
+        ask = fair * (1 + p.d / BPS) if position > -max_position + 1e-9 * max(self.qty, 1e-12) else None
+        if units > 1e-6:
+            ask = fair * (1 + p.x / BPS)
+        elif units < -1e-6:
+            bid = fair * (1 - p.x / BPS)
+        self.why = (
+            f"fair {fair:.6g}; {units:+.1f} quotes: bid {'-' if bid is None else f'{bid:.6g}'}, ask {'-' if ask is None else f'{ask:.6g}'}"
+        )
+        return bid, ask
+
+
+class LeadAS(LeadLag):
+    """``lead@h0=<bps>/a=<x>/skew=<x>/...``: Avellaneda-Stoikov around the Coinbase fair price. Half-width
+    h = h0 + a * sigma_1s; centre fair * (1 - skew * h * units / 1e4), skewed against the inventory."""
+
+    kind = "lead"
+
+    def half_spread(self, coin: CoinState) -> float:
+        return self.p.h0 + self.p.a * (coin.sigma_1s or 0.0)
+
+    def raw(self, coin: CoinState, fair: float, local_ms: int, position: float, max_position: float) -> Quotes:
+        p = self.p
+        units = position / self.qty if self.qty else 0.0
+        h = self.half_spread(coin)
+        r = fair * (1 - p.skew * h * units / BPS)
+        bid = r * (1 - h / BPS) if position < max_position - 1e-9 * max(self.qty, 1e-12) else None
+        ask = r * (1 + h / BPS) if position > -max_position + 1e-9 * max(self.qty, 1e-12) else None
+        self.why = f"fair {fair:.6g}, half-width {h:.2f} bp, {units:+.1f} quotes"
+        return bid, ask
+
+
+class Sweep(LeadLag):
+    """``sweep@move=<bps>/win=<s>/wait=<s>/x=<bps>/...``: after Hyperliquid alone moved ``move`` bps
+    in ``win`` s (the gap to Coinbase opened by at least half of that), join the touch on the side
+    that profits from the move coming back, for ``wait`` s; with a position, exit like ``disloc@``."""
+
+    kind = "sweep"
+
+    def __init__(self, params: LeadParams) -> None:
+        super().__init__(params)
+        self.armed = 0
+        self.until = 0
+        self.hist: list[tuple[int, float, float]] = []  # (ms, mid, gap)
+
+    def raw(self, coin: CoinState, fair: float, local_ms: int, position: float, max_position: float) -> Quotes:
+        p, top, gap = self.p, coin.top, coin.gap()
+        assert top is not None and gap is not None
+        self.hist.append((local_ms, top.mid, gap))
+        horizon = local_ms - int(p.win * 1_000)
+        while len(self.hist) > 1 and self.hist[1][0] <= horizon:
+            self.hist.pop(0)
+        units = position / self.qty if self.qty else 0.0
+        if units > 1e-6:
+            self.why = "long: exit at fair"
+            return None, fair * (1 + p.x / BPS)
+        if units < -1e-6:
+            self.why = "short: exit at fair"
+            return fair * (1 - p.x / BPS), None
+        t0, m0, g0 = self.hist[0]
+        if t0 <= horizon:
+            move = (top.mid / m0 - 1) * BPS
+            if move <= -p.move and gap - g0 >= p.move / 2:
+                self.armed, self.until = 1, local_ms + int(p.wait * 1_000)
+            elif move >= p.move and gap - g0 <= -p.move / 2:
+                self.armed, self.until = -1, local_ms + int(p.wait * 1_000)
+        if local_ms > self.until:
+            self.armed = 0
+        if self.armed == 1:
+            self.why = "Hyperliquid fell alone: bid at the touch"
+            return top.bid, None
+        if self.armed == -1:
+            self.why = "Hyperliquid rose alone: ask at the touch"
+            return None, top.ask
+        self.why = "no one-venue move: no quotes"
+        return None, None
+
+
 LIVE_STRATEGIES = (
     "touch",
     "gap@1",
@@ -517,7 +703,8 @@ ADVANCED_STRATEGIES = ("zgap@0.25", "zgap@0.5", "hawkes@2", "hawkes@3", "kelly@0
 def quoter(name: str) -> Quoter:
     """A maker strategy from its name: ``touch``, ``gap@<bps>``, ``model@<bps>``, ``improve``,
     ``improve+gap@<bps>``, ``zgap@<z>``, ``hawkes@<ratio>``, ``kelly@<z>``, ``reservation@<skew bps>``,
-    ``mm@...`` (``paper.mm``), ``guard@...``, ``immune@...`` or ``optimal@phi=<phi>``."""
+    ``mm@...`` (``paper.mm``), ``guard@...``, ``immune@...``, ``optimal@phi=<phi>``, or the lead-lag
+    quoters ``disloc@...``, ``lead@...`` and ``sweep@...``."""
     kind, _, arg = name.partition("@")
     if kind == "mm":
         return MarketMaking(parse(arg))
@@ -527,6 +714,12 @@ def quoter(name: str) -> Quoter:
         return Immune(parse_immune(arg))
     if kind == "optimal":
         return Optimal(parse_optimal(arg))
+    if kind == "disloc":
+        return Dislocation(parse_lead(arg))
+    if kind == "lead":
+        return LeadAS(parse_lead(arg))
+    if kind == "sweep":
+        return Sweep(parse_lead(arg))
     if name == "touch":
         return Touch()
     if name == "improve":

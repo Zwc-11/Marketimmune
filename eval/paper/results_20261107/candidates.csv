@@ -1,0 +1,6 @@
+rank,candidate,uses,test,unit,value,low,high,vs_gap,vs_gap_low,vs_gap_high,verdict
+1,Funding carry,Funding paid to shorts; Hyperliquid spot as the hedge,60 days of funding,pct,7.42,5.392,9.466,,,,Interval above zero
+2,Transformer toxicity model,"Last two minutes of one-second bars (Coinbase lead, flow, spread) plus the ridge signals","Fresh hours, touch fills",usd,-0.336,-0.725,0.073,,,,Not shown
+3,Range swing maker,"Reversion inside the hour, quoted far from the average",Fresh hours,usd,-0.378,-2.577,1.699,,,,Not shown
+4,Fill-toxicity quoter,"Ridge markout model on the Coinbase lead, wallets and book","Fresh hours, full replay",usd,-1.33,-4.48,1.72,3.5,0.56,6.56,Not shown
+5,Cross-coin pairs,"Coins against BTC, reversion at thirty to sixty minutes",Selection hours only,usd,-0.42,,,,,,Eliminated in selection

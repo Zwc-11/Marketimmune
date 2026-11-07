@@ -1,0 +1,8 @@
+candidate,uses,setting,selection_usd_per_hour,selection_low,selection_high,test_usd_per_hour,test_low,test_high,note,rank,verdict
+Transformer win-probability gate,120 s of Coinbase and Hyperliquid bars,"gate on zgap@0.05, p >= 0.6",-0.275,-0.531,-0.051,-0.027,-0.162,0.106,AUC 0.65; kept 8 of 366 fills at -0.41 bp after the fee,1,loses
+Sweep catcher,"Coinbase fair price, Hyperliquid-only moves",sweep@move=5/win=3/wait=5/hold=60/stop=20,-3.9,-5.96,-2.08,-0.39,-0.56,-0.16,"vs the gap quoter +4.03 [+1.88, +6.36], better in 10/13 blocks",2,loses
+Lead-lag Avellaneda-Stoikov,"Coinbase fair price, inventory skew",lead@h0=2/skew=0.5/tol=0.3,-4.81,-8.52,-1.88,-1.17,-2.08,-0.08,"vs the gap quoter +3.31 [+1.32, +5.28], better in 9/13 blocks; over the order-rate limit on the test hours",3,loses
+Gap quoter on a zero-fee venue,Coinbase lead; Lighter-like fees and latency,"zgap@0.05 at 0 bp, 400 ms",0.97,-1.8,3.88,-0.27,-2.36,1.8,"a replay of Hyperliquid, not Lighter itself",4,loses
+Lead-lag dislocation maker,Coinbase fair price,disloc@d=3/x=1/tol=0.3/hold=120/stop=20,-4.52,-6.16,-2.84,-2.06,-3.0,-0.96,"vs the gap quoter +2.49 [+0.56, +4.44], better in 9/13 blocks",5,loses
+Long-tail spread maker,24 perps with spreads over two fees,tail@spread=4/n=1/flow=10,-14.144,,,-22.253,-33.93,-9.024,"fills earn 2.2 bp of spread, mid 60 s later -1.7 bp from the fill price; interval is for the 60 s markout",6,loses
+"Gap quoter (running live, baseline)",Coinbase lead,zgap@0.05,-3.54,-7.16,0.08,-4.76,-6.72,-2.24,the baseline,-,baseline
