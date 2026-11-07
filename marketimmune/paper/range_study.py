@@ -146,10 +146,12 @@ def _inputs(s: pd.Series, halflife_min: float) -> tuple[npt.NDArray[np.int64], F
     return t, x, centre, np.sqrt(var)
 
 
-def band_maker(s: pd.Series, coin: str, p: Band) -> pd.DataFrame:
-    """Round trips of the band maker on one coin's 1-second mids (decisions at i use data to i-1)."""
+def band_maker(s: pd.Series, coin: str, p: Band, half_rel: float | None = None) -> pd.DataFrame:
+    """Round trips of the band maker on one coin's 1-second mids (decisions at i use data to i-1).
+    ``half_rel``: half a tick as a fraction of the price (for a synthetic pair price), instead of
+    the coin's tick."""
     t, x, c, sig = _inputs(s, p.centre_halflife_min)
-    half = TICK[coin] / 2
+    half = TICK[coin] / 2 if half_rel is None else float(half_rel * np.nanmedian(x))
     trades: list[tuple[int, int, int, float, float, str]] = []
     pos, entry, t_in, band_in = 0, np.nan, 0, np.nan
     for i in range(1, len(x)):
@@ -211,3 +213,12 @@ def run_all(series: dict[str, pd.Series], p: Band, from_ms: int | None = None) -
     if from_ms is not None and len(df):
         df = df[df["t_in"] >= from_ms]
     return df
+
+
+def pair_series(coin: pd.Series, hedge: pd.Series, beta: float) -> pd.Series:
+    """The price of $1 of the coin hedged with ``beta`` dollars of the other coin, as a level near
+    the coin's price: exp(log coin - beta * (log hedge - log hedge at its first value))."""
+    both = pd.concat([coin, hedge], axis=1, join="inner")
+    lc, lh = np.log(both.iloc[:, 0]), np.log(both.iloc[:, 1])
+    h0 = lh.dropna().iloc[0]
+    return pd.Series(np.exp(lc - beta * (lh - h0)).to_numpy(), index=both.index)
