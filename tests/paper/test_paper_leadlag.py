@@ -55,3 +55,26 @@ def test_tail_maker_fills_through_the_queue() -> None:
     ev += [(2_000, 0, (1.000, 100.0, 1.001, 100.0)), (3_000, 1, (1.001, 300.0, 1))]
     r = run(ev, Tail(min_spread=3, n_max=1, quote_usd=10.0, latency_ms=100), start_ms=0, end_ms=10_000)
     assert r["fills"] >= 1 and r["fills_table"]["side"].iloc[0] == 1
+
+
+def test_hush_quotes_deep_only_while_informed_wallets_are_quiet() -> None:
+    from marketimmune.paper.events import Trade
+    from marketimmune.paper.signals import CoinState, Wallets
+    from marketimmune.paper.strategies import Hush, parse_hush
+
+    wallets = Wallets()
+    for _ in range(10):
+        wallets.add("0xsharp", 3.0)  # scores 30 / (10 + 20) = 1.0 bp
+        wallets.add("0xretail", -1.0)
+    coin = CoinState("BTC", wallets, sz_decimals=5)
+    coin.on_top(SimpleNamespace(t_ms=0, bid=100_000.0, ask=100_001.0, mid=100_000.5), 0)  # type: ignore[arg-type]
+    q = Hush(parse_hush("d=1/quiet=5/inf=0.9/n=5"))
+    q.qty = 0.01
+    bid, ask = q.targets(coin, 1_000, 0.0, 0.04, 0.0)
+    assert bid == 99_990.0 and ask == 100_011.0  # 1 bp either side of the mid, on the tick grid
+    coin.on_trade(Trade("BTC", 2_000, 100_001.0, 0.1, True, "0xretail"), 2_000)
+    assert q.targets(coin, 2_500, 0.0, 0.04, 0.0)[0] is not None  # a low-score wallet does not pull
+    coin.on_trade(Trade("BTC", 3_000, 100_001.0, 0.1, True, "0xsharp"), 3_000)
+    assert q.targets(coin, 4_000, 0.0, 0.04, 0.0) == (None, None)  # 1 s after an informed take: out
+    assert coin.informed_quiet_ms(9_000, 0.9, 5) == 6_000.0
+    assert q.targets(coin, 9_000, 0.0, 0.04, 0.0)[0] is not None  # quiet again after 5 s

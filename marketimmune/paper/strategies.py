@@ -682,6 +682,103 @@ class Sweep(LeadLag):
         return None, None
 
 
+@dataclass(frozen=True, slots=True)
+class HushParams:
+    """``hush@``: the quiet-depth maker's settings and the shared risk layer.
+
+    ``d``: entry quotes this many bps from Hyperliquid's mid. ``x``: the side that reduces a position
+    quotes this many bps from the mid (default: as deep as ``d``). ``quiet``: seconds since the last
+    take on the coin by a wallet scoring at least ``inf`` bps with ``n`` scored takes (A1's wallet
+    score), below which nothing is quoted. ``z``: also pull the side the Coinbase gap says is at risk
+    (``guard@``'s rule; 0 turns it off)."""
+
+    d: float = 1.0
+    x: float = -1.0
+    quiet: float = 5.0
+    inf: float = 1.3
+    n: float = 5.0
+    z: float = 0.0
+    lean: float = 1.0
+    net: float = 0.0
+    stop: float = 0.0
+    hold: float = 0.0
+    dd: float = 0.0
+    pause: float = 600.0
+    cool: float = 60.0
+    stale: float = 3.0
+    tol: float = 0.0
+
+
+def parse_hush(arg: str) -> HushParams:
+    values: dict[str, float] = {}
+    keys = tuple(f.name for f in fields(HushParams))
+    for part in arg.split("/") if arg else ():
+        key, _, value = part.partition("=")
+        if key not in keys:
+            raise AssertionError(f"unknown hush parameter {key!r} (one of {', '.join(keys)})")
+        values[key] = float(value)
+    return HushParams(**values)
+
+
+class Hush:
+    """``hush@d=<bps>/quiet=<s>/inf=<bps>/...``: the quiet-depth maker.
+
+    It rests a bid and an ask ``d`` bps from Hyperliquid's mid, and only while the coin's informed
+    wallets (A1's wallet score at least ``inf``) have not taken for ``quiet`` seconds. Otherwise it
+    quotes nothing, on either side.
+
+    From the 2026-11-07 check on 39.5 recorded hours: fills at least 1 bp from the mid earned +1.5 bp
+    at 30 s when no such wallet had traded the coin for 5 s or more, and lost 0.35-1.6 bp when one
+    had within the second. That edge is the size of the fee."""
+
+    kind = "hush"
+
+    def __init__(self, params: HushParams) -> None:
+        self.p = params
+        self.why = "not started"
+        self.qty = 0.0
+
+    def half_spread(self, coin: CoinState) -> float:
+        return self.p.d
+
+    def quotes(self, coin: CoinState, local_ms: int, position: float, max_position: float) -> Quotes:
+        return self.targets(coin, local_ms, position, max_position, 0.0)
+
+    def reason(self, coin: CoinState, local_ms: int) -> str:
+        return self.why
+
+    def targets(self, coin: CoinState, local_ms: int, position: float, max_position: float, net_usd: float) -> Quotes:
+        p, top, tick = self.p, coin.top, coin.tick
+        if top is None:
+            self.why = "no book yet: no quotes"
+            return None, None
+        quiet_ms = coin.informed_quiet_ms(local_ms, p.inf, int(p.n))
+        if quiet_ms < p.quiet * 1_000:
+            self.why = f"an informed wallet took {quiet_ms / 1_000:.1f} s ago (< {p.quiet:g} s): no quotes"
+            return None, None
+        eps = 1e-9 * max(self.qty, 1e-12)
+        units = position / self.qty if self.qty else 0.0
+        x = p.d if p.x < 0 else p.x
+        bid_bps = x if units < -1e-6 else p.d
+        ask_bps = x if units > 1e-6 else p.d
+        bid = min(_down(top.mid * (1 - bid_bps / BPS), tick), top.bid) if position < max_position - eps else None
+        ask = max(_up(top.mid * (1 + ask_bps / BPS), tick), top.ask) if position > -max_position + eps else None
+        notes = [f"quiet {quiet_ms / 1_000:.0f} s: bid {bid_bps:g} bp, ask {ask_bps:g} bp from the mid"]
+        if p.z > 0:
+            gz = signal_z(coin.gap(), coin.gap_sigma)
+            before = (bid, ask)
+            bid, ask = pull((bid, ask), gz, p.z)
+            if (bid, ask) != before:
+                notes.append(said(gz, p.z, "gap z"))
+        if p.net > 0:
+            if net_usd >= p.net:
+                bid = None
+            if net_usd <= -p.net:
+                ask = None
+        self.why = "; ".join(notes)
+        return bid, ask
+
+
 LIVE_STRATEGIES = (
     "touch",
     "gap@1",
@@ -704,7 +801,7 @@ def quoter(name: str) -> Quoter:
     """A maker strategy from its name: ``touch``, ``gap@<bps>``, ``model@<bps>``, ``improve``,
     ``improve+gap@<bps>``, ``zgap@<z>``, ``hawkes@<ratio>``, ``kelly@<z>``, ``reservation@<skew bps>``,
     ``mm@...`` (``paper.mm``), ``guard@...``, ``immune@...``, ``optimal@phi=<phi>``, or the lead-lag
-    quoters ``disloc@...``, ``lead@...`` and ``sweep@...``."""
+    quoters ``disloc@...``, ``lead@...`` and ``sweep@...``, or the quiet-depth maker ``hush@...``."""
     kind, _, arg = name.partition("@")
     if kind == "mm":
         return MarketMaking(parse(arg))
@@ -720,6 +817,8 @@ def quoter(name: str) -> Quoter:
         return LeadAS(parse_lead(arg))
     if kind == "sweep":
         return Sweep(parse_lead(arg))
+    if kind == "hush":
+        return Hush(parse_hush(arg))
     if name == "touch":
         return Touch()
     if name == "improve":

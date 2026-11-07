@@ -90,7 +90,7 @@ def parse(arg: str) -> MMParams:
 
 def is_mm(name: str) -> bool:
     """Strategies run by ``engine.MarketMaker`` (position tracking and the risk layer)."""
-    return name.partition("@")[0] in ("mm", "guard", "immune", "optimal", "disloc", "lead", "sweep")
+    return name.partition("@")[0] in ("mm", "guard", "immune", "optimal", "disloc", "lead", "sweep", "hush")
 
 
 def clip1(x: float) -> float:

@@ -58,6 +58,7 @@ BASIS_HALF_LIFE_MS = 300_000
 WALLET_HORIZON_MS = 10_000
 WALLET_PRIOR = 20.0
 FLOW_MS = 5_000
+TAKES_MS = 300_000  # how far back ``informed_quiet_ms`` looks
 WARMUP_ROWS = 12_000  # 20 min of 100 ms rows
 REFIT_MS = 600_000
 MAX_ROWS = 108_000  # 3 h
@@ -170,6 +171,9 @@ class CoinState:
         self.exch = Series(120_000)  # block ms -> Hyperliquid mid
         self.ref_view = Series(120_000)  # local ms -> Coinbase mid
         self.flow: deque[tuple[int, float, float, float]] = deque()  # local ms, signed notional, notional, taker score
+        self.takes: deque[tuple[int, int, float, float, int]] = deque()  # local ms, side, notional, taker score, its scored takes
+        self.takes_n = 0  # takes ever appended
+        self._informed_last: dict[tuple[float, int], tuple[int, int | None]] = {}
         self.pending: deque[tuple[int, str, int, float]] = deque()  # due block ms, taker, +1 buy / -1 sell, mid
         self.basis: float | None = None
         self.basis_ms = 0
@@ -211,6 +215,10 @@ class CoinState:
         self.hawkes[side] = (self.intensity(side, local_ms) + 1.0, local_ms)
         notional = ev.px * ev.sz
         self.flow.append((local_ms, notional if ev.taker_buy else -notional, notional, self.wallets.score(ev.taker)))
+        self.takes.append((local_ms, side, notional, self.wallets.score(ev.taker), self.wallets.count.get(ev.taker, 0)))
+        self.takes_n += 1
+        while self.takes and self.takes[0][0] < local_ms - TAKES_MS:
+            self.takes.popleft()
         mid = self.exch.at(ev.t_ms)
         if mid is not None:
             self.pending.append((ev.t_ms + WALLET_HORIZON_MS, ev.taker, 1 if ev.taker_buy else -1, mid))
@@ -258,6 +266,22 @@ class CoinState:
                 num += signed * score
                 den += notional
         return num / den if den else 0.0
+
+    def informed_quiet_ms(self, local_ms: int, threshold: float, min_count: int) -> float:
+        """Milliseconds since the last taker on this coin whose wallet score was at least ``threshold``
+        bps with at least ``min_count`` scored takes (A1's wallet score); ``TAKES_MS`` if none in that
+        window. Incremental: each query reads only the takes added since the last query with that key."""
+        key = (threshold, min_count)
+        seen, last = self._informed_last.get(key, (0, None))
+        new = min(self.takes_n - seen, len(self.takes))
+        for i in range(len(self.takes) - new, len(self.takes)):
+            t, _, _, score, count = self.takes[i]
+            if score >= threshold and count >= min_count and (last is None or t > last):
+                last = t
+        self._informed_last[key] = (self.takes_n, last)
+        if last is None or last > local_ms or local_ms - last >= TAKES_MS:
+            return float(TAKES_MS) if last is None or last <= local_ms else 0.0
+        return float(local_ms - last)
 
     @property
     def forecast_slope(self) -> float:
