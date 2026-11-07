@@ -1,0 +1,252 @@
+{
+ "setting": "tail@spread=4/n=1/flow=10",
+ "hours": 1.0,
+ "fills": 317,
+ "notional": 63044.018725547605,
+ "usd_per_hour_marked": -22.25255325541181,
+ "usd_per_hour_flat": -23.548923786916337,
+ "spread_bps": 2.192954601300553,
+ "mk10_bps": -0.871590864275789,
+ "mk60_bps": -1.6925592293389715,
+ "usd_per_hour_mk60": -20.04002240958482,
+ "usd_per_hour_mk60_ci95": [
+  -33.930354550691014,
+  -9.023674949675753
+ ],
+ "by_coin": [
+  {
+   "coin": "ETHFI",
+   "fills": 6,
+   "notional": 1199.9966349793895,
+   "pnl_marked_usd": -0.6813875662488158,
+   "pnl_flat_usd": -0.6813875662488158,
+   "spread_bps": 3.9382812732667123,
+   "end_units": 0.0
+  },
+  {
+   "coin": "SPX",
+   "fills": 22,
+   "notional": 4382.363899813704,
+   "pnl_marked_usd": 0.03815359138897634,
+   "pnl_flat_usd": 0.03815359138897634,
+   "spread_bps": 3.110698863140799,
+   "end_units": 0.0
+  },
+  {
+   "coin": "ASTER",
+   "fills": 0,
+   "notional": 0.0,
+   "pnl_marked_usd": 0.0,
+   "pnl_flat_usd": 0.0,
+   "spread_bps": NaN,
+   "end_units": 0.0
+  },
+  {
+   "coin": "DASH",
+   "fills": 5,
+   "notional": 1003.1171638564634,
+   "pnl_marked_usd": -0.14614418504109494,
+   "pnl_flat_usd": -0.30063316039779564,
+   "spread_bps": 3.3612197637564734,
+   "end_units": 1.0
+  },
+  {
+   "coin": "CHIP",
+   "fills": 12,
+   "notional": 2388.321542674578,
+   "pnl_marked_usd": 1.5301588886353557,
+   "pnl_flat_usd": 1.5301588886353557,
+   "spread_bps": 1.4798202683962332,
+   "end_units": 0.0
+  },
+  {
+   "coin": "USELESS",
+   "fills": 13,
+   "notional": 2580.7588885569166,
+   "pnl_marked_usd": -1.9332745742455586,
+   "pnl_flat_usd": -2.0294566029279775,
+   "spread_bps": 2.404949920978155,
+   "end_units": 1.0
+  },
+  {
+   "coin": "kPEPE",
+   "fills": 6,
+   "notional": 1196.9986637886727,
+   "pnl_marked_usd": 0.31382053654022,
+   "pnl_flat_usd": 0.31382053654022,
+   "spread_bps": 1.5462593476478492,
+   "end_units": 0.0
+  },
+  {
+   "coin": "ICP",
+   "fills": 6,
+   "notional": 1196.4440054327697,
+   "pnl_marked_usd": 1.038790797217814,
+   "pnl_flat_usd": 1.038790797217814,
+   "spread_bps": 1.787584292978946,
+   "end_units": 0.0
+  },
+  {
+   "coin": "LIT",
+   "fills": 56,
+   "notional": 11190.398044159218,
+   "pnl_marked_usd": -2.980416227366362,
+   "pnl_flat_usd": -2.980416227366362,
+   "spread_bps": 1.4257911882452148,
+   "end_units": 0.0
+  },
+  {
+   "coin": "WLFI",
+   "fills": 0,
+   "notional": 0.0,
+   "pnl_marked_usd": 0.0,
+   "pnl_flat_usd": 0.0,
+   "spread_bps": NaN,
+   "end_units": 0.0
+  },
+  {
+   "coin": "ZRO",
+   "fills": 8,
+   "notional": 1589.620075190268,
+   "pnl_marked_usd": -0.6419029862150865,
+   "pnl_flat_usd": -0.6419029862150865,
+   "spread_bps": 1.5387072278578995,
+   "end_units": 0.0
+  },
+  {
+   "coin": "DOT",
+   "fills": 7,
+   "notional": 1385.7251929668125,
+   "pnl_marked_usd": -2.371316298381032,
+   "pnl_flat_usd": -2.526241647393172,
+   "spread_bps": 2.5683668901843597,
+   "end_units": -1.0
+  },
+  {
+   "coin": "PUMP",
+   "fills": 12,
+   "notional": 2386.281686322353,
+   "pnl_marked_usd": -0.19527450182999928,
+   "pnl_flat_usd": -0.19527450182999928,
+   "spread_bps": 1.5893399401328834,
+   "end_units": 0.0
+  },
+  {
+   "coin": "INJ",
+   "fills": 11,
+   "notional": 2193.5345274785636,
+   "pnl_marked_usd": -0.6768987214305184,
+   "pnl_flat_usd": -0.806646547252103,
+   "spread_bps": 2.3537539816116793,
+   "end_units": 1.0
+  },
+  {
+   "coin": "TIA",
+   "fills": 12,
+   "notional": 2380.8944933321236,
+   "pnl_marked_usd": 0.9401533157942197,
+   "pnl_flat_usd": 0.9401533157942197,
+   "spread_bps": 1.734891573520007,
+   "end_units": 0.0
+  },
+  {
+   "coin": "JUP",
+   "fills": 6,
+   "notional": 1193.6507936507937,
+   "pnl_marked_usd": -1.467053068301425,
+   "pnl_flat_usd": -1.467053068301425,
+   "spread_bps": 3.318288472809831,
+   "end_units": 0.0
+  },
+  {
+   "coin": "STRK",
+   "fills": 4,
+   "notional": 797.3644952759819,
+   "pnl_marked_usd": -0.16933117851812085,
+   "pnl_flat_usd": -0.16933117851812085,
+   "spread_bps": 1.2436307124416568,
+   "end_units": 0.0
+  },
+  {
+   "coin": "MON",
+   "fills": 12,
+   "notional": 2399.022742353864,
+   "pnl_marked_usd": 1.1482602400916448,
+   "pnl_flat_usd": 1.1482602400916448,
+   "spread_bps": 2.1356387299747053,
+   "end_units": 0.0
+  },
+  {
+   "coin": "AERO",
+   "fills": 27,
+   "notional": 5385.964425813713,
+   "pnl_marked_usd": -2.1682280597305805,
+   "pnl_flat_usd": -2.345880750629933,
+   "spread_bps": 2.4051366292499043,
+   "end_units": -1.0
+  },
+  {
+   "coin": "CASHCAT",
+   "fills": 63,
+   "notional": 12428.304953647137,
+   "pnl_marked_usd": -9.231380609145162,
+   "pnl_flat_usd": -9.334584505700365,
+   "spread_bps": 2.7968666561576745,
+   "end_units": -1.0
+  },
+  {
+   "coin": "GRAM",
+   "fills": 7,
+   "notional": 1383.583390685937,
+   "pnl_marked_usd": -2.455759577884862,
+   "pnl_flat_usd": -2.6086483138334824,
+   "spread_bps": 1.592190148376035,
+   "end_units": -1.0
+  },
+  {
+   "coin": "TAO",
+   "fills": 0,
+   "notional": 0.0,
+   "pnl_marked_usd": 0.0,
+   "pnl_flat_usd": 0.0,
+   "spread_bps": NaN,
+   "end_units": 0.0
+  },
+  {
+   "coin": "FARTCOIN",
+   "fills": 13,
+   "notional": 2583.2173765484476,
+   "pnl_marked_usd": -2.016534023417563,
+   "pnl_flat_usd": -2.156517902596267,
+   "spread_bps": 2.4285220180942666,
+   "end_units": -1.0
+  },
+  {
+   "coin": "CRV",
+   "fills": 9,
+   "notional": 1798.4557290198954,
+   "pnl_marked_usd": -0.1269890473238604,
+   "pnl_flat_usd": -0.31428619737366176,
+   "spread_bps": 0.7762516135837819,
+   "end_units": -1.0
+  }
+ ],
+ "lower_fees": {
+  "1.2": {
+   "usd_per_hour_marked": -20.361232693645405,
+   "usd_per_hour_mk60": -18.148701847818394
+  },
+  "0.8": {
+   "usd_per_hour_marked": -17.8394719446232,
+   "usd_per_hour_mk60": -15.62694109879649
+  },
+  "0.4": {
+   "usd_per_hour_marked": -15.31771119560156,
+   "usd_per_hour_mk60": -13.105180349774582
+  },
+  "0.0": {
+   "usd_per_hour_marked": -12.795950446579553,
+   "usd_per_hour_mk60": -10.58341960075268
+  }
+ }
+}

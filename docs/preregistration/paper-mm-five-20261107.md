@@ -162,3 +162,55 @@ Ties are broken by the interval's lower bound.
   - **Rule:** quote at the touch only while the spread is at least 4 bp; at most one quote of
     inventory a coin; skip the side taker flow over the last 10 s hits 3 times harder.
 - **Test:** 20:00-21:00 UTC from the same recorder, the same 24 coins.
+
+## Result (each scored once, 2026-11-07 about 20:05-21:05 UTC)
+
+**Test hours for candidates 1-4 and Addendum B:** 17:00-20:00 UTC, 2.99 h.
+- **Recordings:** the 15:20 segment's hour 17 (0.33 h), the 17:20 segment (2.0 h) and the 19:20
+  segment's hour 19 (0.66 h).
+- **Correction to the text above:** the run starts a new segment every 2 h, so 19:20-20:00 is in
+  the 19:20 segment.
+- **Transfer:** the 19:20 segment's Coinbase file was moved from the PC in four parts. The SHA-256
+  of the file reassembled here matches the PC's (1566afdd…).
+
+| # | Candidate | Test $/h [95%] | Per filled $: spread, move in 1 s, position | Primary |
+|---|---|---|---|---|
+| 1 | `disloc@d=3/x=1/...` | -2.06 [-3.00, -0.96] | +1.19, -0.88, -0.61 bp (79 fills) | **Not shown** |
+| 2 | `lead@h0=2/skew=0.5/tol=0.3` | -1.17 [-2.08, -0.08]; 1.04 orders per $, over the rate limit | +1.64, -0.98, -0.84 bp (106 fills) | **Not shown** |
+| 3 | `sweep@move=5/...` | -0.39 [-0.56, -0.16] | -0.14, -0.55, +0.19 bp (17 fills) | **Not shown** |
+| 4 | Transformer gate on `zgap@0.05`, p >= 0.6 | -0.03 [-0.16, +0.11]; kept 8 of 366 fills at -0.41 bp after the fee | AUC 0.65 | **Not shown** |
+| B | `zgap@0.05` at 0 / 0 bp, 400 ms | -0.27 [-2.36, +1.80] | +0.16, -0.37, +0.13 bp | **Not shown** |
+| - | `zgap@0.05` (baseline) | -4.76 [-6.72, -2.24] | +0.23, -0.15, -0.37 bp | - |
+
+- **Paired with `zgap@0.05`, candidates 1-3 lose less:**
+
+  | Candidate | $/h better than `zgap@0.05` [95%] | Blocks better |
+  |---|---|---|
+  | `disloc@` | +2.49 [+0.56, +4.44] | 9/13 |
+  | `lead@` | +3.31 [+1.32, +5.28] | 9/13 |
+  | `sweep@` | +4.03 [+1.88, +6.36] | 10/13 |
+
+  Mostly they trade less on hours when every quoter lost.
+- **The gate does the same:** it keeps almost nothing. Its AUC of 0.65 does not find fills that
+  clear the fee.
+
+**Candidate 5, the long-tail spread maker** (20:00-21:00 UTC, 1.0 h, 24 coins, $200 quotes;
+`eval/paper/tail_test_20261107.json`):
+- **Result:** 317 fills and $63,044 filled; marked PnL $-22.25 an hour; closed at the touch with the taker fee, $-23.55.
+- **The 60 s markout after the fee:** $-20.04 an hour [-33.93, -9.02]. **Not shown.**
+- **Why:** the fills earn 2.19 bp of spread against the mid. Ten seconds later the mid is -0.87 bp from the fill price, and sixty seconds later -1.69 bp.
+- **Without any fee** it would still lose $-12.80 an hour marked.
+
+**After the registered scoring (exploratory, not registered):** `zgap@0.05` at 0 / 0 bp was
+replayed at other order delays (`eval/paper/results_mm5_20261107/latency.csv`).
+
+| Order delay | Selection: break-even maker fee | Test hours: break-even maker fee |
+|---|---:|---:|
+| 50 ms | 1.01 bp; at 0 fee +$4.41/h [+0.92, +8.32] | -0.11 bp; at 0 fee -$0.30/h [-2.72, +2.24] |
+| 100 ms | 0.95 bp | -0.27 bp |
+| 200 ms | 0.73 bp | -0.29 bp |
+| 400 ms | 0.18 bp | -0.09 bp |
+
+- **On the selection hours,** a fast quote is picked off less. Speed alone moves the break-even fee
+  from 0.18 to 1.01 bp.
+- **On the evening's unseen hours,** the gap quoter lost before any fee at every delay.

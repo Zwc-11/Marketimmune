@@ -1,0 +1,4 @@
+setting,role,trades,gross_bps,null_gross_bps,copies_at_least_real,net_bps,usd_per_hour,low,high,usd_per_hour_fee0,usd_per_hour_fee04
+band@k=1/h=60/c=60/stop=3/max=120,Registered,31,2.365,-2.287,0/40,-1.022,-0.142,-2.072,1.471,0.274,0.163
+band@k=1.5/h=30/c=60/stop=3/max=120,"Neighbour, wider",28,3.233,-2.186,0/40,-0.195,-0.024,-1.782,1.46,0.351,0.251
+band@k=1/h=30/c=60/stop=3/max=120,"Neighbour, narrower",57,-0.422,-2.261,4/40,-3.948,-1.007,-2.977,1.002,-0.242,-0.446

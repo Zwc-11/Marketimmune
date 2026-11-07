@@ -1,0 +1,5 @@
+latency_ms,selection_break_even_fee_bps,selection_move_1s_bps,selection_notional_per_hour,test_break_even_fee_bps,test_move_1s_bps
+50,1.006,-0.201,43805.989,-0.114,-0.103
+100,0.946,-0.252,44240.794,-0.268,-0.101
+200,0.728,-0.365,45894.677,-0.292,-0.15
+400,0.18,-0.635,54164.291,-0.088,-0.374

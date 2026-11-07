@@ -1,0 +1,571 @@
+{
+ "runs": [
+  "data/paper/tune-lat50/250x4/live/seg-20261106T1606",
+  "data/paper/tune-lat50/250x4/live/seg-20261106T1806",
+  "data/paper/tune-lat50/250x4/night/seg2-20261106T0448",
+  "data/paper/tune-lat50/250x4/night/seg3-20261106T0559",
+  "data/paper/tune-lat50/250x4/night/seg4-20261106T0757",
+  "data/paper/tune-lat50/250x4/tunedA/mm-20261107T0205",
+  "data/paper/tune-lat50/250x4/tunedA/seg-20261106T2003",
+  "data/paper/tune-lat50/250x4/tunedA/tuned-20261106T2203",
+  "data/paper/tune-lat50/250x4/tunedA/tuned-20261107T0003",
+  "data/paper/tune-lat50/250x4/tunedB/seg-20261107T0409",
+  "data/paper/tune-lat50/250x4/tunedB/seg-20261107T0609",
+  "data/paper/tune-lat50/250x4/tunedB/seg-20261107T0810",
+  "data/paper/tune-lat50/250x4/tunedB/seg-20261107T1010",
+  "data/paper/tune-lat50/250x4/tunedB/seg-20261107T1210",
+  "data/paper/tune-lat50/250x4/tunedB/seg-20261107T1410",
+  "data/paper/tune-lat50/250x4/tunedB/seg-20261107T1520"
+ ],
+ "hours": 29.247,
+ "settings": {
+  "latency_ms": 50,
+  "quote_usd": 250.0,
+  "max_quotes": 4,
+  "budget_usd": 5000.0,
+  "strategies": [
+   "zgap@0.05"
+  ],
+  "registered": [],
+  "mm": {},
+  "fees_bps": {
+   "maker": 0.0,
+   "taker": 0.0
+  }
+ },
+ "feed_delay_ms_p10_p50_p90": [
+  {
+   "hl_top": [
+    537.0,
+    606.0,
+    763.0
+   ],
+   "hl_trade": [
+    548.0,
+    628.0,
+    874.0
+   ]
+  },
+  {
+   "hl_top": [
+    446.0,
+    539.0,
+    710.0
+   ],
+   "hl_trade": [
+    465.0,
+    559.0,
+    721.0
+   ]
+  },
+  {
+   "hl_top": [
+    291.0,
+    339.0,
+    452.0
+   ],
+   "hl_trade": [
+    305.0,
+    363.0,
+    518.0
+   ]
+  },
+  {
+   "hl_top": [
+    289.0,
+    336.0,
+    461.0
+   ],
+   "hl_trade": [
+    301.0,
+    357.0,
+    525.0
+   ]
+  },
+  {
+   "hl_top": [
+    296.0,
+    344.0,
+    511.0
+   ],
+   "hl_trade": [
+    304.0,
+    364.0,
+    591.0
+   ]
+  },
+  {
+   "hl_top": [
+    255.0,
+    278.0,
+    353.0
+   ],
+   "hl_trade": [
+    262.0,
+    301.0,
+    382.0
+   ]
+  },
+  {
+   "hl_top": [
+    268.0,
+    304.0,
+    405.0
+   ],
+   "hl_trade": [
+    274.0,
+    327.0,
+    455.0
+   ]
+  },
+  {
+   "hl_top": [
+    255.0,
+    281.0,
+    367.0
+   ],
+   "hl_trade": [
+    262.0,
+    311.0,
+    400.0
+   ]
+  },
+  {
+   "hl_top": [
+    264.0,
+    309.0,
+    425.0
+   ],
+   "hl_trade": [
+    276.0,
+    344.0,
+    500.0
+   ]
+  },
+  {
+   "hl_top": [
+    260.0,
+    294.0,
+    429.0
+   ],
+   "hl_trade": [
+    271.0,
+    328.0,
+    476.0
+   ]
+  },
+  {
+   "hl_top": [
+    254.0,
+    279.0,
+    356.0
+   ],
+   "hl_trade": [
+    261.0,
+    304.0,
+    379.0
+   ]
+  },
+  {
+   "hl_top": [
+    258.0,
+    290.0,
+    398.0
+   ],
+   "hl_trade": [
+    263.0,
+    312.0,
+    446.0
+   ]
+  },
+  {
+   "hl_top": [
+    263.0,
+    305.0,
+    425.0
+   ],
+   "hl_trade": [
+    272.0,
+    338.0,
+    450.0
+   ]
+  },
+  {
+   "hl_top": [
+    265.0,
+    304.0,
+    411.0
+   ],
+   "hl_trade": [
+    277.0,
+    330.0,
+    441.0
+   ]
+  },
+  {
+   "hl_top": [
+    259.0,
+    287.0,
+    379.0
+   ],
+   "hl_trade": [
+    267.0,
+    318.0,
+    396.0
+   ]
+  },
+  {
+   "hl_top": [
+    254.0,
+    285.0,
+    386.0
+   ],
+   "hl_trade": [
+    260.0,
+    317.0,
+    441.0
+   ]
+  }
+ ],
+ "connection_gaps": 0,
+ "by_strategy": [
+  {
+   "strategy": "zgap@0.05",
+   "fills": 6280,
+   "notional_usd": 1281193.76,
+   "total_usd": 128.85,
+   "usd_per_hour": 4.41,
+   "usd_per_hour_ci95": [
+    0.92,
+    8.32
+   ],
+   "bps": 1.006,
+   "break_even_fee_bps": 1.006,
+   "components_bps": {
+    "spread": 0.28,
+    "adverse_1s": -0.201,
+    "adverse_10s": -0.177,
+    "adverse_60s": -0.273,
+    "fee": 0.0,
+    "inventory": 0.926
+   },
+   "components_usd_per_hour": {
+    "spread": 1.23,
+    "adverse_1s": -0.88,
+    "adverse_10s": -0.78,
+    "adverse_60s": -1.19,
+    "fee": 0.0,
+    "inventory": 4.06
+   },
+   "block_sd_usd": 5.02,
+   "max_drawdown_usd": -32.44,
+   "mean_abs_net_usd": 1697.5,
+   "btc_corr_1min": 0.111
+  }
+ ],
+ "by_coin": [
+  {
+   "coin": "AVAX",
+   "strategy": "zgap@0.05",
+   "fills": 876,
+   "notional_usd": 204388.17,
+   "total_usd": 28.94,
+   "usd_per_hour": 0.99,
+   "usd_per_hour_ci95": [
+    0.16,
+    1.8
+   ],
+   "bps": {
+    "spread": 0.68,
+    "adverse_1s": -0.069,
+    "adverse_10s": 0.043,
+    "adverse_60s": -0.105,
+    "fee": 0.0,
+    "inventory": 0.805,
+    "total": 1.416
+   },
+   "break_even_fee_bps": 1.416
+  },
+  {
+   "coin": "BCH",
+   "strategy": "zgap@0.05",
+   "fills": 750,
+   "notional_usd": 163460.48,
+   "total_usd": 5.37,
+   "usd_per_hour": 0.18,
+   "usd_per_hour_ci95": [
+    -1.0,
+    1.52
+   ],
+   "bps": {
+    "spread": 0.403,
+    "adverse_1s": -0.191,
+    "adverse_10s": -0.196,
+    "adverse_60s": -0.621,
+    "fee": 0.0,
+    "inventory": 0.117,
+    "total": 0.329
+   },
+   "break_even_fee_bps": 0.329
+  },
+  {
+   "coin": "BTC",
+   "strategy": "zgap@0.05",
+   "fills": 869,
+   "notional_usd": 148550.83,
+   "total_usd": -10.68,
+   "usd_per_hour": -0.37,
+   "usd_per_hour_ci95": [
+    -1.2,
+    0.36
+   ],
+   "bps": {
+    "spread": -0.017,
+    "adverse_1s": -0.418,
+    "adverse_10s": -0.514,
+    "adverse_60s": -0.307,
+    "fee": 0.0,
+    "inventory": -0.284,
+    "total": -0.719
+   },
+   "break_even_fee_bps": -0.719
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "zgap@0.05",
+   "fills": 949,
+   "notional_usd": 217828.63,
+   "total_usd": 34.86,
+   "usd_per_hour": 1.19,
+   "usd_per_hour_ci95": [
+    0.4,
+    1.96
+   ],
+   "bps": {
+    "spread": 0.2,
+    "adverse_1s": -0.027,
+    "adverse_10s": 0.049,
+    "adverse_60s": 0.255,
+    "fee": 0.0,
+    "inventory": 1.427,
+    "total": 1.6
+   },
+   "break_even_fee_bps": 1.6
+  },
+  {
+   "coin": "ETH",
+   "strategy": "zgap@0.05",
+   "fills": 434,
+   "notional_usd": 81362.77,
+   "total_usd": 20.01,
+   "usd_per_hour": 0.68,
+   "usd_per_hour_ci95": [
+    -0.2,
+    1.8
+   ],
+   "bps": {
+    "spread": 0.062,
+    "adverse_1s": -0.323,
+    "adverse_10s": -0.534,
+    "adverse_60s": -0.943,
+    "fee": 0.0,
+    "inventory": 2.721,
+    "total": 2.459
+   },
+   "break_even_fee_bps": 2.459
+  },
+  {
+   "coin": "LINK",
+   "strategy": "zgap@0.05",
+   "fills": 333,
+   "notional_usd": 53240.74,
+   "total_usd": 25.03,
+   "usd_per_hour": 0.86,
+   "usd_per_hour_ci95": [
+    -0.12,
+    1.76
+   ],
+   "bps": {
+    "spread": 0.448,
+    "adverse_1s": -0.287,
+    "adverse_10s": -0.239,
+    "adverse_60s": -0.78,
+    "fee": 0.0,
+    "inventory": 4.54,
+    "total": 4.7
+   },
+   "break_even_fee_bps": 4.7
+  },
+  {
+   "coin": "LTC",
+   "strategy": "zgap@0.05",
+   "fills": 778,
+   "notional_usd": 176997.63,
+   "total_usd": 21.14,
+   "usd_per_hour": 0.72,
+   "usd_per_hour_ci95": [
+    -0.08,
+    1.52
+   ],
+   "bps": {
+    "spread": 0.363,
+    "adverse_1s": -0.092,
+    "adverse_10s": 0.08,
+    "adverse_60s": -0.19,
+    "fee": 0.0,
+    "inventory": 0.923,
+    "total": 1.194
+   },
+   "break_even_fee_bps": 1.194
+  },
+  {
+   "coin": "SOL",
+   "strategy": "zgap@0.05",
+   "fills": 832,
+   "notional_usd": 143240.48,
+   "total_usd": 9.87,
+   "usd_per_hour": 0.34,
+   "usd_per_hour_ci95": [
+    -0.72,
+    1.44
+   ],
+   "bps": {
+    "spread": -0.061,
+    "adverse_1s": -0.402,
+    "adverse_10s": -0.454,
+    "adverse_60s": -0.736,
+    "fee": 0.0,
+    "inventory": 1.152,
+    "total": 0.689
+   },
+   "break_even_fee_bps": 0.689
+  },
+  {
+   "coin": "XRP",
+   "strategy": "zgap@0.05",
+   "fills": 459,
+   "notional_usd": 92124.03,
+   "total_usd": -5.69,
+   "usd_per_hour": -0.19,
+   "usd_per_hour_ci95": [
+    -1.24,
+    0.76
+   ],
+   "bps": {
+    "spread": 0.315,
+    "adverse_1s": -0.315,
+    "adverse_10s": -0.334,
+    "adverse_60s": 0.228,
+    "fee": 0.0,
+    "inventory": -0.618,
+    "total": -0.617
+   },
+   "break_even_fee_bps": -0.617
+  }
+ ],
+ "vs_touch": [
+  {
+   "coin": "AVAX",
+   "strategy": "zgap@0.05",
+   "usd_per_hour": null,
+   "ci95": null,
+   "blocks_better": "0/0"
+  },
+  {
+   "coin": "BCH",
+   "strategy": "zgap@0.05",
+   "usd_per_hour": null,
+   "ci95": null,
+   "blocks_better": "0/0"
+  },
+  {
+   "coin": "BTC",
+   "strategy": "zgap@0.05",
+   "usd_per_hour": null,
+   "ci95": null,
+   "blocks_better": "0/0"
+  },
+  {
+   "coin": "DOGE",
+   "strategy": "zgap@0.05",
+   "usd_per_hour": null,
+   "ci95": null,
+   "blocks_better": "0/0"
+  },
+  {
+   "coin": "ETH",
+   "strategy": "zgap@0.05",
+   "usd_per_hour": null,
+   "ci95": null,
+   "blocks_better": "0/0"
+  },
+  {
+   "coin": "LINK",
+   "strategy": "zgap@0.05",
+   "usd_per_hour": null,
+   "ci95": null,
+   "blocks_better": "0/0"
+  },
+  {
+   "coin": "LTC",
+   "strategy": "zgap@0.05",
+   "usd_per_hour": null,
+   "ci95": null,
+   "blocks_better": "0/0"
+  },
+  {
+   "coin": "SOL",
+   "strategy": "zgap@0.05",
+   "usd_per_hour": null,
+   "ci95": null,
+   "blocks_better": "0/0"
+  },
+  {
+   "coin": "XRP",
+   "strategy": "zgap@0.05",
+   "usd_per_hour": null,
+   "ci95": null,
+   "blocks_better": "0/0"
+  }
+ ],
+ "baseline": null,
+ "vs_baseline": [],
+ "model_oos_r2": {
+  "BTC": {
+   "fits": 170,
+   "mean_oos_r2": 0.2295
+  },
+  "ETH": {
+   "fits": 170,
+   "mean_oos_r2": 0.2879
+  },
+  "SOL": {
+   "fits": 170,
+   "mean_oos_r2": 0.2934
+  },
+  "XRP": {
+   "fits": 170,
+   "mean_oos_r2": 0.3189
+  },
+  "LTC": {
+   "fits": 170,
+   "mean_oos_r2": 0.1995
+  },
+  "BCH": {
+   "fits": 170,
+   "mean_oos_r2": 0.2523
+  },
+  "LINK": {
+   "fits": 170,
+   "mean_oos_r2": 0.2037
+  },
+  "AVAX": {
+   "fits": 170,
+   "mean_oos_r2": 0.2423
+  },
+  "DOGE": {
+   "fits": 170,
+   "mean_oos_r2": 0.2146
+  }
+ }
+}

@@ -1,0 +1,17 @@
+venue,strategy,family,fills,usd_per_hour,low,high,spread_bps,adverse_1s_bps,inventory_bps,fee_bps,total_bps
+"Hyperliquid, 1.5 bp, 200 ms",disloc@d=2/tol=0.3/hold=120/stop=20,disloc,4837,-11.19,-15.2,-7.52,0.495,-0.908,-0.151,-2.282,-2.847
+"Hyperliquid, 1.5 bp, 200 ms",disloc@d=3/tol=0.3/hold=120/stop=20,disloc,2283,-4.76,-6.68,-2.92,0.819,-1.149,-0.034,-2.236,-2.601
+"Hyperliquid, 1.5 bp, 200 ms",disloc@d=3/x=1/tol=0.3/hold=120/stop=20,disloc,1902,-4.52,-6.16,-2.84,0.872,-1.129,0.042,-2.571,-2.786
+"Hyperliquid, 1.5 bp, 200 ms",disloc@d=5/tol=0.3/hold=120/stop=20,disloc,623,-1.61,-2.52,-0.84,1.412,-1.805,-0.537,-2.18,-3.11
+"Hyperliquid, 1.5 bp, 200 ms",lead@h0=1/a=1/skew=0.5/tol=0.3,lead,3938,-5.64,-8.52,-3.08,1.037,-1.272,-0.281,-1.5,-2.016
+"Hyperliquid, 1.5 bp, 200 ms",lead@h0=1/skew=0.5/tol=0.3,lead,7116,-10.45,-15.24,-6.0,0.681,-1.083,-0.179,-1.5,-2.08
+"Hyperliquid, 1.5 bp, 200 ms",lead@h0=2/skew=0.5/tol=0.3,lead,2955,-4.81,-8.52,-1.88,1.146,-1.454,-0.442,-1.5,-2.25
+"Hyperliquid, 1.5 bp, 200 ms",lead@h0=4/skew=0.5/tol=0.3,lead,736,-1.89,-4.64,-0.04,2.12,-2.501,-1.57,-1.5,-3.451
+"Hyperliquid, 1.5 bp, 200 ms",sweep@move=3/win=3/wait=5/hold=60/stop=20,sweep,4732,-10.51,-15.16,-6.28,-0.15,-0.817,-0.139,-2.223,-3.33
+"Hyperliquid, 1.5 bp, 200 ms",sweep@move=5/win=3/wait=5/hold=60/stop=20,sweep,1734,-3.9,-5.96,-2.08,-0.211,-0.862,-0.105,-2.142,-3.319
+"Hyperliquid, 1.5 bp, 200 ms",zgap@0.05,zgap,6654,-3.54,-7.16,0.08,0.226,-0.365,0.868,-1.5,-0.772
+"Zero fee, 400 ms",disloc@d=2/tol=0.3/hold=120/stop=20,disloc,7100,-6.27,-9.4,-3.52,0.242,-1.093,-0.253,0.0,-1.103
+"Zero fee, 400 ms",gap@0.1,gap,7255,-0.18,-3.4,2.8,0.015,-0.882,0.824,0.0,-0.043
+"Zero fee, 400 ms",immune@h=30/t=-1/fee=0,immune,23555,-10.59,-15.56,-5.88,0.02,-0.691,-0.064,0.0,-0.735
+"Zero fee, 400 ms",lead@h0=1/skew=0.5/tol=0.3,lead,9680,-7.91,-13.16,-3.48,0.396,-1.293,-0.263,0.0,-1.16
+"Zero fee, 400 ms",zgap@0.05,zgap,8275,0.97,-1.8,3.88,0.108,-0.635,0.707,0.0,0.18

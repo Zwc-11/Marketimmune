@@ -1,0 +1,170 @@
+{
+ "hours": {
+  "fresh/mm-20261107T1700": 0.334,
+  "fresh/seg-20261107T1720": 2.0,
+  "fresh/seg-20261107T1920": 0.66
+ },
+ "configs": [
+  "250x4"
+ ],
+ "budget_usd": 5000.0,
+ "latency_ms": 200,
+ "retime": null,
+ "fees_bps": {
+  "maker": 1.5,
+  "taker": 4.5
+ },
+ "clock_corrected": [
+  "fresh"
+ ],
+ "causal_clock": true,
+ "max_orders_per_usd": 1.0,
+ "options": 4,
+ "excluded": 1,
+ "over_limit": [
+  {
+   "strategy": "lead@h0=2/skew=0.5/tol=0.3",
+   "config": "250x4",
+   "orders_per_usd": 1.04,
+   "usd_per_hour": -1.2
+  }
+ ],
+ "families": {
+  "disloc": {
+   "best": {
+    "strategy": "disloc@d=3/x=1/tol=0.3/hold=120/stop=20",
+    "config": "250x4",
+    "usd_per_hour": -2.1,
+    "orders_per_usd": 0.66,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "fresh/mm-20261107T1700": -3.2,
+    "fresh/seg-20261107T1720": -2.1,
+    "fresh/seg-20261107T1920": -1.5
+   },
+   "cv_usd_per_hour": -2.1,
+   "folds": [
+    {
+     "left_out": "fresh/mm-20261107T1700",
+     "pick": "disloc@d=3/x=1/tol=0.3/hold=120/stop=20 250x4",
+     "left_out_usd_per_hour": -3.2
+    },
+    {
+     "left_out": "fresh/seg-20261107T1720",
+     "pick": "disloc@d=3/x=1/tol=0.3/hold=120/stop=20 250x4",
+     "left_out_usd_per_hour": -2.1
+    },
+    {
+     "left_out": "fresh/seg-20261107T1920",
+     "pick": "disloc@d=3/x=1/tol=0.3/hold=120/stop=20 250x4",
+     "left_out_usd_per_hour": -1.5
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "disloc@d=3/x=1/tol=0.3/hold=120/stop=20",
+     "config": "250x4",
+     "usd_per_hour": -2.1,
+     "orders_per_usd": 0.66,
+     "fresh/mm-20261107T1700": -3.2,
+     "fresh/seg-20261107T1720": -2.1,
+     "fresh/seg-20261107T1920": -1.5,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  },
+  "sweep": {
+   "best": {
+    "strategy": "sweep@move=5/win=3/wait=5/hold=60/stop=20",
+    "config": "250x4",
+    "usd_per_hour": -0.4,
+    "orders_per_usd": 0.14,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "fresh/mm-20261107T1700": -1.5,
+    "fresh/seg-20261107T1720": -0.3,
+    "fresh/seg-20261107T1920": -0.0
+   },
+   "cv_usd_per_hour": -0.4,
+   "folds": [
+    {
+     "left_out": "fresh/mm-20261107T1700",
+     "pick": "sweep@move=5/win=3/wait=5/hold=60/stop=20 250x4",
+     "left_out_usd_per_hour": -1.5
+    },
+    {
+     "left_out": "fresh/seg-20261107T1720",
+     "pick": "sweep@move=5/win=3/wait=5/hold=60/stop=20 250x4",
+     "left_out_usd_per_hour": -0.3
+    },
+    {
+     "left_out": "fresh/seg-20261107T1920",
+     "pick": "sweep@move=5/win=3/wait=5/hold=60/stop=20 250x4",
+     "left_out_usd_per_hour": -0.0
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "sweep@move=5/win=3/wait=5/hold=60/stop=20",
+     "config": "250x4",
+     "usd_per_hour": -0.4,
+     "orders_per_usd": 0.14,
+     "fresh/mm-20261107T1700": -1.5,
+     "fresh/seg-20261107T1720": -0.3,
+     "fresh/seg-20261107T1920": -0.0,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  },
+  "zgap": {
+   "best": {
+    "strategy": "zgap@0.05",
+    "config": "250x4",
+    "usd_per_hour": -4.8,
+    "orders_per_usd": 0.25,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "fresh/mm-20261107T1700": -12.3,
+    "fresh/seg-20261107T1720": -5.3,
+    "fresh/seg-20261107T1920": 0.6
+   },
+   "cv_usd_per_hour": -4.8,
+   "folds": [
+    {
+     "left_out": "fresh/mm-20261107T1700",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": -12.3
+    },
+    {
+     "left_out": "fresh/seg-20261107T1720",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": -5.3
+    },
+    {
+     "left_out": "fresh/seg-20261107T1920",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": 0.6
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "zgap@0.05",
+     "config": "250x4",
+     "usd_per_hour": -4.8,
+     "orders_per_usd": 0.25,
+     "fresh/mm-20261107T1700": -12.3,
+     "fresh/seg-20261107T1720": -5.3,
+     "fresh/seg-20261107T1920": 0.6,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  }
+ },
+ "held_out_hours": {}
+}

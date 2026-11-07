@@ -707,6 +707,49 @@ selection hours; held-out A + B = 2026-11-07 04:09-17:00 UTC (12.8 h).
 - **Carry:** funding at the interest rate is the one edge larger than its cost. It is small, about
   $1 a day per $5,000 hedged, and needs the spot leg (Hyperliquid spot fees 4 / 7 bp).
 
+## Five market-making candidates, scored once on unseen hours (2026-11-07, evening)
+
+Registered in `docs/preregistration/paper-mm-five-20261107.md` (and Addenda A and B).
+- **New engine quoters:** `disloc@`, `lead@` and `sweep@` (`paper/strategies.py`).
+- **Transformer gate:** `cli/paper_gate.py`.
+- **Long-tail simulator:** `paper/tailmm.py`.
+- **Bar-level exploration:** `paper/mmlab.py`.
+
+**What was new:**
+- **Coinbase-anchored quoting:** quotes anchored to the Coinbase-implied fair price instead of
+  Hyperliquid's own mid.
+- **A Transformer gate:** it guesses each fill's probability of beating the fee.
+- **A new market:** perps whose spread exceeds two maker fees, recorded live for the purpose (24
+  coins).
+
+| Candidate | Picked on, $/h | Unseen hours, $/h [95%] |
+|---|---:|---|
+| Lead-lag dislocation maker `disloc@d=3/x=1` | -4.5 | -2.06 [-3.00, -0.96] |
+| Lead-lag Avellaneda-Stoikov `lead@h0=2` | -4.8 | -1.17 [-2.08, -0.08] |
+| Sweep catcher `sweep@move=5` | -3.9 | -0.39 [-0.56, -0.16] |
+| Transformer win-probability gate on `zgap@0.05` | -0.28 (validation) | -0.03 [-0.16, +0.11], 8 of 366 fills kept |
+| Long-tail spread maker `tail@spread=4/n=1/flow=10` | -14.1 | -22.25 marked; 60 s markout after the fee -20.04 [-33.93, -9.02] |
+| `zgap@0.05` at 0 bp and 400 ms (zero-fee venue proxy) | +0.97 | -0.27 [-2.36, +1.80] |
+| `zgap@0.05` (baseline) | -3.5 | -4.76 [-6.72, -2.24] |
+
+- **Distance does not escape adverse selection.** Quoting further from the touch earns more spread
+  per filled dollar, and loses as much to the move within the next second:
+  - `disloc@d=5`: spread +1.41 bp against a -1.80 bp move.
+  - `lead@h0=4`: spread +2.12 bp against a -2.50 bp move.
+  - Anchoring to Coinbase does not change this. A fill far from the mid usually comes from a move
+    Coinbase is making too, faster than a 200 ms quote update.
+- **The Transformer ranks fills but finds none that pay.** AUC was 0.62 on validation and 0.65 on
+  the test. Even the fills it is most sure of lose after the fee.
+- **The long tail is worse, not better.**
+  - Fills earn about 2.2 bp of spread against the mid.
+  - The mid 60 s later is past the fill price against them (-1.7 bp on the test hour).
+  - Takers in thin markets are informed, or the quotes flicker.
+- **Speed and fee are the levers, not the signal** (exploratory, the gap quoter at 0 bp):
+  - On the selection hours its break-even maker fee rises from 0.18 bp at 400 ms to 1.01 bp at 50 ms.
+  - On the evening's unseen hours it lost before any fee at every delay.
+  - A Hyperliquid account would need both colocation and a fee tier near 0.8 bp, which needs about
+    $25M of 14-day volume.
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
@@ -762,6 +805,10 @@ selection hours; held-out A + B = 2026-11-07 04:09-17:00 UTC (12.8 h).
 | `eval/paper/range_vr_20261107.json` | Volatility, within-minute trend ratios, and variance ratios at 5-30 minutes with a permutation null, all 27.9 recorded hours (`cli.paper_range study`) |
 | `eval/paper/range_sweep_selection_20261107.json`, `range_test*_20261107.json` | The band maker's 96-setting sweep on the selection hours with hour-shuffled nulls, and its registered held-out test (`cli.paper_range sweep`, `test`) |
 | `eval/paper/vol_regime_20261107.json`, `funding_20261107.json` | 15-minute PnL by trailing volatility; 60 days of Hyperliquid funding by coin |
+| `eval/paper/tune_lead_selection_20261107.{json,md}`, `..._report_20261107.json` | The lead-lag quoters (`disloc@`, `lead@`, `sweep@`) and `zgap@0.05` on the 28.9 selection hours, with PnL per filled $ by component |
+| `eval/paper/tune_zerofee_selection_*`, `tune_latency{50,100}_selection_*` | The same at 0 bp fees and 400, 50 and 100 ms |
+| `eval/paper/mmfive_test*_20261107.*`, `gate_zgap_{train,test}_20261107.json`, `tail_{selection,test}_20261107.json` | The five market-making candidates' registered scoring on unseen hours, and the exploratory latency replays |
+| `eval/paper/results_mm5_20261107/*.csv` | The tables the results page reads for the candidates |
 | `eval/paper/journal_night_20261106.{json,md}` | The night's decision journals read by `cli.paper_journal`: fills by markout horizon and by what the strategy saw, side changes, pulls, actions |
 
 The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
