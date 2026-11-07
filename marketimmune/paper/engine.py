@@ -32,7 +32,7 @@ from marketimmune.paper.journal import SIDES, SIGNAL_MS, Journal, context, num
 from marketimmune.paper.mm import MarketMaking, Portfolio, entry_after, info, is_mm, sweep
 from marketimmune.paper.orders import Account, PaperOrder
 from marketimmune.paper.signals import CoinState, Wallets
-from marketimmune.paper.strategies import LIVE_STRATEGIES, Guard, Immune, LeadLag, Optimal, Quoter, quoter, taker_threshold
+from marketimmune.paper.strategies import LIVE_STRATEGIES, Guard, Hush, Immune, LeadLag, Optimal, Quoter, quoter, taker_threshold
 
 logger = init_logger(__name__)
 BPS = 1e4
@@ -205,10 +205,10 @@ class Maker:
         self.orders = [o for o in self.orders if o.qty > 0 and o.t_cancel > ev.t_ms]
 
 
-def risky(name: str) -> MarketMaking | Guard | Immune | Optimal | LeadLag:
+def risky(name: str) -> MarketMaking | Guard | Immune | Optimal | LeadLag | Hush:
     """The quoter of a strategy ``MarketMaker`` runs (``paper.mm.is_mm``)."""
     q = quoter(name)
-    assert isinstance(q, (MarketMaking, Guard, Immune, Optimal, LeadLag)), name
+    assert isinstance(q, (MarketMaking, Guard, Immune, Optimal, LeadLag, Hush)), name
     return q
 
 
@@ -219,7 +219,7 @@ class MarketMaker(Maker):
     def __init__(
         self,
         name: str,
-        quoter: MarketMaking | Guard | Immune | Optimal | LeadLag,
+        quoter: MarketMaking | Guard | Immune | Optimal | LeadLag | Hush,
         qty: float,
         max_position: float,
         latency_ms: int,
@@ -232,7 +232,7 @@ class MarketMaker(Maker):
         super().__init__(name, quoter, qty, max_position, latency_ms, fee_rate, coin=coin, journal=journal)
         self.mm = quoter
         self.params = quoter.p
-        if isinstance(quoter, (Immune, Optimal, LeadLag)):
+        if isinstance(quoter, (Immune, Optimal, LeadLag, Hush)):
             quoter.qty = qty
         self.taker_fee = taker_fee_rate
         self.portfolio = portfolio
