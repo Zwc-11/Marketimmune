@@ -631,6 +631,62 @@ cheating? Everything was chosen on the selection hours. The 2 h held out were ch
   - **Over the held-out and locked hours:** about +$2 an hour over 7.9 fresh hours.
   - Its interval still includes zero. A live registered test is the next step, not money.
 
+## Why every strategy loses in quiet hours, and the range test (2026-11-07)
+
+**Data:**
+- The tuned run's fresh live hours, 04:09-14:10 UTC: 10 h, `eval/paper/report_live_tuned_20261107.json`.
+- All 27.9 recorded hours of mids: `eval/paper/range_vr_20261107.json`.
+- Code: `paper/range_study.py`, `cli/paper_range.py`.
+
+**The fee is three times the edge.**
+
+| Live, fresh hours, bp per filled $ | spread | 1 s move | position | fee | total | break-even maker fee |
+|---|---:|---:|---:|---:|---:|---:|
+| `zgap@0.05` | +0.33 | -0.20 | +0.39 | -1.50 | -0.98 | 0.52 |
+| `gap@0.1` | +0.25 | -0.43 | +0.54 | -1.50 | -1.14 | 0.36 |
+| `hawkes@1.25` | +0.34 | -0.20 | +0.01 | -1.50 | -1.35 | 0.15 |
+| `touch` | +0.04 | -1.11 | -0.38 | -1.50 | -2.94 | -1.44 |
+
+- **Spreads are narrower than the fee.** The median spread at a fill is 0.1 bp (BTC, SOL), 0.45 (ETH)
+  and up to 1.8 (LINK). A maker round trip at the touch earns at most one spread and pays 3 bp.
+- **Moves continue within the minute.** Var(n s)/(n Var(1 s)) is 1.2-1.4 at 5 s and 1.35-1.8 at
+  60 s, so a fill at the touch is followed by more of the same move.
+- **Minutes look like a random walk.** Variance ratios of 1-minute returns at 5, 15 and 30 minutes
+  average 1.01, 0.99 and 0.86. The permutation null gives 0.99, 0.97 and 0.95 (p = 0.60, 0.61, 0.26).
+- **A volatility filter does not rescue it** (`eval/paper/vol_regime_20261107.json`; 86 blocks of
+  `zgap@0.05`, by trailing 30-minute volatility):
+  - $ an hour by tercile: quiet -2.0, middle -6.7, busy +0.7.
+  - The correlation with volatility is 0.0.
+
+**The range (band) maker** (registered: `docs/preregistration/paper-range-20261107.md`)
+- **Rule:**
+  - **Quotes:** rest a buy and a sell about 7.7 one-minute sd from a 60-minute average of the mid.
+  - **Exits:** leave at the average as a maker, or at 3 bands or 120 minutes as a taker.
+- **Selection hours:** the best of 96 settings ($1.24 an hour at $500 a trade) is no better than the best
+  of 96 settings on hour-shuffled copies ($0.8-1.3).
+- **Held-out hours, scored once** (11.2 h):
+  - **Gross:** +2.4 bp per round trip, above all 40 shuffled copies (mean -2.3).
+  - **Net:** -1.0 bp and -$0.14 an hour [-2.07, +1.47].
+  - **Reading:** the reversion is real, but smaller than the 3 bp of maker fees. With no fee at all it
+    would make $0.27 an hour.
+
+**The fee schedule** (Hyperliquid docs):
+- **Volume tiers:** perps maker 1.5 bp at tier 0; 1.2 above $5M of 14-day volume; 0.8 above $25M;
+  0.4 above $100M; 0 above $500M.
+- **Staking discounts:** 5-40%, with 40% at 500,000 HYPE staked.
+- **Referral:** 4% for the first $25M.
+- **Rebates:** only above 0.5% of the venue's maker volume.
+- **What it takes:** the best break-even fee here (0.52 bp) needs tier 3, about $300,000 of volume
+  an hour.
+
+**Funding** (`eval/paper/funding_20261107.json`, 60 days to 2026-11-07):
+- **Shorts are paid in quiet markets:** with no premium, Hyperliquid's funding is the interest
+  term, 0.00125% an hour (about 11% a year), paid by longs to shorts.
+- **BTC:** 9.0% a year over 60 days; positive in 93% of hours and exactly the base rate in 68%.
+- **Other coins:** 7-11%, HYPE 10.7%.
+- **The carry trade:** short the perp, hold the coin, and the price risk cancels. It is the only edge
+  in these data that is larger than its cost, and it is small: about $1.2 a day on $5,000 hedged.
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
@@ -682,6 +738,10 @@ cheating? Everything was chosen on the selection hours. The 2 h held out were ch
 | `eval/paper/factors_20261106.json` | Each signal's information coefficient at 1, 10 and 60 s per coin, selection and held out (`cli.paper_factors`) |
 | `eval/paper/lookahead_20261106.json`, `lookahead_interpolated_clock_20261106.json` | The prefix test with the causal clock correction (identical) and with the interpolated one (differs) (`cli.paper_lookahead`) |
 | `eval/paper/results_20261106/*.csv` | The tables the results page reads (`scripts/paper_results_data.py`) |
+| `eval/paper/report_live_tuned_20261107.json` | The tuned run's fresh live hours (04:09-14:10 UTC) split into spread, 1 s move, position and fee, per strategy and coin |
+| `eval/paper/range_vr_20261107.json` | Volatility, within-minute trend ratios, and variance ratios at 5-30 minutes with a permutation null, all 27.9 recorded hours (`cli.paper_range study`) |
+| `eval/paper/range_sweep_selection_20261107.json`, `range_test*_20261107.json` | The band maker's 96-setting sweep on the selection hours with hour-shuffled nulls, and its registered held-out test (`cli.paper_range sweep`, `test`) |
+| `eval/paper/vol_regime_20261107.json`, `funding_20261107.json` | 15-minute PnL by trailing volatility; 60 days of Hyperliquid funding by coin |
 | `eval/paper/journal_night_20261106.{json,md}` | The night's decision journals read by `cli.paper_journal`: fills by markout horizon and by what the strategy saw, side changes, pulls, actions |
 
 The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
