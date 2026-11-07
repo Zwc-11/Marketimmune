@@ -99,3 +99,29 @@ Ties are broken by the interval's lower bound.
   1. Net $ an hour > 0 on A + B.
   2. Gross bp per round trip above the null in at least 95% of the copies.
 - **Reported regardless:** the bootstrap interval by hour, A and B separately, and lower maker fees.
+
+## Addendum B: candidate 4, the Transformer toxicity model (written about 18:40 UTC, before its held-out scoring)
+
+- **Training** (`cli/paper_seqmodel train`, `paper/seqmodel.py`):
+  - **Data:** touch fills of the selection hours (night, 16:06, 18:06; 32k fills), seed 0, AdamW, Huber loss.
+  - **Model selection:** by validation loss on the 20:03 segment.
+  - **Two variants:**
+    - sequence only: the last 120 one-second bars of the coin and BTC;
+    - hybrid: the same, plus the ridge model's per-fill features in the head.
+- **Validation (20:03), correlation with the 30 s markout:** sequence only 0.146, hybrid 0.227, ridge 0.208.
+- **Late selection hours (22:03-04:00, 9,344 fills):**
+  - **Correlation:** sequence only 0.204, hybrid 0.281, ridge 0.302.
+  - **Fills kept by `immune@`'s rule (prediction - 1.5 bp >= -1 bp), net of the fee:**
+    - hybrid: -0.76 bp, -$0.58 an hour [-1.35, +0.12];
+    - ridge: -1.21 bp, -$1.33 an hour [-3.03, -0.20].
+  - **Reading:** the Transformer does not beat the ridge on correlation. The hybrid keeps slightly better fills.
+- **Registered model:** the hybrid, frozen as `marketimmune/paper/models/seq_30s_hybrid.pt`.
+- **Held-out scoring:**
+  - **Data:** the touch fills of held-out A + B (`data/paper/immune/fills_late.parquet`, segments
+    04:09-15:20, 12.82 h), at $250 a fill.
+  - **Command:** `cli/paper_seqmodel score`.
+- **Primary:** the fills the Transformer keeps make money after the fee: $ an hour > 0, with the
+  stationary-bootstrap 95% interval (15-minute blocks) above zero.
+- **Reported regardless:** the ridge on the same fills, correlation, and the markout by tenth of prediction.
+- **Caveat:** this is a fill-level test, not an engine replay. It counts every touch fill the rule
+  would keep, with no position limit, queue choice or inventory cost.
