@@ -553,6 +553,84 @@ it does better than that.
   hypothesis; `scripts/run_paper_mm.ps1`, port 8767). The results page draws on
   `eval/paper/results_20261106/` (`scripts/paper_results_data.py`).
 
+## A fill-toxicity quoter, an optimal-control market maker, and one locked test (2026-11-07)
+
+**Question:** is there a better market maker, built from the project's results and tested without
+cheating? Everything was chosen on the selection hours. The 2 h held out were checked. Then
+5.91 h recorded on the PC after all of them were locked and scored once
+(`docs/preregistration/paper-locked-test-20261107.md`).
+
+**MarketImmune's own question asked of every quote** (`paper/immune.py`, `cli.paper_fills`,
+`cli.paper_immune_fit`; `eval/paper/immune_fit_20261106.json`):
+
+- **Data:** `touch` quoting every coin without limit gives every fill a touch quote could get:
+  36,903 in the selection hours. Each is joined with the signals of the last tick at least 200 ms
+  before it, the last moment a cancel could still have landed.
+- **Model:** ridge regression per horizon, with an intercept per coin, of the fill's markout (bps
+  from its price to the seen mid 10, 30 or 60 s later).
+- **Held out:**
+  - **Accuracy:** correlation 0.30 at 10 s, 0.20 at 30 s, 0.10 at 60 s. LightGBM adds 0.02 at
+    10 s.
+  - **Touch fills:** they lose 2.9 bp after the fee on average, and the decile the model likes
+    best only breaks even before it.
+- **The quoter:** `immune@h=<s>/t=<bps>/risk=<phi>` quotes a side while
+  `predicted markout - fee - phi * sigma_h^2 * (2 * side * position + quote) / 1e4 >= t`. The last
+  term is the mean-variance cost of the inventory the fill adds.
+
+**The market maker's optimal control problem** (`paper/optimal.py`, `cli.paper_optimal_fit`;
+`eval/paper/optimal_fit_20261106.json`):
+
+- **Model,** per coin, one step a second:
+  - **States:** the position, from -4 to +4 quotes, and 7 market states, the quantiles of a
+    least-squares prediction of the next 10 s move from gap z, microprice, wallet factor and taker
+    imbalance.
+  - **Measured:** the drift in each state, a Markov chain between states, and each side's fill
+    probability and first-second fill value from the touch fills.
+  - **Reward:** position x drift - phi x position^2 x variance + fills x (value - fee).
+- **Value iteration** gives the policy.
+- **With any inventory aversion it never opens a position.**
+  - **Edge:** the predictable move is at most about 1.2 bp in the top state, and spent within
+    5-15 s; it saturates by then.
+  - **Cost:** the 1.5 bp fee plus 0.5-1 bp of adverse move on a fill.
+  - Under the model, no quoting policy is profitable from these signals' short-term
+    predictability.
+  - What the gap quoters earn is position held for minutes.
+
+**Selection** (`eval/paper/tune_immune_home_20261106.{json,md}`):
+
+- **The toxicity veto on top of gap + wallets:** -$1.8 an hour in-sample at `veto=-2`, +$3.4 on
+  the held-out hours.
+- **`immune@h=30/t=-1`:** +$8.5 an hour in-sample, but its model was fitted on those hours, and it
+  sends 1.18 orders per $. It made +$1.2 an hour on the held-out hours.
+
+**Overfitting** (`paper/overfit.py`, `cli.paper_overfit`; `eval/paper/overfit_20261106.json`), on
+46 candidate settings in 34 blocks:
+
+- **Probability of backtest overfitting by CSCV:** 0.03.
+- **Deflated Sharpe ratio of the gap + wallets pick:** 0.001, counting 186 settings tried on these
+  hours. Its plain probabilistic Sharpe is 0.78.
+- **Reading:** a good choice among candidates, but not separable from luck.
+
+**The locked test** (5.91 h, 24 blocks; `eval/paper/locked_test_20261107.{json,md}`,
+`locked_test_report_20261107.json`):
+
+| Strategy | $/h [95%] | Against `zgap@0.05` [95%] | Net position | BTC correlation |
+|---|---|---|---:|---:|
+| `immune@h=30/t=-1` | +2.40 [-1.04, +5.44] | +3.52 [-1.24, +7.56], 16/24 blocks | $818 | +0.01 |
+| `optimal@phi=0.01` | 0 (never traded) | +1.16 | $0 | |
+| `guard@.../veto=-2` | -0.13 | +1.03 | $1,243 | +0.04 |
+| `zgap@0.05` | -1.18 [-4.80, +2.60] | | $1,344 | -0.11 |
+| `guard@z=0.05/w=1.5/win=5` | -1.75 [-5.16, +1.76] | -0.56 [-1.64, +0.56] | $1,219 | -0.14 |
+| `mm@h=2/skew=6` | -7.04 [-9.08, -5.04] | -5.77 | $172 | +0.22 |
+| `touch` | -46.88 | -44.97 | $1,604 | +0.25 |
+
+- **The registered primary failed.** The wallet factor did not add to the gap quoter on fresh
+  hours.
+- **The toxicity quoter came first,** with the least exposure and no BTC correlation.
+  - **Per filled dollar:** spread +0.60 bp, 1 s move -0.13, fee -1.50, position +3.39.
+  - **Over the held-out and locked hours:** about +$2 an hour over 7.9 fresh hours.
+  - Its interval still includes zero. A live registered test is the next step, not money.
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency

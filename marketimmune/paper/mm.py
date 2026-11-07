@@ -90,7 +90,7 @@ def parse(arg: str) -> MMParams:
 
 def is_mm(name: str) -> bool:
     """Strategies run by ``engine.MarketMaker`` (position tracking and the risk layer)."""
-    return name.partition("@")[0] in ("mm", "guard")
+    return name.partition("@")[0] in ("mm", "guard", "immune", "optimal")
 
 
 def clip1(x: float) -> float:
@@ -262,5 +262,8 @@ def entry_after(entry: float | None, pos: float, side: int, px: float, qty: floa
 
 def info(p: Any) -> dict[str, Any]:
     """A strategy's parameters for the run's summary (``MMParams`` or ``strategies.GuardParams``)."""
-    out = {f.name: getattr(p, f.name) for f in fields(p)}
+    out: dict[str, Any] = {}
+    for f in fields(p):
+        v = getattr(p, f.name)
+        out[f.name] = None if isinstance(v, float) and not math.isfinite(v) else v  # JSON has no infinity
     return out | ({"skew_bps": p.skew_bps, "nskew_bps": p.nskew_bps} if isinstance(p, MMParams) else {})
