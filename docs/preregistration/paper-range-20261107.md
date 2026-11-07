@@ -79,3 +79,22 @@ What is known before this test (selection hours only unless stated):
   - **Fills:** an entry or exit fills only when the mid trades through it by half a tick.
   - **Passive only:** orders never rest inside the touch.
   - **Stops:** stop and time exits pay half a tick and the taker fee.
+
+## Result (scored once, 2026-11-07 about 16:00 UTC; `eval/paper/range_test*_20261107.json`)
+
+11.18 held-out hours, $500 a trade, nine coins.
+
+| Setting | Round trips | Gross bp | Net bp | $ an hour [95%] | Null gross bp (40 copies) | Copies >= real |
+|---|---:|---:|---:|---|---:|---:|
+| **`band@k=1/h=60` (primary)** | 31 | +2.37 | -1.02 | -0.14 [-2.07, +1.47] | -2.29 | 0/40 |
+| `band@k=1/h=30` | 57 | -0.42 | -3.95 | -1.01 [-2.98, +1.00] | -2.26 | 4/40 |
+| `band@k=1.5/h=30` | 28 | +3.23 | -0.20 | -0.02 [-1.78, +1.46] | -2.19 | 0/40 |
+
+- **Primary: not shown.**
+  - **What failed:** the band maker lost $0.14 an hour after fees, so the first criterion fails.
+  - **What passed:** its gross edge beat all 40 hour-shuffled copies, so the second criterion passes.
+  - **Reading:** the reversion is there, and it is smaller than the fees: about +2.4 bp per round
+    trip against 3 bp of maker fees.
+- **At lower maker fees** (primary): 1.2 bp -$0.06/h, 0.8 bp +$0.05/h, 0.4 bp +$0.16/h, 0 bp +$0.27/h.
+  Even fee-free it makes about $0.3 an hour on $500 trades.
+- **Decision:** the band maker is not built into the paper engine and not run live.

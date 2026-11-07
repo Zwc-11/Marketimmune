@@ -46,7 +46,7 @@ def _cut(series: dict[str, pd.Series], lo: int | None, hi: int | None) -> dict[s
 
 def _hours(series: dict[str, pd.Series], from_ms: int | None = None) -> float:
     s = next(iter(series.values()))
-    ok = s.notna().to_numpy()
+    ok = s.notna().to_numpy().copy()
     if from_ms is not None:
         ok &= s.index.to_numpy() >= from_ms
     return float(ok.sum() / 3600)
