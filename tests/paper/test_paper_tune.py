@@ -39,3 +39,11 @@ def test_chains_mark_warm_up_and_held_out_segments() -> None:
         (Path("c/raw"), False, True),
     ]
     assert family("mm@h=2/skew=6") == "mm"
+
+
+def test_every_clock_flag_counts() -> None:
+    from marketimmune.cli.paper_tune import clock_chains
+
+    assert clock_chains(["live", "tuned"]) == {"live", "tuned"}
+    assert clock_chains(["live,tuned", "test"]) == {"live", "tuned", "test"}
+    assert clock_chains([]) == set()
