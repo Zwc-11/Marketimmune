@@ -72,7 +72,7 @@ def second_series(mids: pd.DataFrame) -> dict[str, pd.Series]:
 def minute_returns(series: dict[str, pd.Series]) -> list[FloatArray]:
     """Unbroken runs of 1-minute log returns, coins as columns (aligned on the same minutes)."""
     coins = sorted(series)
-    frame = pd.concat([series[c].iloc[::60] for c in coins], axis=1, join="inner")
+    frame = pd.concat([series[c][series[c].index % 60_000 == 0] for c in coins], axis=1, join="inner")
     lx = np.log(frame.to_numpy(float))
     ok = ~np.isnan(lx).any(axis=1)
     runs: list[FloatArray] = []

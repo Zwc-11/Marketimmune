@@ -81,8 +81,10 @@ def cmd_study(a: argparse.Namespace) -> dict[str, Any]:
     vol = {}
     for c, x in lx.items():
         r1 = x[1:] - x[:-1]
-        r60 = x[60::60] - x[:-60:60]
+        r60 = x[60:] - x[:-60]
         vol[c] = {"sd_1s_bps": float(np.nanstd(r1) * 1e4), "sd_1min_bps": float(np.nanstd(r60) * 1e4)}
+        for n in (5, 10, 30, 60):  # within the minute: above 1 means moves continue (trend)
+            vol[c][f"vr_{n}s"] = float(np.nanvar(x[n:] - x[:-n]) / (n * np.nanvar(r1)))
     return {"hours": _hours(series), "variance_ratios": vr.to_dict("records"), "volatility": vol}
 
 

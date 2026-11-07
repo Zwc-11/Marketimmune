@@ -1,0 +1,98 @@
+{
+ "guard@z=0.05/w=1.5/win=5": {
+  "blocks": 46,
+  "corr_pnl_vol": -0.0567426617822554,
+  "terciles": [
+   {
+    "vol": "quiet",
+    "blocks": 16,
+    "usd_per_hour": -2.750580852090894,
+    "trailing_sd_1min_bps": 3.390586612057066
+   },
+   {
+    "vol": "middle",
+    "blocks": 15,
+    "usd_per_hour": 1.6490737224399976,
+    "trailing_sd_1min_bps": 4.731034160390471
+   },
+   {
+    "vol": "busy",
+    "blocks": 15,
+    "usd_per_hour": -2.9366325430721805,
+    "trailing_sd_1min_bps": 6.982378400753623
+   }
+  ]
+ },
+ "immune@h=30/t=-1": {
+  "blocks": 46,
+  "corr_pnl_vol": -0.03523944719238555,
+  "terciles": [
+   {
+    "vol": "quiet",
+    "blocks": 16,
+    "usd_per_hour": 0.23838454894286643,
+    "trailing_sd_1min_bps": 3.390586612057066
+   },
+   {
+    "vol": "middle",
+    "blocks": 15,
+    "usd_per_hour": 7.706040969936906,
+    "trailing_sd_1min_bps": 4.731034160390471
+   },
+   {
+    "vol": "busy",
+    "blocks": 15,
+    "usd_per_hour": -1.1061318533546123,
+    "trailing_sd_1min_bps": 6.982378400753623
+   }
+  ]
+ },
+ "touch": {
+  "blocks": 105,
+  "corr_pnl_vol": -0.568689850039832,
+  "terciles": [
+   {
+    "vol": "quiet",
+    "blocks": 35,
+    "usd_per_hour": -39.4806750873852,
+    "trailing_sd_1min_bps": 2.9952349524005935
+   },
+   {
+    "vol": "middle",
+    "blocks": 35,
+    "usd_per_hour": -56.185780568656824,
+    "trailing_sd_1min_bps": 4.455069916319781
+   },
+   {
+    "vol": "busy",
+    "blocks": 35,
+    "usd_per_hour": -125.98779229365687,
+    "trailing_sd_1min_bps": 7.485463035499336
+   }
+  ]
+ },
+ "zgap@0.05": {
+  "blocks": 86,
+  "corr_pnl_vol": -0.0021628314044690165,
+  "terciles": [
+   {
+    "vol": "quiet",
+    "blocks": 29,
+    "usd_per_hour": -1.9646288545615156,
+    "trailing_sd_1min_bps": 2.872814323630849
+   },
+   {
+    "vol": "middle",
+    "blocks": 28,
+    "usd_per_hour": -6.684641617508914,
+    "trailing_sd_1min_bps": 4.024255320656718
+   },
+   {
+    "vol": "busy",
+    "blocks": 29,
+    "usd_per_hour": 0.646583087113267,
+    "trailing_sd_1min_bps": 6.039476523013939
+   }
+  ]
+ }
+}
