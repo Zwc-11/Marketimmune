@@ -687,6 +687,26 @@ cheating? Everything was chosen on the selection hours. The 2 h held out were ch
 - **The carry trade:** short the perp, hold the coin, and the price risk cancels. It is the only edge
   in these data that is larger than its cost, and it is small: about $1.2 a day on $5,000 hedged.
 
+## Five candidate winning strategies, each scored once (2026-11-07)
+
+Registered in `docs/preregistration/paper-five-candidates-20261107.md`; settings fixed on the
+selection hours; held-out A + B = 2026-11-07 04:09-17:00 UTC (12.8 h).
+
+| # | Candidate (what it uses) | Result [95%] |
+|---|---|---|
+| 1 | **Funding carry**: short perp + Hyperliquid spot, BTC/ETH/SOL/HYPE/AVAX (funding) | **+7.4% a year net [5.4, 9.5]** over 60 days, t = 7.9, both 30-day halves positive |
+| 2 | Fill-toxicity quoter `immune@h=30/t=-1`, replayed (ridge markout model) | -$1.33/h [-4.48, +1.72]; vs the gap quoter +$3.50/h [+0.56, +6.56] |
+| 3 | Range swing maker: exit half a band past the average (range reversion) | -$0.38/h [-2.58, +1.70]; gross +1.8 bp beats 40/40 shuffled copies |
+| 4 | Hybrid Transformer on 120 s of 1-s bars + the ridge features (Coinbase lead, flow, book) | correlation 0.30 (ridge 0.35); kept fills -$0.34/h [-0.73, +0.07] |
+| 5 | Cross-coin pairs against BTC (residual reversion at 30-60 min) | eliminated in selection: all 36 settings negative after four maker fees |
+
+- **Market making:** all four candidates carry real information, and none clears the base maker fee.
+  - The best tenth of touch fills by either model earns +0.1-0.2 bp before a 1.5 bp fee.
+  - The toxicity quoter is the better live choice than `zgap@0.05`: it loses $3.50 an hour less,
+    an interval above zero.
+- **Carry:** funding at the interest rate is the one edge larger than its cost. It is small, about
+  $1 a day per $5,000 hedged, and needs the spot leg (Hyperliquid spot fees 4 / 7 bp).
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
