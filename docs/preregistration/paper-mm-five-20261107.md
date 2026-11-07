@@ -152,3 +152,13 @@ Ties are broken by the interval's lower bound.
   - `disloc@d=2`, `lead@h0=1` and `immune@h=30/t=-1/fee=0`: -$6 to -$11 an hour.
 - **Registered:** `zgap@0.05` at 0 / 0 bp and 400 ms, replayed on candidates 1-4's test hours.
 - **Primary:** $ an hour > 0 with the stationary-bootstrap 95% interval above zero.
+
+## Addendum A: candidate 5's setting (written 2026-11-07 20:01 UTC, before any of the test hour is read)
+
+- **Selection hour:** 19:06-20:00 UTC, 0.90 h (`eval/paper/tail_selection_20261107.json`).
+  - **Every setting loses.** Marked PnL is -$14 to -$37 an hour at $200 quotes.
+  - **Why:** the fills earn 1.7-2.3 bp of spread against the mid, but the mid 60 s later is 1.1-1.5 bp past the fill price against them. That is about 3.5 bp of move, plus the 1.5 bp fee.
+- **Registered:** `tail@spread=4/n=1/flow=10`, the least negative (-$14.1 an hour marked).
+  - **Rule:** quote at the touch only while the spread is at least 4 bp; at most one quote of
+    inventory a coin; skip the side taker flow over the last 10 s hits 3 times harder.
+- **Test:** 20:00-21:00 UTC from the same recorder, the same 24 coins.
