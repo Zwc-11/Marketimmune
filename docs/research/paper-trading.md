@@ -750,6 +750,67 @@ Registered in `docs/preregistration/paper-mm-five-20261107.md` (and Addenda A an
   - A Hyperliquid account would need both colocation and a fee tier near 0.8 bp, which needs about
     $25M of 14-day volume.
 
+## The quiet-depth maker: A1's wallet score as a quoting gate (`hush@`, 2026-11-07, night)
+
+Built from this project's own result rather than a textbook rule: A1/A4's per-wallet toxicity score
+(`paper/signals.py`, `Wallets`), shared across coins and updated live from the trade feed.
+Registered in `docs/preregistration/paper-hush-20261107.md` with Addendum A. The test hours are the
+PC's 23:20-15:20 UTC segments, which were recorded after the registration commit.
+
+**The rule.**
+- Rest a bid and an ask `d` bp from Hyperliquid's mid, passive only.
+- Quote only while no wallet scoring at least `inf` bp (with ≥5 scored takes) has taken the coin in
+  the last `quiet` seconds. `signals.CoinState.informed_quiet_ms` tracks this.
+- **Why** (trade-level check, 39.5 h, 300k taker events, 27k wallets):
+  - The top tenth of wallets cost the maker −2.07 bp at 10 s.
+  - Prints at least 1 bp from the mid earned +1.52 bp at 30 s [1.06, 1.86] when no informed wallet
+    had taken for 5 s.
+  - A1: informed toxicity decays over about 100 blocks (7 s).
+
+**Selection** (31.9 h; `eval/paper/tune_hush_{selection,controls}_20261107.*`,
+`hush_markouts_20261107.csv`):
+- **The gate works.** On the same 3 bp quotes, every gated setting beats the ungated one, with the
+  paired interval above zero:
+  - ungated `hush@d=3/quiet=0`: −$2.57/h;
+  - gated: +$1.1 to +$2.3/h, paired +$3.6 to +$4.8/h;
+  - `inf=0.665`: +4.77 [+2.24, +8.16], better in 84 of 130 quarter-hours.
+  - The fills' 30-minute markout improves from −3.71 to −2.19 bp.
+- **Depth matters:** d = 1 / 2 / 3 bp gives −$18.7 / −$5.2 / +$1.1 an hour.
+- **The registered pick,** `hush@d=3/quiet=5/inf=0.665/tol=0.3`:
+  - +$2.28/h [−0.52, +5.12]; left-out +2.3; 0.62 orders per $.
+  - This is the first maker in this project positive on its selection hours within the rate
+    limit. Every earlier candidate was negative there.
+- **Where its money comes from.** The fills lose before the fee at every horizon up to 30 minutes:
+  −1.31 bp at 1 s, −2.43 at 60 s, −3.41 at 5 min, −2.19 at 30 min.
+  - The total is positive because quotes 3 bp deep on both sides build a position against large
+    moves, and in these range-bound hours those moves came back within the hour. This is the same
+    reversion the band test measured (gross +2.4 bp per round trip).
+  - In a trending market the same position would lose.
+- **Why the trade-level +1.52 bp does not carry over.**
+  - At 200 ms, a resting quote 3 bp from the mid is filled mostly by moves that slide to it over
+    several blocks, not by one sweep. For the pick, 495 of 1,548 fills came within 0.5 bp of the
+    previous block's mid.
+  - **By the slide toward the quote in the previous 300 ms,** markout at 30 s:
+    - more than 2 bp: −3.56 bp;
+    - under 0.25 bp: −0.39 bp.
+  - Even the cleanest fills lose before the fee.
+  - **Where the gate helps.** It does not help on the single-sweep fills: those more than 2.5 bp
+    from the previous mid make +0.40 bp at 30 s ungated, −0.96 gated. It helps on the slides. Fills
+    after a 2 bp+ slide lose −5.31 bp ungated and −3.56 gated. The informed wallets are the ones
+    pushing the price into the quote, which is what A1's lead time describes.
+- **Over the rate limit:** adding the Coinbase gap pull (`z=0.05`) gives fills with positive
+  markouts (+0.3 to +0.9 bp) and intervals above zero (+$2.2/h). These variants send about four
+  orders per filled dollar, so Hyperliquid's limit rules them out at this size.
+
+**Correction to earlier selection replays.** `paper_tune --clock` kept only its last value, so
+`--clock live --clock tuned` corrected one chain. It now accepts every flag (2e00e44).
+- **This round:** the 2026-11-06 16:06 and 18:06 segments were replayed again with the correction
+  before the pick was fixed (Addendum A).
+- **The evening's five market-making candidates:**
+  - **Selection replays** (`tune_{lead,latency50,latency100,zerofee}_selection_20261107`): only the
+    `tunedB` chain was corrected, so those numbers include about 3.5 h replayed at 420-550 ms.
+  - **Test replays:** their chain was corrected (`fresh`), so the registered results stand.
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
@@ -812,3 +873,5 @@ Registered in `docs/preregistration/paper-mm-five-20261107.md` (and Addenda A an
 | `eval/paper/journal_night_20261106.{json,md}` | The night's decision journals read by `cli.paper_journal`: fills by markout horizon and by what the strategy saw, side changes, pulls, actions |
 
 The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
+| `eval/paper/tune_hush_{selection,controls}_20261107.{json,md}`, `..._report_20261107.json` | The quiet-depth maker's two grids (depth, quiet window, wallet threshold, ungated control, Coinbase-gap variants) on 31.9 h with the clock corrected; each gated setting paired with the ungated one |
+| `eval/paper/hush_markouts_20261107.csv` | Each `hush@` setting's fill markouts at 1 s, 10 s, 60 s, 5 min and 30 min before the fee |
