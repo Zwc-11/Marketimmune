@@ -135,3 +135,20 @@ committed.
 3. negative.
 
 Ties are broken by the interval's lower bound.
+
+## Addendum B: a sixth candidate, the gap quoter on a zero-fee venue (written about 19:40 UTC, before the test hours are read)
+
+- **Why:** every candidate's loss is the fee. Lighter (an Ethereum-rollup perp exchange) charges
+  standard accounts 0 bp maker and 0 bp taker. In exchange it adds latency: 200 ms to maker orders
+  and cancels, 300 ms to taker orders (docs.lighter.xyz, read 2026-11-07).
+- **Proxy:** Hyperliquid replayed at 0 / 0 bp fees and 400 ms latency (our 200 ms plus the venue's 200 ms).
+  - It assumes Lighter's book, and its lag behind Coinbase, behave like Hyperliquid's.
+  - That is not tested here. A pass would justify recording Lighter, nothing more.
+- **Selection** (the same 28.9 h; `eval/paper/tune_zerofee_selection_20261107.{json,md}`,
+  `..._report_20261107.json`):
+  - `zgap@0.05`: +$0.97 an hour [-1.80, +3.88]; +0.18 bp per filled $. Per filled $: spread +0.11,
+    move in 1 s -0.64 (-0.36 at 200 ms), position +0.71.
+  - `gap@0.1`: -$0.18 an hour.
+  - `disloc@d=2`, `lead@h0=1` and `immune@h=30/t=-1/fee=0`: -$6 to -$11 an hour.
+- **Registered:** `zgap@0.05` at 0 / 0 bp and 400 ms, replayed on candidates 1-4's test hours.
+- **Primary:** $ an hour > 0 with the stationary-bootstrap 95% interval above zero.
