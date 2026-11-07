@@ -64,9 +64,7 @@ def bars(raw: Path) -> pd.DataFrame:
         h = pd.DataFrame([hl[(coin, s)] for s in ks], index=ks, columns=["hl_bid", "hl_ask"]).reindex(sec).ffill()
         cs = sorted(s for c, s in cb if c == coin)
         c = pd.DataFrame([cb[(coin, s)] for s in cs], index=cs, columns=["cb_bid", "cb_ask"]).reindex(sec).ffill()
-        fl = pd.DataFrame(
-            [flow.get((coin, s), [0.0, 0.0, 0.0]) for s in sec], index=sec, columns=["buy_usd", "sell_usd", "trades"]
-        )
+        fl = pd.DataFrame([flow.get((coin, int(s)), [0.0, 0.0, 0.0]) for s in sec], index=sec, columns=["buy_usd", "sell_usd", "trades"])
         df = pd.concat([h, c, fl], axis=1)
         df.insert(0, "t", sec * 1000)
         df.insert(0, "coin", coin)

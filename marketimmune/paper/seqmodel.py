@@ -15,6 +15,8 @@ width 32), the mean over time and the last step, and a linear head. Target: the 
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -72,7 +74,7 @@ def sequences(
     return out, ok
 
 
-def build_model(seed: int = 0, n_static: int = 0):  # type: ignore[no-untyped-def]
+def build_model(seed: int = 0, n_static: int = 0) -> Any:
     """The Transformer; with ``n_static`` > 0 the head also reads that many per-fill features (the
     ridge model's book and wallet signals), so the sequence only has to add to them."""
     import torch
@@ -92,6 +94,7 @@ def build_model(seed: int = 0, n_static: int = 0):  # type: ignore[no-untyped-de
         def forward(self, x: torch.Tensor, s: torch.Tensor | None = None) -> torch.Tensor:
             h = self.enc(self.inp(x) + self.pos)
             z = torch.cat([h.mean(1), h[:, -1]] + ([s] if s is not None else []), dim=1)
-            return self.head(z).squeeze(-1)
+            out: torch.Tensor = self.head(z).squeeze(-1)
+            return out
 
     return Net()

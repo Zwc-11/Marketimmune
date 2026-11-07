@@ -20,18 +20,21 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 from marketimmune.models.compare import stationary_bootstrap_ci
 from marketimmune.paper.immune import FEATURES, SIGNED, model_for
 from marketimmune.paper.seqmodel import CHANNELS, bar_features, build_model, sequences
 
+Arr = npt.NDArray[np.float64]
+
 FEE = 1.5
 RULE_T = -1.0
 QUOTE_USD = 250.0
 
 
-def load_bars(root: Path) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+def load_bars(root: Path) -> dict[str, tuple[npt.NDArray[np.int64], npt.NDArray[np.float32]]]:
     d = pd.concat([pd.read_parquet(f) for f in sorted(root.glob("*.parquet"))], ignore_index=True)
     d = d.sort_values(["coin", "t"]).drop_duplicates(["coin", "t"], keep="last")
     d["hl_mid"] = (d.hl_bid + d.hl_ask) / 2
@@ -57,26 +60,28 @@ def load_fills(paths: list[Path], segments: list[str] | None) -> pd.DataFrame:
     return f.dropna(subset=["markout_30s"]).sort_values("t").reset_index(drop=True)
 
 
-def signed(f: pd.DataFrame) -> np.ndarray:
+def signed(f: pd.DataFrame) -> Arr:
     """The ridge model's features, the directional ones signed by the fill's side (as it was fitted)."""
     side = f["side"].to_numpy(float)
-    return np.column_stack([f[k].to_numpy(float) * (side if k in SIGNED else 1.0) for k in FEATURES])
+    out: Arr = np.column_stack([f[k].to_numpy(float) * (side if k in SIGNED else 1.0) for k in FEATURES])
+    return out
 
 
-def ridge(f: pd.DataFrame) -> np.ndarray:
+def ridge(f: pd.DataFrame) -> Arr:
     m = model_for(30)
     return np.array([m.predict(c, list(x)) for c, x in zip(f["coin"], signed(f), strict=True)])
 
 
-def static(f: pd.DataFrame, mean: np.ndarray | None = None, scale: np.ndarray | None = None) -> np.ndarray:
+def static(f: pd.DataFrame, mean: Arr | None = None, scale: Arr | None = None) -> npt.NDArray[np.float32]:
     """The ridge model's features, standardised and clipped as it does."""
     x = signed(f)
     if mean is None or scale is None:
         mean, scale = np.nanmean(x, 0), np.nanstd(x, 0) + 1e-9
-    return np.clip(np.nan_to_num((x - mean) / scale), -5, 5).astype(np.float32)
+    out: npt.NDArray[np.float32] = np.clip(np.nan_to_num((x - mean) / scale), -5, 5).astype(np.float32)
+    return out
 
 
-def predict(net: Any, x: np.ndarray, mu: np.ndarray, sd: np.ndarray, s: np.ndarray | None = None) -> np.ndarray:
+def predict(net: Any, x: npt.NDArray[np.float32], mu: Any, sd: Any, s: npt.NDArray[np.float32] | None = None) -> Arr:
     import torch
 
     net.eval()
@@ -85,7 +90,7 @@ def predict(net: Any, x: np.ndarray, mu: np.ndarray, sd: np.ndarray, s: np.ndarr
         for i in range(0, len(x), 1024):
             st = torch.from_numpy(s[i : i + 1024]) if s is not None else None
             out.append(net(torch.from_numpy((x[i : i + 1024] - mu) / sd), st).numpy())
-    return np.concatenate(out) if out else np.zeros(0)
+    return np.concatenate(out).astype(np.float64) if out else np.zeros(0)
 
 
 def cmd_train(a: argparse.Namespace) -> dict[str, Any]:
@@ -147,7 +152,7 @@ def cmd_train(a: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def economics(f: pd.DataFrame, pred: np.ndarray, hours: float) -> dict[str, Any]:
+def economics(f: pd.DataFrame, pred: Arr, hours: float) -> dict[str, Any]:
     keep = pred - FEE >= RULE_T
     net = f["markout_30s"].to_numpy() - FEE
     usd = np.where(keep, net * QUOTE_USD / 1e4, 0.0)
