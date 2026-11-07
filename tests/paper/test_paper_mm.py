@@ -172,3 +172,49 @@ def test_guard_runs_with_the_risk_layer() -> None:
     e.handle(Trade("BCH", 1_150, 270.0, 5.0, False, "0xa"), 1_160)  # through the bid: long
     e.handle(Top("BCH", 1_200, 269.6, 1.0, 269.7, 1.0), 1_240)  # 13 bps against it
     assert m.pending is not None and m.pending[2] == "stop"
+
+
+def test_immune_quotes_a_side_only_when_its_fill_is_worth_the_fee_and_the_risk() -> None:
+    from marketimmune.paper.immune import FEATURES, FillModel, features, side_features
+    from marketimmune.paper.strategies import Immune, parse_immune
+
+    n = len(FEATURES)
+    coef = [0.0] * n
+    coef[FEATURES.index("gap_z")] = 2.0  # +2 bps of markout per sd of gap z in the quoted side's favour
+    model = FillModel(30, tuple([0.0] * n), tuple([1.0] * n), tuple(coef), {"BCH": 1.0})
+    c = _coin()
+    c.gap_var = 1.0
+    c.var_1s = 1.0  # sigma_1s 1 bp
+    f = features(c, 0)
+    assert f is not None and f["gap_z"] == 0.0
+    assert model.predict("BCH", side_features(f, 1)) == 1.0
+    im = Immune(parse_immune("h=30/t=0"), model)
+    im.qty = 1.0
+    assert im.targets(c, 0, 0.0, 4.0, 0.0) == (None, None)  # markout +1 < the 1.5 bp fee on both sides
+    c.ref = RefTop("BCH", 0, 270.05 * math.exp(1e-4), 270.05 * math.exp(1e-4))  # Coinbase 1 bp higher: gap z +1
+    assert im.targets(c, 0, 0.0, 4.0, 0.0) == (270.01, None)  # bid +3 - 1.5 >= 0; ask -1 - 1.5 < 0
+    assert "bid +3.00 - fee 1.5 - risk 0.00 = +1.50 >= 0" in im.why
+    risky = Immune(parse_immune("h=30/t=0/risk=0.1"), model)
+    risky.qty = 1.0
+    # long 3 BCH (~$810): adding one more costs 0.1 * 30 * (2 * 810 + 270) / 1e4 = 0.57 bps; still worth it
+    assert risky.targets(c, 0, 3.0, 4.0, 0.0)[0] == 270.01
+    big = Immune(parse_immune("h=30/t=0/risk=0.5"), model)
+    big.qty = 1.0
+    assert big.targets(c, 0, 3.0, 4.0, 0.0) == (None, None)  # 2.8 bps of risk: no bid
+
+
+def test_an_optimal_policy_maps_position_and_state_to_sides() -> None:
+    from marketimmune.paper.optimal import CoinPolicy, policies
+
+    # Q = 1 (positions -1, 0, +1), two states: bid in the up state, ask in the down state, unwind when full
+    table = ((0, 1), (2, 1), (2, 0))
+    pol = CoinPolicy(coef=(0.0, 1.0, 0.0, 0.0, 0.0, 0.0), edges=(0.0,), table=table, q_max=1)
+    f = {"gap_z": 0.5, "micro": 0.0, "wallet1_z": 0.0, "wallet5_z": 0.0, "imbalance": 0.0}
+    assert pol.state(f) == (1, 0.5)
+    assert pol.action(0, 1) == (True, False)  # flat, price expected up: bid only
+    assert pol.action(0, 0) == (False, True)
+    assert pol.action(5, 1) == (False, False)  # beyond the table: the edge row (long, full): no more bids
+    assert pol.action(5, 0) == (False, True)
+    assert pol.action(-1, 1) == (True, False)
+    committed = policies("0.0")
+    assert {"BTC", "ETH", "SOL"} <= set(committed) and committed["BTC"].q_max == 4

@@ -39,7 +39,26 @@ After the market maker (``paper.mm``) lost in every replay, the research's own r
   (``|wallet z| > w``: ``CoinState.informed_z`` over the last ``win`` seconds; positive, informed
   buyers, pulls the ask). Position control: no bid once the coin's position is ``lean`` of its limit (no ask
   at minus that), and no bid anywhere at ``+net`` net dollars over the coins (no ask at ``-net``).
-  ``stop``, ``hold``, ``dd`` and ``stale`` are ``paper.mm``'s exits; 0 turns one off.
+  ``stop``, ``hold``, ``dd`` and ``stale`` are ``paper.mm``'s exits; 0 turns one off. ``veto``: also
+  pull a side whose fill ``paper.immune``'s 10 s model expects to lose more than ``-veto`` bps after
+  the fee (MarketImmune's toxicity veto on top of the gap and wallet rules).
+
+- ``Immune`` (``immune@h=<s>/t=<bps>/risk=<phi>``): MarketImmune's own question asked of every quote.
+  ``paper.immune``'s model predicts the markout of a fill on each side over ``h`` seconds from the
+  signals now (Coinbase gap, wallet factor, microprice, flow, bursts, spread, volatility); a side
+  is quoted (at the touch, one tick inside wide spreads) only while
+
+      predicted markout - fee - risk * sigma_h^2 * (2 * side * position + quote) / 1e4 >= t
+
+  in bps: the last term is the mean-variance cost of the inventory the fill would add (position and
+  quote in USD, ``sigma_h`` the coin's ``h``-second volatility in bps, ``risk`` per USD), so a
+  long book needs a better bid and accepts a worse ask. The position and risk controls of
+  ``Guard`` apply.
+
+- ``Optimal`` (``optimal@phi=<phi>``): the policy of the market maker's optimal control problem,
+  solved by value iteration on a model calibrated on the selection hours (``paper.optimal``,
+  ``cli.paper_optimal_fit``): for the coin's position in quotes and its market state (the
+  predicted next 10 s move), which sides to quote at the touch.
 
 ``GapTaker`` is the other side of the trade: when the gap reaches ``threshold_bps`` it buys (or
 sells) ``qty`` at the touch, paying the taker fee, and closes ``hold_ms`` after the fill.
@@ -51,7 +70,9 @@ import math
 from dataclasses import dataclass, fields
 from typing import Protocol
 
+from marketimmune.paper.immune import FillModel, features, model_for, side_features
 from marketimmune.paper.mm import MarketMaking, parse
+from marketimmune.paper.optimal import policies
 from marketimmune.paper.signals import FORECAST_MS, CoinState, on_tick
 
 Quotes = tuple[float | None, float | None]
@@ -239,6 +260,7 @@ class GuardParams:
     z: float = 0.05  # |gap z| that pulls the side at risk
     w: float = 0.0  # |wallet z| that pulls the side informed wallets take (0: off)
     win: float = 1.0  # the wallet factor's window, seconds (1 or 5)
+    veto: float = -math.inf  # pull a side whose fill's predicted 10 s markout after the fee is below this, bps
     lean: float = 1.0  # share of the coin's limit past which only the reducing side is quoted
     net: float = 0.0  # net USD over the coins past which the side adding to it stops (0: off)
     stop: float = 0.0  # bps against the average entry that closes a coin's position (0: off)
@@ -250,6 +272,7 @@ class GuardParams:
     tol: float = 0.0  # 0: a live order moves on any change of its price, as ZGap's
 
 
+BPS = 1e4
 GUARD_KEYS = tuple(f.name for f in fields(GuardParams))
 
 
@@ -269,9 +292,10 @@ def signal_z(value: float | None, sigma: float | None) -> float | None:
 
 
 class Guard:
-    def __init__(self, params: GuardParams) -> None:
+    def __init__(self, params: GuardParams, model: FillModel | None = None) -> None:
         self.p = params
         self.why = "not started"
+        self.model = model if model is not None or params.veto == -math.inf else model_for(10)
 
     def half_spread(self, coin: CoinState) -> float:
         return 0.0
@@ -293,6 +317,16 @@ class Guard:
             bid, ask = pull((bid, ask), wz, p.w)
             if (bid, ask) != before:
                 notes.append(f"wallets z {wz:+.2f}: {'ask' if before[1] is not None and ask is None else 'bid'} pulled")
+        if self.model is not None and (bid is not None or ask is not None):
+            f = features(coin, local_ms)
+            if f is not None:
+                for side in (1, -1):
+                    if (bid if side > 0 else ask) is None:
+                        continue
+                    after_fee = self.model.predict(coin.coin, side_features(f, side)) - 1.5
+                    if after_fee < p.veto:
+                        bid, ask = (None, ask) if side > 0 else (bid, None)
+                        notes.append(f"{'bid' if side > 0 else 'ask'} fill {after_fee:+.2f} bp after fee < {p.veto:g}: vetoed")
         if p.lean < 1 and max_position > 0:
             if position >= p.lean * max_position and bid is not None:
                 bid = None
@@ -308,6 +342,157 @@ class Guard:
                 ask = None
                 notes.append(f"net -${-net_usd:,.0f}: no asks")
         self.why = "; ".join(notes)
+        return bid, ask
+
+
+@dataclass(frozen=True, slots=True)
+class ImmuneParams:
+    h: float = 30.0  # the fill-markout model's horizon, seconds (paper/models/immune_<h>s.json)
+    t: float = 0.0  # bps a fill's predicted markout must clear after the fee and the inventory cost
+    risk: float = 0.0  # mean-variance inventory aversion, per USD
+    fee: float = 1.5  # maker fee, bps
+    lean: float = 1.0
+    net: float = 0.0
+    stop: float = 0.0
+    hold: float = 0.0
+    dd: float = 0.0
+    pause: float = 600.0
+    cool: float = 60.0
+    stale: float = 3.0
+    tol: float = 0.0
+
+
+IMMUNE_KEYS = tuple(f.name for f in fields(ImmuneParams))
+
+
+def parse_immune(arg: str) -> ImmuneParams:
+    """``""`` -> defaults; ``"h=30/t=0.5/risk=0.02"`` -> those, the rest defaults."""
+    values: dict[str, float] = {}
+    for part in arg.split("/") if arg else ():
+        key, _, value = part.partition("=")
+        if key not in IMMUNE_KEYS:
+            raise AssertionError(f"unknown immune parameter {key!r} (one of {', '.join(IMMUNE_KEYS)})")
+        values[key] = float(value)
+    return ImmuneParams(**values)
+
+
+class Immune:
+    def __init__(self, params: ImmuneParams, model: FillModel | None = None) -> None:
+        self.p = params
+        self.model = model if model is not None else model_for(int(params.h))
+        self.why = "not started"
+        self.qty = 0.0  # quote size in coins (set by engine.MarketMaker)
+
+    def half_spread(self, coin: CoinState) -> float:
+        return 0.0
+
+    def quotes(self, coin: CoinState, local_ms: int, position: float, max_position: float) -> Quotes:
+        return self.targets(coin, local_ms, position, max_position, 0.0)
+
+    def reason(self, coin: CoinState, local_ms: int) -> str:
+        return self.why
+
+    def value(self, coin: CoinState, f: dict[str, float], side: int, position: float) -> tuple[float, float]:
+        """A fill's predicted markout on ``side`` and the inventory cost it would carry, bps."""
+        top = coin.top
+        assert top is not None
+        pred = self.model.predict(coin.coin, side_features(f, side))
+        sigma_h = f["sigma"] * math.sqrt(self.p.h)
+        cost = self.p.risk * sigma_h**2 * (2 * side * position * top.mid + self.qty * top.mid) / BPS
+        return pred, cost
+
+    def targets(self, coin: CoinState, local_ms: int, position: float, max_position: float, net_usd: float) -> Quotes:
+        p = self.p
+        f = features(coin, local_ms)
+        if f is None or coin.top is None:
+            self.why = "signals not ready: no quotes"
+            return None, None
+        bid, ask = inside(coin, capped(coin, position, max_position))
+        notes = []
+        for side in (1, -1):
+            pred, cost = self.value(coin, f, side, position)
+            edge = pred - p.fee - cost
+            name = "bid" if side > 0 else "ask"
+            if edge < p.t:
+                bid, ask = (None, ask) if side > 0 else (bid, None)
+            notes.append(f"{name} {pred:+.2f} - fee {p.fee:g} - risk {cost:.2f} = {edge:+.2f} {'<' if edge < p.t else '>='} {p.t:g}")
+        if p.lean < 1 and max_position > 0:
+            if position >= p.lean * max_position:
+                bid = None
+            if position <= -p.lean * max_position:
+                ask = None
+        if p.net > 0:
+            if net_usd >= p.net:
+                bid = None
+            if net_usd <= -p.net:
+                ask = None
+        self.why = "fill markout " + "; ".join(notes)
+        return bid, ask
+
+
+@dataclass(frozen=True, slots=True)
+class OptimalParams:
+    phi: float = 0.0  # inventory risk aversion the policy was solved with (one of the file's phis)
+    lean: float = 1.0
+    net: float = 0.0
+    stop: float = 0.0
+    hold: float = 0.0
+    dd: float = 0.0
+    pause: float = 600.0
+    cool: float = 60.0
+    stale: float = 3.0
+    tol: float = 0.0
+
+
+def parse_optimal(arg: str) -> OptimalParams:
+    values: dict[str, float] = {}
+    keys = tuple(f.name for f in fields(OptimalParams))
+    for part in arg.split("/") if arg else ():
+        key, _, value = part.partition("=")
+        if key not in keys:
+            raise AssertionError(f"unknown optimal parameter {key!r} (one of {', '.join(keys)})")
+        values[key] = float(value)
+    return OptimalParams(**values)
+
+
+class Optimal:
+    def __init__(self, params: OptimalParams) -> None:
+        self.p = params
+        self.table = policies(str(params.phi))
+        self.why = "not started"
+        self.qty = 0.0  # quote size in coins (set by engine.MarketMaker)
+
+    def half_spread(self, coin: CoinState) -> float:
+        return 0.0
+
+    def quotes(self, coin: CoinState, local_ms: int, position: float, max_position: float) -> Quotes:
+        return self.targets(coin, local_ms, position, max_position, 0.0)
+
+    def reason(self, coin: CoinState, local_ms: int) -> str:
+        return self.why
+
+    def targets(self, coin: CoinState, local_ms: int, position: float, max_position: float, net_usd: float) -> Quotes:
+        pol = self.table.get(coin.coin)
+        f = features(coin, local_ms)
+        if pol is None or f is None or self.qty <= 0:
+            self.why = "no policy or signals yet: no quotes"
+            return None, None
+        state, pred = pol.state(f)
+        units = round(position / self.qty)
+        want_bid, want_ask = pol.action(units, state)
+        bid, ask = inside(coin, capped(coin, position, max_position))
+        bid, ask = (bid if want_bid else None), (ask if want_ask else None)
+        if self.p.net > 0:
+            if net_usd >= self.p.net:
+                bid = None
+            if net_usd <= -self.p.net:
+                ask = None
+        self.why = (
+            f"state {state} (predicted 10 s move {pred:+.2f} bp), position {units:+d} quotes: {'bid ' if want_bid else ''}{'ask' if want_ask else ''}".rstrip()
+            or "none"
+        )
+        if not (want_bid or want_ask):
+            self.why = f"state {state} (predicted 10 s move {pred:+.2f} bp), position {units:+d} quotes: no quote is worth it"
         return bid, ask
 
 
@@ -332,12 +517,16 @@ ADVANCED_STRATEGIES = ("zgap@0.25", "zgap@0.5", "hawkes@2", "hawkes@3", "kelly@0
 def quoter(name: str) -> Quoter:
     """A maker strategy from its name: ``touch``, ``gap@<bps>``, ``model@<bps>``, ``improve``,
     ``improve+gap@<bps>``, ``zgap@<z>``, ``hawkes@<ratio>``, ``kelly@<z>``, ``reservation@<skew bps>``,
-    ``mm@...`` (``paper.mm``) or ``guard@...``."""
+    ``mm@...`` (``paper.mm``), ``guard@...``, ``immune@...`` or ``optimal@phi=<phi>``."""
     kind, _, arg = name.partition("@")
     if kind == "mm":
         return MarketMaking(parse(arg))
     if kind == "guard":
         return Guard(parse_guard(arg))
+    if kind == "immune":
+        return Immune(parse_immune(arg))
+    if kind == "optimal":
+        return Optimal(parse_optimal(arg))
     if name == "touch":
         return Touch()
     if name == "improve":
