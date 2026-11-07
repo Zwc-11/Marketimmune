@@ -76,3 +76,31 @@ SHA-256 of the files' SHA-256 lines (`sha256sum data/paper/locked-test/*/raw/* |
 ## Deviations
 
 (none)
+
+## Result (scored once, 2026-11-07 04:37 UTC; `eval/paper/locked_test_20261107.{json,md}`, `locked_test_report_20261107.json`)
+
+The locked hours ran 5.91 h in 24 fifteen-minute blocks.
+
+| Strategy | $/h [95%] | Against `zgap@0.05`, $/h [95%] | Blocks better | Orders per $ | Mean net position | BTC correlation |
+|---|---|---|---:|---:|---:|---:|
+| `immune@h=30/t=-1` | +2.40 [-1.04, +5.44] | +3.52 [-1.24, +7.56] | 16/24 | 0.61 | $818 | +0.01 |
+| `optimal@phi=0.01` | 0.00 (never traded) | +1.16 [-2.60, +4.80] | 14/24 | 0 | $0 | |
+| `guard@z=0.05/w=1.5/win=5/veto=-2` | -0.13 [-3.36, +3.40] | +1.03 [-1.88, +3.88] | 11/24 | 0.27 | $1,243 | +0.04 |
+| `optimal@phi=0` | -0.39 [-4.32, +3.80] | +0.78 [-5.84, +7.04] | 11/24 | 0.48 | $1,138 | +0.16 |
+| `zgap@0.05` | -1.18 [-4.80, +2.60] | | | 0.26 | $1,344 | -0.11 |
+| `guard@z=0.05/w=1.5/win=5` | -1.75 [-5.16, +1.76] | -0.56 [-1.64, +0.56] | 10/24 | 0.28 | $1,219 | -0.14 |
+| `mm@h=2/skew=6` | -7.04 [-9.08, -5.04] | -5.77 [-10.72, -1.08] | 7/24 | 0.51 | $172 | +0.22 |
+| `touch` | -46.88 [-56.24, -37.48] | -44.97 [-56.20, -34.80] | 0/24 | 0.09 | $1,604 | +0.25 |
+
+- **Primary: not shown.** The gap + wallets pick made $0.56 an hour less than `zgap@0.05` on these
+  hours [-1.64, +0.56]. The wallet factor's in-sample and held-out gain did not carry over.
+- **The fill-toxicity quoter did best.** `immune@h=30/t=-1` made +$2.40 an hour.
+  - **Where it comes from, per filled dollar:** spread +0.60 bp, the move within 1 s -0.13, fee
+    -1.50, position +3.39.
+  - **Exposure:** the lowest net position of the gap-type quoters and no correlation with BTC.
+  - **Not significant:** its interval includes zero. With the held-out hours it has made about
+    +$2/h over 7.9 fresh hours.
+- **The optimal-control policy did as its calibration said.** With inventory aversion it never
+  traded; without it, it lost a little.
+- **Every gap quoter lost or broke even on these hours.** They are UTC night, recorded on the PC
+  with the live clock correction.

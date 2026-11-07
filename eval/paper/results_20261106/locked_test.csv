@@ -1,0 +1,9 @@
+strategy,what,usd_per_hour,low,high,vs_gap_usd_per_hour,vs_gap_low,vs_gap_high,blocks_better,orders_per_usd,mean_abs_net_usd,btc_corr_1min,fills
+immune@h=30/t=-1,Fill-toxicity model quoter,2.4,-1.04,5.44,3.52,-1.24,7.56,16/24,0.61,817.8,0.006,287
+optimal@phi=0.01,"Optimal control, risk-averse",0.0,0.0,0.0,1.16,-2.6,4.8,14/24,,0.0,,0
+guard@z=0.05/w=1.5/win=5/veto=-2,Gap + wallets + toxicity veto,-0.13,-3.36,3.4,1.03,-1.88,3.88,11/24,0.27,1242.9,0.036,958
+optimal@phi=0,"Optimal control, risk-neutral",-0.39,-4.32,3.8,0.78,-5.84,7.04,11/24,0.48,1138.1,0.158,97
+zgap@0.05,Gap quoter (baseline),-1.18,-4.8,2.6,,,,,0.26,1343.9,-0.112,1251
+guard@z=0.05/w=1.5/win=5,Gap + wallets (registered pick),-1.75,-5.16,1.76,-0.56,-1.64,0.56,10/24,0.28,1218.6,-0.138,1119
+mm@h=2/skew=6,Textbook market maker,-7.04,-9.08,-5.04,-5.77,-10.72,-1.08,7/24,0.51,171.6,0.221,712
+touch,Touch (control),-46.88,-56.24,-37.48,-44.97,-56.2,-34.8,0/24,0.09,1603.7,0.249,6390

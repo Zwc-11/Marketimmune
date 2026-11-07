@@ -6,8 +6,8 @@ Reads the committed evaluations (``eval/paper/tune_guard_home_20261106.json``, t
 ``report_guard_*`` and ``report_mm_*`` reports, ``factors_20261106.json``, the look-ahead checks)
 and the guard replays' minute equity (``data/paper/tune-guard/home/250x4``, not committed), and
 writes CSV files: every strategy's numbers, the equity curves, the factors' information
-coefficients, the wallet factor's increment, the look-ahead checks, and the latency and fee
-scenarios.
+coefficients, the wallet factor's increment, the look-ahead checks, the latency and fee
+scenarios, the locked test of 2026-11-07, and the fill-toxicity model's held-out deciles.
 """
 
 from __future__ import annotations
@@ -184,6 +184,66 @@ def scenarios() -> list[dict[str, Any]]:
     return rows
 
 
+LOCKED_LABEL = {
+    "immune@h=30/t=-1": "Fill-toxicity model quoter",
+    "optimal@phi=0.01": "Optimal control, risk-averse",
+    "optimal@phi=0": "Optimal control, risk-neutral",
+    "guard@z=0.05/w=1.5/win=5/veto=-2": "Gap + wallets + toxicity veto",
+    "guard@z=0.05/w=1.5/win=5": "Gap + wallets (registered pick)",
+    "zgap@0.05": "Gap quoter (baseline)",
+    "mm@h=2/skew=6": "Textbook market maker",
+    "touch": "Touch (control)",
+}
+
+
+def locked() -> list[dict[str, Any]]:
+    r = json.loads((EVAL / "locked_test_report_20261107.json").read_text())
+    vs = {v["strategy"]: v for v in r["vs_baseline"]}
+    tune = json.loads((EVAL / "locked_test_20261107.json").read_text())
+    per_usd = {o["strategy"]: o["orders_per_usd"] for f in tune["families"].values() for o in f["all"]}
+    per_usd |= {o["strategy"]: o["orders_per_usd"] for o in tune["over_limit"]}
+    rows = []
+    for s in sorted(r["by_strategy"], key=lambda x: -x["usd_per_hour"]):
+        v = vs.get(s["strategy"], {})
+        ci = s["usd_per_hour_ci95"] or [None, None]
+        vci = v.get("ci95") or [None, None]
+        rows.append(
+            {
+                "strategy": s["strategy"],
+                "what": LOCKED_LABEL.get(s["strategy"], s["strategy"]),
+                "usd_per_hour": s["usd_per_hour"],
+                "low": ci[0],
+                "high": ci[1],
+                "vs_gap_usd_per_hour": v.get("usd_per_hour"),
+                "vs_gap_low": vci[0],
+                "vs_gap_high": vci[1],
+                "blocks_better": v.get("blocks_better"),
+                "orders_per_usd": None if per_usd.get(s["strategy"]) == float("inf") else per_usd.get(s["strategy"]),
+                "mean_abs_net_usd": s["mean_abs_net_usd"],
+                "btc_corr_1min": s["btc_corr_1min"],
+                "fills": s["fills"],
+            }
+        )
+    return rows
+
+
+def fill_deciles() -> list[dict[str, Any]]:
+    f = json.loads((EVAL / "immune_fit_20261106.json").read_text())
+    rows = []
+    for h in f["horizons"]:
+        for d in h["held_out"]["by_decile"]:
+            rows.append(
+                {
+                    "horizon": f"{h['horizon_s']}s",
+                    "decile": d["decile"] + 1,
+                    "predicted_bps": d["predicted"],
+                    "realised_bps": d["realised"],
+                    "fills": d["fills"],
+                }
+            )
+    return rows
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", type=Path, required=True)
@@ -195,6 +255,8 @@ def main() -> int:
     write(args.out / "wallet_increment.csv", inc)
     write(args.out / "lookahead.csv", lookahead())
     write(args.out / "scenarios.csv", scenarios())
+    write(args.out / "locked_test.csv", locked())
+    write(args.out / "fill_deciles.csv", fill_deciles())
     print(f"wrote {args.out}")
     return 0
 
