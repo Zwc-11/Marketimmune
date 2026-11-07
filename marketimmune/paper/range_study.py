@@ -126,9 +126,11 @@ class Band:
     maker_fee_bps: float = 1.5
     taker_fee_bps: float = 4.5
     quote_usd: float = 500.0
+    target: float = 0.0  # exit at the centre plus this many bands (1: sell at the top of the range)
 
     def label(self) -> str:
-        return f"band@k={self.k:g}/h={self.horizon_min:g}/c={self.centre_halflife_min:g}/stop={self.stop:g}/max={self.max_min:g}"
+        tail = f"/target={self.target:g}" if self.target else ""
+        return f"band@k={self.k:g}/h={self.horizon_min:g}/c={self.centre_halflife_min:g}/stop={self.stop:g}/max={self.max_min:g}{tail}"
 
 
 def _inputs(s: pd.Series, halflife_min: float) -> tuple[npt.NDArray[np.int64], FloatArray, FloatArray, FloatArray]:
@@ -169,7 +171,7 @@ def band_maker(s: pd.Series, coin: str, p: Band, half_rel: float | None = None) 
             elif hi > bid and x[i] >= hi + half:
                 pos, entry, t_in, band_in = -1, hi, int(t[i]), band
             continue
-        target = max(c[i - 1], ask) if pos == 1 else min(c[i - 1], bid)
+        target = max(c[i - 1] + p.target * band, ask) if pos == 1 else min(c[i - 1] - p.target * band, bid)
         if pos * (x[i] - target) >= half:
             trades.append((t_in, int(t[i]), pos, entry, target, "target"))
             pos = 0

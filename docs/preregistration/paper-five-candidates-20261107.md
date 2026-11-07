@@ -76,3 +76,26 @@ Rank by the strength of held-out evidence, not by the point estimate:
 3. negative.
 
 Ties are broken by the interval's lower bound.
+
+## Addendum A: candidate 3, the range swing maker (written about 17:40 UTC, before its held-out run)
+
+- **Selection sweep:** 48 settings on the selection hours, $500 a trade, with hour-shuffled nulls
+  (`eval/paper/swing_selection_20261107.json`).
+  - **Exit halfway to the far band** (`target=0.5`, on the centre-to-band scale): the grid averages
+    +$1.16 an hour. The null averages -$0.10.
+  - **Exit at the average** (`target=0`): +$0.27, null -$0.77.
+  - **Exit at the far band** (`target=1`): +$0.73, null -$0.27.
+  - **Best:** $2.30 an hour. The best of the 48 on each of two shuffled copies is $0.95 and $0.97.
+- **Primary setting:** `band@k=1/h=30/c=60/stop=3/max=240/target=0.5`.
+  - **Quotes:** band = 1 x the 1-minute sd x sqrt(30); centre = 60-minute half-life average of the mid.
+  - **Exits:** at the centre plus half a band (maker), a stop at 3 bands (taker), or after 240 minutes
+    (taker).
+  - **Size and fees:** $500 a trade on each of the nine coins; maker 1.5 bp, taker 4.5 bp.
+- **Neighbours, secondary:** the same with h=60, and with k=1.5.
+- **Held-out run:**
+  - **Data:** held-out A + B, on the Hyperliquid mid from the one-second bars, with a 3-hour causal warm-up.
+  - **Null:** 40 hour-shuffled copies.
+- **Primary, both required:**
+  1. Net $ an hour > 0 on A + B.
+  2. Gross bp per round trip above the null in at least 95% of the copies.
+- **Reported regardless:** the bootstrap interval by hour, A and B separately, and lower maker fees.
