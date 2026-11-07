@@ -72,6 +72,12 @@ class Segment:
         return self.raw.parent.name
 
 
+def clock_chains(specs: list[str]) -> set[str]:
+    """The chain names over every ``--clock`` flag, each a comma list. Before 2026-11-07 only the last
+    flag counted, so ``--clock live --clock tuned`` corrected ``tuned`` alone."""
+    return {c for spec in specs for c in spec.split(",") if c}
+
+
 def parse_chain(spec: str) -> list[Segment]:
     name, _, paths = spec.partition("=")
     out = []
@@ -251,7 +257,12 @@ def markdown(report: dict[str, Any]) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--chain", action="append", required=True, help="name=raw1[~],raw2,... in order")
-    parser.add_argument("--clock", default="", help="chains whose receive times to correct from Coinbase timestamps")
+    parser.add_argument(
+        "--clock",
+        action="append",
+        default=[],
+        help="chains whose receive times to correct from Coinbase timestamps (comma list; repeatable)",
+    )
     parser.add_argument("--causal-clock", action="store_true", help="correct the clock from earlier timestamps only (no look-ahead)")
     parser.add_argument("--config", action="append", default=None, help="quote USD x quotes a coin, e.g. 250x4")
     parser.add_argument("--budget-usd", type=float, default=5_000.0)
@@ -272,7 +283,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--max-orders-per-usd", type=float, default=1.0)
     args = parser.parse_args(argv)
-    args.clock = {c for c in args.clock.split(",") if c}
+    args.clock = clock_chains(args.clock)
     configs = args.config or ["250x4"]
     strategies = tuple(args.strategies.split(",")) if args.strategies else tuple(s for f in args.families.split(",") for s in GRID[f])
     chains = [parse_chain(c) for c in args.chain]
