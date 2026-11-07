@@ -1,0 +1,442 @@
+{
+ "primary": {
+  "setting": "band@k=1/h=30/c=60/stop=3/max=240/target=0.5",
+  "hours_A": 11.183333333333334,
+  "hours_B": 1.6666666666666667,
+  "trades": 50,
+  "gross_bps": 1.7762642190792384,
+  "net_bps": -1.9437357809207623,
+  "usd_per_hour": -0.3781587122413935,
+  "exits": {
+   "target": 38,
+   "stop": 11,
+   "time": 1
+  },
+  "A": {
+   "trades": 50,
+   "gross_bps": 1.7762642190792384,
+   "net_bps": -1.9437357809207623,
+   "usd_per_hour": -0.4345161954368322,
+   "exits": {
+    "target": 38,
+    "stop": 11,
+    "time": 1
+   }
+  },
+  "B": {
+   "trades": 0,
+   "usd_per_hour": 0.0
+  },
+  "usd_per_hour_ci95": [
+   -2.5770823686310305,
+   1.69895498738007
+  ],
+  "by_coin": [
+   {
+    "coin": "AVAX",
+    "trades": 6,
+    "net_bps": 3.0945134412861055,
+    "usd": 0.9283540323858318
+   },
+   {
+    "coin": "BCH",
+    "trades": 8,
+    "net_bps": 3.6144711403178515,
+    "usd": 1.4457884561271412
+   },
+   {
+    "coin": "BTC",
+    "trades": 4,
+    "net_bps": -14.796069086447313,
+    "usd": -2.9592138172894624
+   },
+   {
+    "coin": "DOGE",
+    "trades": 4,
+    "net_bps": 10.085226546667162,
+    "usd": 2.017045309333432
+   },
+   {
+    "coin": "ETH",
+    "trades": 6,
+    "net_bps": 0.6792190715387688,
+    "usd": 0.20376572146163008
+   },
+   {
+    "coin": "LINK",
+    "trades": 5,
+    "net_bps": -10.505622262755486,
+    "usd": -2.626405565688872
+   },
+   {
+    "coin": "LTC",
+    "trades": 7,
+    "net_bps": 7.33103255478526,
+    "usd": 2.5658613941748416
+   },
+   {
+    "coin": "SOL",
+    "trades": 4,
+    "net_bps": 10.359555694689636,
+    "usd": 2.071911138937927
+   },
+   {
+    "coin": "XRP",
+    "trades": 6,
+    "net_bps": -28.354820405814582,
+    "usd": -8.506446121744377
+   }
+  ],
+  "null": {
+   "draws": 40,
+   "gross_bps_mean": -3.9995413141470317,
+   "usd_per_hour_mean": -1.5157899772618433,
+   "share_gross_at_least_real": 0.0,
+   "share_usd_at_least_real": 0.0
+  },
+  "fee_scenarios": [
+   {
+    "maker_fee_bps": 1.2,
+    "trades": 50,
+    "gross_bps": 1.7762642190792384,
+    "net_bps": -1.3437357809207624,
+    "usd_per_hour": -0.2614271947316661,
+    "exits": {
+     "target": 38,
+     "stop": 11,
+     "time": 1
+    }
+   },
+   {
+    "maker_fee_bps": 0.8,
+    "trades": 50,
+    "gross_bps": 1.7762642190792384,
+    "net_bps": -0.5437357809207626,
+    "usd_per_hour": -0.10578517138536259,
+    "exits": {
+     "target": 38,
+     "stop": 11,
+     "time": 1
+    }
+   },
+   {
+    "maker_fee_bps": 0.4,
+    "trades": 50,
+    "gross_bps": 1.7762642190792384,
+    "net_bps": 0.2562642190792374,
+    "usd_per_hour": 0.04985685196094148,
+    "exits": {
+     "target": 38,
+     "stop": 11,
+     "time": 1
+    }
+   },
+   {
+    "maker_fee_bps": 0.0,
+    "trades": 50,
+    "gross_bps": 1.7762642190792384,
+    "net_bps": 1.0562642190792382,
+    "usd_per_hour": 0.20549887530724464,
+    "exits": {
+     "target": 38,
+     "stop": 11,
+     "time": 1
+    }
+   }
+  ]
+ },
+ "neighbours": [
+  {
+   "setting": "band@k=1/h=60/c=60/stop=3/max=240/target=0.5",
+   "hours_A": 11.183333333333334,
+   "hours_B": 1.6666666666666667,
+   "trades": 26,
+   "gross_bps": 5.255800443175408,
+   "net_bps": 1.5634927508677157,
+   "usd_per_hour": 0.15817436390101405,
+   "exits": {
+    "target": 20,
+    "stop": 3,
+    "time": 3
+   },
+   "A": {
+    "trades": 26,
+    "gross_bps": 5.255800443175408,
+    "net_bps": 1.5634927508677157,
+    "usd_per_hour": 0.18174729443767784,
+    "exits": {
+     "target": 20,
+     "stop": 3,
+     "time": 3
+    }
+   },
+   "B": {
+    "trades": 0,
+    "usd_per_hour": 0.0
+   },
+   "usd_per_hour_ci95": [
+    -1.83288960492553,
+    1.6419868922118372
+   ],
+   "by_coin": [
+    {
+     "coin": "AVAX",
+     "trades": 4,
+     "net_bps": 3.0195437475659404,
+     "usd": 0.6039087495131874
+    },
+    {
+     "coin": "BCH",
+     "trades": 4,
+     "net_bps": -4.244330705896883,
+     "usd": -0.848866141179377
+    },
+    {
+     "coin": "BTC",
+     "trades": 3,
+     "net_bps": -22.561383660715176,
+     "usd": -3.384207549107276
+    },
+    {
+     "coin": "DOGE",
+     "trades": 3,
+     "net_bps": 16.575748922686653,
+     "usd": 2.486362338402998
+    },
+    {
+     "coin": "ETH",
+     "trades": 3,
+     "net_bps": 17.01207508584568,
+     "usd": 2.5518112628768526
+    },
+    {
+     "coin": "LINK",
+     "trades": 3,
+     "net_bps": 6.152825471110404,
+     "usd": 0.9229238206665609
+    },
+    {
+     "coin": "LTC",
+     "trades": 3,
+     "net_bps": 2.82331323099176,
+     "usd": 0.42349698464876395
+    },
+    {
+     "coin": "SOL",
+     "trades": 1,
+     "net_bps": 13.727016066808709,
+     "usd": 0.6863508033404354
+    },
+    {
+     "coin": "XRP",
+     "trades": 2,
+     "net_bps": -14.092396930341142,
+     "usd": -1.409239693034114
+    }
+   ],
+   "null": {
+    "draws": 20,
+    "gross_bps_mean": -3.2492448179197546,
+    "usd_per_hour_mean": -0.7404136576421343,
+    "share_gross_at_least_real": 0.05,
+    "share_usd_at_least_real": 0.05
+   },
+   "fee_scenarios": [
+    {
+     "maker_fee_bps": 1.2,
+     "trades": 26,
+     "gross_bps": 5.255800443175408,
+     "net_bps": 2.163492750867717,
+     "usd_per_hour": 0.21887475300607245,
+     "exits": {
+      "target": 20,
+      "stop": 3,
+      "time": 3
+     }
+    },
+    {
+     "maker_fee_bps": 0.8,
+     "trades": 26,
+     "gross_bps": 5.255800443175408,
+     "net_bps": 2.9634927508677174,
+     "usd_per_hour": 0.2998086051461503,
+     "exits": {
+      "target": 20,
+      "stop": 3,
+      "time": 3
+     }
+    },
+    {
+     "maker_fee_bps": 0.4,
+     "trades": 26,
+     "gross_bps": 5.255800443175408,
+     "net_bps": 3.7634927508677163,
+     "usd_per_hour": 0.3807424572862282,
+     "exits": {
+      "target": 20,
+      "stop": 3,
+      "time": 3
+     }
+    },
+    {
+     "maker_fee_bps": 0.0,
+     "trades": 26,
+     "gross_bps": 5.255800443175408,
+     "net_bps": 4.563492750867716,
+     "usd_per_hour": 0.46167630942630594,
+     "exits": {
+      "target": 20,
+      "stop": 3,
+      "time": 3
+     }
+    }
+   ]
+  },
+  {
+   "setting": "band@k=1.5/h=30/c=60/stop=3/max=240/target=0.5",
+   "hours_A": 11.183333333333334,
+   "hours_B": 1.6666666666666667,
+   "trades": 24,
+   "gross_bps": 6.946975212574525,
+   "net_bps": 3.196975212574525,
+   "usd_per_hour": 0.29855021440384677,
+   "exits": {
+    "target": 18,
+    "stop": 3,
+    "time": 3
+   },
+   "A": {
+    "trades": 24,
+    "gross_bps": 6.946975212574525,
+    "net_bps": 3.196975212574525,
+    "usd_per_hour": 0.34304353994838427,
+    "exits": {
+     "target": 18,
+     "stop": 3,
+     "time": 3
+    }
+   },
+   "B": {
+    "trades": 0,
+    "usd_per_hour": 0.0
+   },
+   "usd_per_hour_ci95": [
+    -1.6860287425599207,
+    1.8564806270428438
+   ],
+   "by_coin": [
+    {
+     "coin": "AVAX",
+     "trades": 3,
+     "net_bps": -6.593691423771195,
+     "usd": -0.9890537135656794
+    },
+    {
+     "coin": "BCH",
+     "trades": 4,
+     "net_bps": 0.9625550886942236,
+     "usd": 0.19251101773884494
+    },
+    {
+     "coin": "BTC",
+     "trades": 3,
+     "net_bps": -22.270123093264917,
+     "usd": -3.3405184639897376
+    },
+    {
+     "coin": "DOGE",
+     "trades": 2,
+     "net_bps": 22.36876082417483,
+     "usd": 2.236876082417483
+    },
+    {
+     "coin": "ETH",
+     "trades": 3,
+     "net_bps": 18.320775300716075,
+     "usd": 2.748116295107412
+    },
+    {
+     "coin": "LINK",
+     "trades": 3,
+     "net_bps": 9.717291044229695,
+     "usd": 1.457593656634454
+    },
+    {
+     "coin": "LTC",
+     "trades": 3,
+     "net_bps": 6.421722395816957,
+     "usd": 0.9632583593725437
+    },
+    {
+     "coin": "SOL",
+     "trades": 1,
+     "net_bps": 16.03943752561199,
+     "usd": 0.8019718762805995
+    },
+    {
+     "coin": "XRP",
+     "trades": 2,
+     "net_bps": -2.3438485490648837,
+     "usd": -0.23438485490648836
+    }
+   ],
+   "null": {
+    "draws": 20,
+    "gross_bps_mean": -1.7608517255915515,
+    "usd_per_hour_mean": -0.5284632119028506,
+    "share_gross_at_least_real": 0.0,
+    "share_usd_at_least_real": 0.0
+   },
+   "fee_scenarios": [
+    {
+     "maker_fee_bps": 1.2,
+     "trades": 24,
+     "gross_bps": 6.946975212574525,
+     "net_bps": 3.7969752125745266,
+     "usd_per_hour": 0.35458134280851594,
+     "exits": {
+      "target": 18,
+      "stop": 3,
+      "time": 3
+     }
+    },
+    {
+     "maker_fee_bps": 0.8,
+     "trades": 24,
+     "gross_bps": 6.946975212574525,
+     "net_bps": 4.596975212574526,
+     "usd_per_hour": 0.4292895140147417,
+     "exits": {
+      "target": 18,
+      "stop": 3,
+      "time": 3
+     }
+    },
+    {
+     "maker_fee_bps": 0.4,
+     "trades": 24,
+     "gross_bps": 6.946975212574525,
+     "net_bps": 5.396975212574525,
+     "usd_per_hour": 0.5039976852209676,
+     "exits": {
+      "target": 18,
+      "stop": 3,
+      "time": 3
+     }
+    },
+    {
+     "maker_fee_bps": 0.0,
+     "trades": 24,
+     "gross_bps": 6.946975212574525,
+     "net_bps": 6.196975212574525,
+     "usd_per_hour": 0.5787058564271931,
+     "exits": {
+      "target": 18,
+      "stop": 3,
+      "time": 3
+     }
+    }
+   ]
+  }
+ ]
+}

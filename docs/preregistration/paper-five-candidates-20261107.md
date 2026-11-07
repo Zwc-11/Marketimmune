@@ -125,3 +125,46 @@ Ties are broken by the interval's lower bound.
 - **Reported regardless:** the ridge on the same fills, correlation, and the markout by tenth of prediction.
 - **Caveat:** this is a fill-level test, not an engine replay. It counts every touch fill the rule
   would keep, with no position limit, queue choice or inventory cost.
+
+## Result (each scored once, 2026-11-07 about 18:00-18:50 UTC)
+
+| # | Candidate | Held-out data | Result [95%] | Primary |
+|---|---|---|---|---|
+| 1 | Funding carry, 5 coins with spot | 60 days of funding | **+7.4% a year net [5.4, 9.5]**; both halves positive (7.5%, 6.2%), 90% of days positive | No tuned parameter; interval above zero (descriptive, forward test pending) |
+| 2 | `immune@h=30/t=-1`, replayed | A + B, 12.8 h | -$1.33 an hour [-4.48, +1.72] | **Not shown** |
+| 3 | Range swing maker `band@k=1/h=30/.../target=0.5` | A + B, 12.8 h | -$0.38 an hour [-2.58, +1.70] | **Not shown** |
+| 4 | Hybrid Transformer, fills kept | A + B touch fills, 12.8 h | -$0.34 an hour [-0.73, +0.07] | **Not shown** |
+| 5 | Cross-coin pairs | (eliminated in selection) | all 36 settings negative after fees | - |
+
+**1. Funding carry**
+- Over 60 days: daily mean +2.2 bp per $ hedged [1.66, 2.78], t = 7.9, worst day -4.5 bp.
+- On $5,000 hedged, about $1.0 a day after an 11 bp maker round trip.
+- Funding by coin, % a year: HYPE 10.7, BTC 9.0, ETH 8.4, SOL 7.2, AVAX 5.9.
+- Source: `eval/paper/carry_20261107.json`.
+
+**2. Fill-toxicity quoter** (`eval/paper/fresh_test_immune_report_20261107.json`)
+- Against `zgap@0.05` on the same blocks: **+$3.50 an hour [+0.56, +6.56]**, better in 26 of 52 blocks.
+  It loses reliably less than the gap quoter that runs now, but does not make money.
+- Per filled $: spread +0.61 bp, 1 s move -0.21, fee -1.50, position -0.50. The position gain that
+  won the locked test (+3.39) did not repeat.
+
+**3. Range swing maker** (`eval/paper/swing_test_20261107.json`)
+- 50 round trips, all in A (none in B).
+- Gross +1.78 bp per round trip, above all 40 hour-shuffled copies (mean -4.0). Net -1.94 bp.
+- The neighbours made +$0.16 (h=60) and +$0.30 an hour (k=1.5). They are secondary; their intervals
+  include zero.
+- At a 0.4 bp maker fee the primary makes +$0.05 an hour.
+
+**4. Hybrid Transformer** (`eval/paper/seqmodel/heldout_hybrid_20261107.json`)
+- Correlation with the 30 s markout: 0.30, against the ridge's 0.35 on the same 16,164 fills.
+- The 1.8% of fills it keeps lose 0.6 bp after the fee. The ridge's kept fills lose 0.4 bp,
+  -$0.31 an hour [-0.74, +0.17].
+- Its best tenth of fills earns +0.10 bp before the fee (ridge +0.16). The fee is 1.5.
+
+**Reading**
+- **What the data say:** every market-making candidate has real information:
+  - the reversion beats the null;
+  - the toxicity models rank fills (correlation 0.3-0.35);
+  - the toxicity quoter beats the gap quoter.
+  None of them clears Hyperliquid's base maker fee.
+- **The edge larger than its cost:** funding.
