@@ -145,3 +145,70 @@ Both use the stationary-bootstrap 95% interval (15-minute blocks, mean block 3, 
   its bound over 16 h.
 - **A fail on P1 with a pass on P2** would mean: the wallet score keeps the maker out of informed
   flow, but the base fee still takes the rest.
+
+## Addendum A: the clock fix and the pick that follows (written 2026-11-07 about 22:45 UTC, before any test hour is recorded)
+
+**Error in the selection above.** `paper_tune --clock` takes one comma-separated list. The
+replays above passed `--clock live --clock tuned`, so only the last value counted, and the 16:06 and
+18:06 segments of 2026-11-06 (the "live" chain, 3.5 h) ran without the PC's clock correction.
+That PC clock was 223-345 ms fast then, which turns 200 ms of order latency into 420-550 ms.
+Both grids' live chain was replayed again with `--clock live,tuned`; nothing else changed. The
+corrected files replace the ones above:
+- `eval/paper/tune_hush_selection_20261107.{json,md}`, `tune_hush_controls_20261107.{json,md}`;
+- `eval/paper/tune_hush_selection_report_20261107.json`, `tune_hush_controls_report_20261107.json`;
+- `eval/paper/hush_markouts_20261107.csv`.
+
+**Corrected, within the rate limit** (31.9 h; $ an hour [95%]; per filled $ in bp):
+
+| Setting | $/h [95%] | Orders per $ | Total bp | Spread | Move in 1 s | Position | Gated minus `hush@d=3/quiet=0` [95%], blocks better |
+|---|---|---:|---:|---:|---:|---:|---|
+| `hush@d=1/quiet=5` | −18.72 [−24.56, −13.00] | 0.19 | −2.90 | +0.22 | −1.38 | −0.24 | - |
+| `hush@d=2/quiet=5` | −5.23 [−8.08, −2.64] | 0.34 | −1.96 | +0.64 | −1.86 | +0.76 | - |
+| `hush@d=2/quiet=30` | −2.95 [−5.36, −0.36] | 0.38 | −1.52 | +0.66 | −1.84 | +1.15 | - |
+| `hush@d=3/quiet=0` (no gate) | −2.57 [−5.92, +0.56] | 0.46 | −1.68 | +1.08 | −2.43 | +1.17 | - |
+| `hush@d=3/quiet=5` | +1.06 [−1.72, +3.88] | 0.53 | +0.84 | +1.21 | −2.46 | +3.60 | +3.57 [+1.16, +6.76], 82/130 |
+| `hush@d=3/quiet=30` | +1.62 [−1.28, +4.76] | 0.57 | +1.68 | +1.23 | −2.37 | +4.32 | +4.12 [+1.12, +8.00], 69/130 |
+| **`hush@d=3/quiet=5/inf=0.665`** | **+2.28 [−0.52, +5.12]** | 0.62 | +2.14 | +1.22 | −2.53 | +4.96 | **+4.77 [+2.24, +8.16], 84/130** |
+| `hush@d=4/quiet=5` | +1.57 [−1.24, +4.32] | 0.79 | +2.20 | +1.72 | −3.18 | +5.16 | +4.06 [+1.28, +7.60], 76/130 |
+| `zgap@0.05` | −2.71 [−5.40, +0.32] | 0.38 | −0.65 | +0.25 | −0.27 | +0.87 | - |
+
+All settings use `tol=0.3`.
+
+**Over the rate limit:**
+- `hush@d=5/quiet=5`: +2.05, at 1.11 orders per $.
+- The Coinbase-gap variants: +2.2 to +2.5 $/h, at 3.6-4.2 orders per $. Their intervals are above
+  zero, and their fills' markouts are positive (about +0.3 to +0.9 bp at 1 s to 30 min). They send
+  about four orders per filled $, so Hyperliquid's limit rules them out at this size.
+
+**Fill markouts before the fee** (vs the fill price, bp):
+
+| Setting | 1 s | 60 s | 5 min | 30 min |
+|---|---:|---:|---:|---:|
+| `hush@d=3/quiet=0` | −1.35 | −2.28 | −3.68 | −3.71 |
+| `hush@d=3/quiet=5/inf=0.665` | −1.31 | −2.43 | −3.41 | −2.19 |
+| `hush@d=4/quiet=5` | −1.46 | −2.66 | −4.37 | −2.80 |
+
+The reading in "What the selection says" stands with the corrected numbers:
+- the gate helps (every gated setting beats the ungated one, with the interval above zero);
+- the fills lose before the fee up to 30 min;
+- the total comes from positions held past that.
+
+**The pick changes.** By the registered rule (best within the rate limit over all selection hours)
+the pick is now `hush@d=3/quiet=5/inf=0.665/tol=0.3`: +2.28 $/h. Its left-out value is +2.3, and
+the folds agree. The 0.665 bp threshold is the 80th percentile of wallet scores among wallets with
+≥5 scored takes. This replaces `hush@d=4/quiet=5/tol=0.3` above, before any test hour exists.
+
+**Registered from here:**
+- **P1:** `hush@d=3/quiet=5/inf=0.665/tol=0.3` $ an hour > 0, with the interval above zero.
+- **P2:** that setting minus `hush@d=3/quiet=0/tol=0.3`, paired, > 0 with the interval above zero.
+  Selection: +4.77 [+2.24, +8.16].
+- **Test replay strategies:**
+  - `hush@d=3/quiet=5/inf=0.665/tol=0.3` (registered);
+  - `hush@d=3/quiet=0/tol=0.3` (its ungated control);
+  - `hush@d=4/quiet=5/tol=0.3` (the pick before this addendum, reported);
+  - `hush@d=3/quiet=5/tol=0.3` (reported);
+  - `zgap@0.05` (baseline).
+- **The test replay passes `--clock live,tuned,test`.**
+
+Test hours, interim, scoring and power are as above. The test chain is clock-corrected like the
+tuned chain.
