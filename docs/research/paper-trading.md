@@ -843,7 +843,7 @@ PC's 23:20-15:20 UTC segments, which were recorded after the registration commit
 5. **Losses are spread across coins and hours.**
    - **On the majors:** SOL −$1,275, BTC −$1,133, BCH −$1,015 (−3.3 bp per $ after the fee, the worst), ETH −$875.
    - **One hour stands out:** 20:00 UTC, −$977 at −2.04 bp.
-   - **On HIP-3,** the restarted run's first hours (21:00–24:00 UTC, 8 November) lost 3–4 times the daytime rate.
+   - **On HIP-3,** the restarted run's first three hours (21:00–24:00 UTC, 8 November) lost $2,529 (60 s markout less the fee), against $920 over the ten daytime hours.
 
 **Consistent with every earlier diagnosis:**
 - edge below the fee (`Why every strategy loses`);
