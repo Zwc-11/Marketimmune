@@ -245,3 +245,22 @@ Every setting lost. The registered one had spread +1.50 bp, move in 1 s −2.43,
 The gate's paired gain from selection (+4.77) did not appear: −0.96 here. This interim decides
 nothing. The final uses whatever majors data exist by 16:00 UTC; unless the majors run is
 restarted, that is these same 4.95 h.
+
+## Addendum B: data for the final score (written 2026-11-08 15:45 UTC, before the final replay)
+
+The market-maker run stopped at 23:33 UTC and the live `hush@` run at 04:18, so neither covers the
+registered window. A third run on the same PC, `live-optimized-20261107T192854Z` (port 8766,
+started 19:28 UTC on 7 November by another session), recorded the same nine Hyperliquid perps and
+Coinbase products the whole time, with clock correction.
+
+**Final test data:**
+- its eight segments `seg-20261107T2329` to `seg-20261108T1329`, 23:29 to 15:29 UTC, about 16 h,
+  all recorded after the registration commit;
+- **warm-up:** the registered chain (the selection's tuned chain and the market-maker run's 21:20
+  segment, not scored), then the test segments;
+- **settings and strategies:** as registered (`--clock test --causal-clock`, $250 × 4, $5,000,
+  200 ms).
+
+**Also reported:** the interim's 4.95 h, the market-maker run's 23:20–23:33 piece plus the `hush@`
+run's own recording 23:34–04:18. It overlaps the first 4.8 h of the window above, so the two are
+not independent.
