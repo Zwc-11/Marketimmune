@@ -121,6 +121,8 @@ def run_chain(segments: list[Segment], config: str, args: argparse.Namespace, st
         if args.retime:
             cmd += ["--retime", args.retime]
         cmd += ["--maker-fee-bps", str(args.maker_fee_bps), "--taker-fee-bps", str(args.taker_fee_bps)]
+        if args.coins:
+            cmd += ["--coins", args.coins]
         logger.info(f"{config} {seg.chain} {seg.name}: replaying")
         with (args.work / config / seg.chain / f"{seg.name}.log").open("w") as log:
             subprocess.run(cmd, check=True, stdout=log, stderr=subprocess.STDOUT)
@@ -282,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--md", type=Path, default=None)
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--max-orders-per-usd", type=float, default=1.0)
+    parser.add_argument("--coins", default="", help="perps to replay (paper_trade's default: the nine majors)")
     args = parser.parse_args(argv)
     args.clock = clock_chains(args.clock)
     configs = args.config or ["250x4"]

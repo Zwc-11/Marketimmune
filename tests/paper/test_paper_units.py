@@ -197,3 +197,15 @@ def test_fastjson_round_trips_with_and_without_orjson(monkeypatch: pytest.Monkey
     assert fastjson.loads(fastjson.dumps(msg)) == msg
     monkeypatch.setattr(fastjson, "orjson", None)
     assert fastjson.loads(fastjson.dumps(msg)) == msg and fastjson.loads(b'{"a": 1}') == {"a": 1}
+
+
+def test_hip3_oracle_is_the_reference_and_coin_names_keep_their_dex() -> None:
+    from marketimmune.cli.paper_trade import coin_list
+    from marketimmune.paper.events import RefTop, parse_hl
+
+    msg = {"channel": "activeAssetCtx", "data": {"coin": "xyz:XYZ100", "ctx": {"oraclePx": "26945.0", "markPx": "26948.0"}}}
+    assert parse_hl(msg, 1_000) == [RefTop("xyz:XYZ100", 1_000, 26945.0, 26945.0)]
+    # a major's context is not a reference (Coinbase is)
+    assert parse_hl({"channel": "activeAssetCtx", "data": {"coin": "BTC", "ctx": {"oraclePx": "1"}}}, 1_000) == []
+    assert coin_list("xyz:XYZ100,btc,io:ANTH") == ("BTC", "xyz:XYZ100", "io:ANTH")
+    assert coin_list("xyz:CL") == ("xyz:CL",)

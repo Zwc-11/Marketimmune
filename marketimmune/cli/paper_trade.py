@@ -37,16 +37,20 @@ COINS = "BTC,ETH,SOL,XRP,LTC,BCH,LINK,AVAX,DOGE"
 INFO_URL = "https://api.hyperliquid.xyz/info"
 
 
-def sz_decimals(out: Path, replay: Path | None) -> dict[str, int]:
+def sz_decimals(out: Path, replay: Path | None, coins: list[str] | None = None) -> dict[str, int]:
     """Each perp's size decimals (its price step): from the recorded run's ``meta.json`` when
-    replaying one that has it, else from Hyperliquid's ``meta``, saved to ``out``."""
+    replaying one that has it, else from Hyperliquid's ``meta`` (and each HIP-3 dex's, for coins
+    named ``dex:NAME``), saved to ``out``."""
     if replay is not None and (replay.parent / "meta.json").exists():
         saved: dict[str, int] = json.loads((replay.parent / "meta.json").read_text(encoding="utf-8"))
         return saved
-    req = urllib.request.Request(INFO_URL, data=b'{"type": "meta"}', headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        meta = json.loads(resp.read())
-    decimals = {x["name"]: int(x["szDecimals"]) for x in meta["universe"]}
+    decimals: dict[str, int] = {}
+    for dex in [""] + sorted({c.split(":")[0] for c in coins or [] if ":" in c}):
+        body = json.dumps({"type": "meta", "dex": dex} if dex else {"type": "meta"}).encode()
+        req = urllib.request.Request(INFO_URL, data=body, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            meta = json.loads(resp.read())
+        decimals.update({x["name"]: int(x["szDecimals"]) for x in meta["universe"]})
     out.mkdir(parents=True, exist_ok=True)
     (out / "meta.json").write_text(json.dumps(decimals), encoding="utf-8")
     return decimals
@@ -120,15 +124,23 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def coin_list(spec: str) -> tuple[str, ...]:
+    """The perps in ``--coins``: majors upper-cased as usual; HIP-3 markets (``xyz:XYZ100``) kept as
+    written, since their dex prefix is lower case."""
+    hip3 = [c for c in split_csv(spec) if ":" in c]
+    majors = parse_symbol_spec(",".join(c for c in split_csv(spec) if ":" not in c)) if len(hip3) < len(split_csv(spec)) else ()
+    return tuple(majors) + tuple(hip3)
+
+
 def make_engine(args: argparse.Namespace, out: Path) -> Engine:
     return Engine(
-        parse_symbol_spec(args.coins),
+        coin_list(args.coins),
         latency_ms=args.latency_ms,
         quote_usd=args.quote_usd,
         max_quotes=args.max_quotes,
         maker_fee_bps=args.maker_fee_bps,
         taker_fee_bps=args.taker_fee_bps,
-        sz_decimals=sz_decimals(out, args.replay),
+        sz_decimals=sz_decimals(out, args.replay, list(coin_list(args.coins))),
         strategies=split_csv(args.strategies),
         budget_usd=args.budget_usd,
         journal=None if args.no_journal else Journal(out / "journal"),
