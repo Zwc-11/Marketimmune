@@ -1,0 +1,1 @@
+xyz:XYZ100,xyz:BRENTOIL,xyz:CL,xyz:SNDK,xyz:SP500,xyz:SOXL,xyz:SKHX,xyz:MU,xyz:NVDA,xyz:SPCX,xyz:DRAM,xyz:GOOGL,xyz:SKHY,xyz:INTC,xyz:SMSN,xyz:EWY,xyz:KORU,xyz:NATGAS,xyz:SILVER,xyz:CRCL,xyz:AMD,xyz:MRVL,xyz:AAPL,xyz:TSLA,xyz:MSFT,xyz:META,xyz:AMZN,xyz:JPY,io:SNDK,io:NVDA,xyz:ANT,io:ANTH

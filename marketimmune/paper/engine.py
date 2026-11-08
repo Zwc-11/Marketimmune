@@ -767,7 +767,7 @@ class Engine:
             st = s.state()
             if st["rows"]:
                 np.savez(
-                    state_dir / f"{c}.npz",
+                    state_dir / f"{c.replace(':', '_')}.npz",  # HIP-3 names have a colon, which Windows forbids
                     rows=np.asarray(st["rows"]),
                     row_ms=np.asarray(st["row_ms"]),
                     row_mid=np.asarray(st["row_mid"]),
@@ -778,7 +778,7 @@ class Engine:
         if (state_dir / "wallets.json").exists():
             self.wallets.load(json.loads((state_dir / "wallets.json").read_text(encoding="utf-8")))
         for c, s in self.states.items():
-            path = state_dir / f"{c}.npz"
+            path = state_dir / f"{c.replace(':', '_')}.npz"
             if path.exists():
                 z = np.load(path)
                 s.load(

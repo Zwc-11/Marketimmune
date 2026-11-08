@@ -290,8 +290,12 @@ def retimed(lines: Iterator[tuple[int, str, bytes]], retime: dict[str, int]) -> 
                 raw = fastjson.dumps(msg)
             t = block_ms(msg)
             if t is None:
-                continue
-            new = t + retime["hl"]
+                if msg.get("channel") != "activeAssetCtx":
+                    continue
+                # an oracle update has no block time: it moves by as much as the feed's typical lag
+                new = local_ms + retime["hl"] - retime.get("ctx_lag", 250)
+            else:
+                new = t + retime["hl"]
         else:
             new = local_ms + retime["cb"]
         heapq.heappush(heap, (new, seq, venue, raw))
