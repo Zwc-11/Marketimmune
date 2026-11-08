@@ -234,6 +234,14 @@ started.
 | `zgap@0.05` | −4.46 [−11.16, +2.52] | — |
 
 Every setting lost. The registered one had spread +1.50 bp, move in 1 s −2.43, position −0.90.
+
+**Fill markouts before the fee** (`eval/paper/test_hush_interim_markouts_20261108.csv`):
+
+| Setting | 1 s | 60 s | 5 min | 30 min |
+|---|---:|---:|---:|---:|
+| Registered | −0.94 bp | −1.30 | −2.90 | −1.18 |
+| Ungated control | −0.85 bp | −0.89 | −2.74 | −1.25 |
+| `zgap@0.05` | +0.10 bp | +0.06 | −0.35 | −0.14 |
 The gate's paired gain from selection (+4.77) did not appear: −0.96 here. This interim decides
 nothing. The final uses whatever majors data exist by 16:00 UTC; unless the majors run is
 restarted, that is these same 4.95 h.
