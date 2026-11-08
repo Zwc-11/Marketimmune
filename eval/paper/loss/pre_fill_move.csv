@@ -1,0 +1,11 @@
+venue,before_fill,share,spread,mk_1s,mk_60s,net_60s_after_fee
+HIP-3 (0.3 bp fee),moved away from the quote,0.173,1.27,-0.16,-0.6,-0.9
+HIP-3 (0.3 bp fee),still (within 0.25 bp),0.436,0.75,-0.26,-0.41,-0.71
+HIP-3 (0.3 bp fee),came 0.25-1 bp toward,0.158,0.43,-0.72,-0.95,-1.25
+HIP-3 (0.3 bp fee),came 1-2 bp toward,0.094,-0.13,-1.27,-1.4,-1.7
+HIP-3 (0.3 bp fee),came over 2 bp toward,0.139,-1.93,-3.31,-3.25,-3.55
+majors (1.5 bp fee),moved away from the quote,0.031,0.81,-0.56,0.8,-0.7
+majors (1.5 bp fee),still (within 0.25 bp),0.818,0.28,-0.3,-0.58,-2.08
+majors (1.5 bp fee),came 0.25-1 bp toward,0.087,-0.08,-0.93,-1.21,-2.71
+majors (1.5 bp fee),came 1-2 bp toward,0.036,-0.4,-1.29,-1.47,-2.97
+majors (1.5 bp fee),came over 2 bp toward,0.028,-1.64,-3.46,-5.44,-6.94

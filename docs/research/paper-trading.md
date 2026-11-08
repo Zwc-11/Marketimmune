@@ -811,6 +811,50 @@ PC's 23:20-15:20 UTC segments, which were recorded after the registration commit
     `tunedB` chain was corrected, so those numbers include about 3.5 h replayed at 420-550 ms.
   - **Test replays:** their chain was corrected (`fresh`), so the registered results stand.
 
+## Where the live money went: every PC run, 6–8 November
+
+**Data.** Every live paper segment on the PC, pulled from `G:\Crypto Data\paper`: the first live run, the tuned, market-maker, `hush@`, third (port 8766) and HIP-3 runs.
+- Each run's fills and mids, scored with `paper_report` on every strategy.
+- 420,005 fills, 99.8% of them maker. Code: `scripts/loss/`. Tables: `eval/paper/loss/`.
+- The first live run (3.9 h) used much larger orders while the PC clock ran 223–345 ms fast. It is reported apart.
+
+**Dollars by component.** Summed over each run's strategies, each its own $5,000 paper account:
+
+| | Hours | Filled | Total | Spread earned | Move within 1 s | Fee | Position after |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Majors (tuned, market-maker, `hush@`, third run) | 56.2 | $30.1M | −$6,495 | +$443 | −$2,111 | −$4,529 | −$300 |
+| HIP-3, 0.3 bp fee | 13.7 | $23.9M | −$3,539 | +$476 | −$2,807 | −$722 | −$485 |
+| First live run | 3.9 | $65.4M | −$15,748 | −$1,594 | −$5,517 | −$10,005 | +$1,368 |
+
+**How the money is lost:**
+1. **The fee is 70% of the loss on the majors.** Without it, the majors would still have lost −$1,966.
+2. **Being picked off is the rest, and almost all of it on HIP-3.** Markout against the fill price, every maker fill, before the fee:
+
+   | | At the fill (spread) | 0.2 s | 1 s | 60 s |
+   |---|---:|---:|---:|---:|
+   | Majors | +0.15 bp | −0.40 | −0.55 | −0.83 |
+   | HIP-3 | +0.21 bp | −0.65 | −0.98 | −1.15 |
+
+   Half the minute's adverse move is there 0.2 s after the fill. Our feed arrives about 280 ms behind block time (p50 in every PC summary) and an order takes 200 ms, so nothing the quoter decides can act on it.
+3. **Two kinds of pick-off.**
+   - **On the majors, 82% of fills come with the mid still** in the second before (within 0.25 bp). They still lose −0.58 bp at 60 s: takers who know more (the Coinbase lead, A1's informed wallets) hit the quote just before a move.
+   - **The fills after the mid came more than 2 bp toward the quote** (2.8% on the majors, 13.9% on HIP-3) lose −5.4 and −3.3 bp. These are stale quotes run over.
+4. **Spread earned is too small to matter.** Joining the touch earns 0.00 bp against the mid (93,748 fills), because the majors trade one tick wide and we are last in the queue. The Coinbase-gap quoters earn +0.27 bp and lose only −0.20 bp by 60 s. They lose least before the fee, and the fee is seven times that loss.
+5. **Losses are spread across coins and hours.**
+   - **On the majors:** SOL −$1,275, BTC −$1,133, BCH −$1,015 (−3.3 bp per $ after the fee, the worst), ETH −$875.
+   - **One hour stands out:** 20:00 UTC, −$977 at −2.04 bp.
+   - **On HIP-3,** the restarted run's first hours (21:00–24:00 UTC, 8 November) lost 3–4 times the daytime rate.
+
+**Consistent with every earlier diagnosis:**
+- edge below the fee (`Why every strategy loses`);
+- a one-tick spread;
+- moves that continue within the minute (variance ratios 1.2–1.8);
+- spread and adverse move growing together with depth (the five market-making candidates);
+- the wallet gate cutting the slides but not removing them (`hush@`);
+- touch losing even at a 0.3 bp fee (HIP-3).
+
+The same two numbers explain all of it: a 1.5 bp fee, and fills that are about 0.8 bp behind within a minute because our quotes are half a second late.
+
 ## HIP-3 growth-mode markets: a lower fee, and deep quotes (2026-11-08)
 
 **Why.** On the nine majors every quoter's edge was below the 1.5 bp maker fee. Hyperliquid's
@@ -926,3 +970,4 @@ The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
 | `eval/paper/tune_hush_{selection,controls}_20261107.{json,md}`, `..._report_20261107.json` | The quiet-depth maker's two grids (depth, quiet window, wallet threshold, ungated control, Coinbase-gap variants) on 31.9 h with the clock corrected; each gated setting paired with the ungated one |
 | `eval/paper/hush_markouts_20261107.csv` | Each `hush@` setting's fill markouts at 1 s, 10 s, 60 s, 5 min and 30 min before the fee |
 | `eval/paper/hip3/` | HIP-3 growth-mode markets: selection and test replays of the two registrations, fill markouts, coin list |
+| `eval/paper/loss/` | Every live PC run scored: dollars by component per run, markout curve 0.2–300 s, the move before each fill, by coin and hour |
