@@ -811,6 +811,56 @@ PC's 23:20-15:20 UTC segments, which were recorded after the registration commit
     `tunedB` chain was corrected, so those numbers include about 3.5 h replayed at 420-550 ms.
   - **Test replays:** their chain was corrected (`fresh`), so the registered results stand.
 
+## HIP-3 growth-mode markets: a lower fee, and deep quotes (2026-11-08)
+
+**Why.** On the nine majors every quoter's edge was below the 1.5 bp maker fee. Hyperliquid's
+builder-deployed (HIP-3) markets in growth mode charge **0.3 bp maker and 0.9 bp taker** at tier 0
+(docs.trade.xyz). These are trade.xyz equities, indices, commodities and FX, and two pre-IPO
+synthetic markets, `xyz:ANT` and `io:ANTH`.
+
+**Engine changes:**
+- each market's oracle (`activeAssetCtx`) is its price reference;
+- dex-prefixed names (`xyz:XYZ100`) and their price steps;
+- `--twins`: a market can take its reference from another market's book;
+- `paper_tune --coins`;
+- retimed replays keep oracle updates;
+- state file names safe on Windows;
+- `scripts/run_paper_hip3.ps1` runs 32 of these markets live on paper (port 8769).
+
+**Data.**
+- A cloud recording of 32 growth-mode markets from 2026-11-08 00:22 UTC (`scripts/record_hip3.py`).
+  Every hour of it is a weekend hour.
+- The PC has recorded the same markets since 04:18 UTC.
+
+**Weekend behaviour.**
+- The equity oracles hardly move. NVDA, XYZ100 and others did not change in 40 minutes.
+- **Same-underlying pairs lead each other.** At 250 ms resolution, `xyz:SNDK` leads `io:SNDK`
+  (correlation 0.44 one step later), `xyz:CL` leads `xyz:BRENTOIL` (0.30 at 500 ms), and
+  `xyz:SKHX` leads `xyz:SKHY`.
+- **Wallets known from the majors are toxic here too.** 27% of HIP-3 trades were by wallets with
+  at least 5 scored takes on the majors. Makers lost −1.1 bp at 10 s to them, against +0.37 bp to
+  wallets seen only here.
+
+**Results, each test scored once on hours recorded after its registration:**
+
+| Registration | Selection $/h | Test $/h [95%] | Verdict |
+|---|---|---|---|
+| `hush@d=8/quiet=5`, 32 markets (`paper-hip3-20261108.md`) | +13.84 (00:22–02:00) | +2.35 [−2.00, +6.80] (02:20–05:20) | Not shown |
+| `mm@8`, `xyz:ANT` + `io:ANTH` (`paper-hip3-mm8-20261108.md`) | +4.89 (00:22–05:20) | +0.51 [−4.20, +4.44] (05:45–11:45) | Not shown |
+
+**What held across windows:**
+- **At the touch, makers lose at a 0.3 bp fee too:** −$34 to −$44 an hour, with the next minute's
+  move larger than the spread.
+- **Deep quotes on the two pre-IPO markets had positive fill markouts in all three windows.**
+  - The edge was +1.4 to +2.7 bp at 1–60 s in the first two windows and +0.4 to +0.9 bp in the
+    third.
+  - In the third window the move after a fill doubled, and touch lost twice as much per filled $.
+  - The edge exists but its size moved with the flow, and in the last six hours it no longer paid
+    for the inventory.
+- **Speed (exploratory, first 46 minutes only).** With the feed and order delay together at
+  70–200 ms instead of about 450 ms, `mm@3` and `hush@d=1` turned positive. A server in Tokyo is
+  the one structural lever not yet tested live.
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
@@ -875,3 +925,4 @@ PC's 23:20-15:20 UTC segments, which were recorded after the registration commit
 The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
 | `eval/paper/tune_hush_{selection,controls}_20261107.{json,md}`, `..._report_20261107.json` | The quiet-depth maker's two grids (depth, quiet window, wallet threshold, ungated control, Coinbase-gap variants) on 31.9 h with the clock corrected; each gated setting paired with the ungated one |
 | `eval/paper/hush_markouts_20261107.csv` | Each `hush@` setting's fill markouts at 1 s, 10 s, 60 s, 5 min and 30 min before the fee |
+| `eval/paper/hip3/` | HIP-3 growth-mode markets: selection and test replays of the two registrations, fill markouts, coin list |
