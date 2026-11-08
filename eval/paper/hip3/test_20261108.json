@@ -1,0 +1,141 @@
+{
+ "hours": {
+  "test/test": 3.0
+ },
+ "configs": [
+  "250x4"
+ ],
+ "budget_usd": 5000.0,
+ "latency_ms": 200,
+ "retime": null,
+ "fees_bps": {
+  "maker": 0.3,
+  "taker": 0.9
+ },
+ "clock_corrected": [],
+ "causal_clock": false,
+ "max_orders_per_usd": 1.0,
+ "options": 6,
+ "excluded": 0,
+ "over_limit": [],
+ "families": {
+  "hush": {
+   "best": {
+    "strategy": "hush@d=8/quiet=0/tol=0.3",
+    "config": "250x4",
+    "usd_per_hour": 6.7,
+    "orders_per_usd": 0.27,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "test/test": 6.7
+   },
+   "cv_usd_per_hour": 2.4,
+   "folds": [
+    {
+     "left_out": "test/test",
+     "pick": "hush@d=8/quiet=5/tol=0.3 250x4",
+     "left_out_usd_per_hour": 2.4
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "hush@d=8/quiet=0/tol=0.3",
+     "config": "250x4",
+     "usd_per_hour": 6.7,
+     "orders_per_usd": 0.27,
+     "test/test": 6.7,
+     "held_out_usd_per_hour": {}
+    },
+    {
+     "strategy": "hush@d=8/quiet=5/tol=0.3",
+     "config": "250x4",
+     "usd_per_hour": 2.4,
+     "orders_per_usd": 0.38,
+     "test/test": 2.4,
+     "held_out_usd_per_hour": {}
+    },
+    {
+     "strategy": "hush@d=5/quiet=5/tol=0.3",
+     "config": "250x4",
+     "usd_per_hour": -1.8,
+     "orders_per_usd": 0.22,
+     "test/test": -1.8,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  },
+  "mm": {
+   "best": {
+    "strategy": "mm@8",
+    "config": "250x4",
+    "usd_per_hour": 3.8,
+    "orders_per_usd": 0.39,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "test/test": 3.8
+   },
+   "cv_usd_per_hour": 3.8,
+   "folds": [
+    {
+     "left_out": "test/test",
+     "pick": "mm@8 250x4",
+     "left_out_usd_per_hour": 3.8
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "mm@8",
+     "config": "250x4",
+     "usd_per_hour": 3.8,
+     "orders_per_usd": 0.39,
+     "test/test": 3.8,
+     "held_out_usd_per_hour": {}
+    },
+    {
+     "strategy": "mm@5",
+     "config": "250x4",
+     "usd_per_hour": 2.3,
+     "orders_per_usd": 0.27,
+     "test/test": 2.3,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  },
+  "touch": {
+   "best": {
+    "strategy": "touch",
+    "config": "250x4",
+    "usd_per_hour": -36.6,
+    "orders_per_usd": 0.09,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "test/test": -36.6
+   },
+   "cv_usd_per_hour": -36.6,
+   "folds": [
+    {
+     "left_out": "test/test",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -36.6
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "touch",
+     "config": "250x4",
+     "usd_per_hour": -36.6,
+     "orders_per_usd": 0.09,
+     "test/test": -36.6,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  }
+ },
+ "held_out_hours": {}
+}
