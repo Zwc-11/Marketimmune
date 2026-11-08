@@ -490,8 +490,15 @@ class Engine:
         budget_usd: float | None = None,
         journal: Journal | None = None,
         registered: tuple[str, ...] = (),
+        twins: dict[str, str] | None = None,
     ) -> None:
         self.coins = coins
+        # HIP-3 twins: a market whose reference is another market's book (``{"io:SNDK": "xyz:SNDK"}``)
+        # instead of its own oracle; the gap's EWMA basis takes out the ratio between the two
+        self.twins = dict(twins or {})
+        self.twin_of: dict[str, list[str]] = {}
+        for follower, leader in self.twins.items():
+            self.twin_of.setdefault(leader, []).append(follower)
         self.registered = registered  # the strategies a pre-registration makes claims about (for the live view)
         self.journal = journal
         self.next_signal = 0
@@ -570,6 +577,11 @@ class Engine:
         return max(0.0, self.budget_usd - other) / top.mid
 
     def handle(self, ev: Event, local_ms: int) -> None:
+        if isinstance(ev, RefTop) and ev.coin in self.twins and ev.bid == ev.ask:
+            return  # a twin-referenced market ignores its own oracle
+        if isinstance(ev, Top) and ev.coin in self.twin_of:
+            for follower in self.twin_of[ev.coin]:
+                self.handle(RefTop(follower, local_ms, ev.bid, ev.ask), local_ms)
         coin = self.states.get(ev.coin)
         if coin is None:
             return
@@ -755,7 +767,7 @@ class Engine:
             st = s.state()
             if st["rows"]:
                 np.savez(
-                    state_dir / f"{c}.npz",
+                    state_dir / f"{c.replace(':', '_')}.npz",  # HIP-3 names have a colon, which Windows forbids
                     rows=np.asarray(st["rows"]),
                     row_ms=np.asarray(st["row_ms"]),
                     row_mid=np.asarray(st["row_mid"]),
@@ -766,7 +778,7 @@ class Engine:
         if (state_dir / "wallets.json").exists():
             self.wallets.load(json.loads((state_dir / "wallets.json").read_text(encoding="utf-8")))
         for c, s in self.states.items():
-            path = state_dir / f"{c}.npz"
+            path = state_dir / f"{c.replace(':', '_')}.npz"
             if path.exists():
                 z = np.load(path)
                 s.load(

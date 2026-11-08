@@ -7,6 +7,9 @@ Hyperliquid (``wss://api.hyperliquid.xyz/ws``):
 - ``trades``: one row per match; ``side`` is the taker's (``B`` buys from the asks), ``users`` is
   ``[buyer, seller]`` -> ``Trade``. The first message after subscribing replays recent trades;
   ``parse_hl`` drops trades more than ``STALE_TRADE_MS`` older than their receive time.
+- ``activeAssetCtx``: the perp's oracle, mark and funding. For builder-deployed (HIP-3) markets such
+  as ``xyz:XYZ100``, which have no Coinbase product, the oracle is the price reference: a
+  ``RefTop`` at the oracle price (bid = ask), timed at receipt, whenever it changes.
 
 Coinbase (``wss://advanced-trade-ws.coinbase.com``, ``level2``): a snapshot, then level updates per
 product. ``CoinbaseBooks`` keeps the books and emits a ``RefTop`` whenever a product's best bid or
@@ -100,6 +103,12 @@ def parse_hl(msg: dict[str, Any], local_ms: int) -> list[Event]:
             buy = x["side"] == "B"
             out.append(Trade(x["coin"], t, float(x["px"]), float(x["sz"]), buy, x["users"][0 if buy else 1]))
         return out
+    if channel == "activeAssetCtx" and ":" in str(data.get("coin", "")):
+        oracle = data["ctx"].get("oraclePx")
+        if not oracle:
+            return []
+        px = float(oracle)
+        return [RefTop(data["coin"], local_ms, px, px)]
     return []
 
 

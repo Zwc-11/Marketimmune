@@ -140,7 +140,7 @@ async def hl_feed(engine: Engine, writer: RawWriter | None, clock: Clock) -> Non
         try:
             async with websockets.connect(HL_URL, max_size=2**24, ping_interval=None) as ws:
                 for coin in engine.coins:
-                    for channel in HL_CHANNELS:
+                    for channel in HL_CHANNELS + (("activeAssetCtx",) if ":" in coin else ()):  # HIP-3: the oracle is the reference
                         await ws.send(fastjson.dumps({"method": "subscribe", "subscription": {"type": channel, "coin": coin}}).decode())
                         await asyncio.sleep(0.02)
                 logger.info(f"hyperliquid: subscribed {len(engine.coins)} coins")
@@ -167,7 +167,9 @@ async def hl_feed(engine: Engine, writer: RawWriter | None, clock: Clock) -> Non
 
 async def cb_feed(engine: Engine, writer: RawWriter | None, clock: Clock) -> None:
     backoff = 1.0
-    products = [f"{c}-USD" for c in engine.coins]
+    # HIP-3 markets (``dex:NAME``) have no Coinbase product; with none of the majors, BTC-USD is still
+    # subscribed so the receive clock can be corrected (the engine ignores coins it does not trade)
+    products = [f"{c}-USD" for c in engine.coins if ":" not in c] or ["BTC-USD"]
     while True:
         books = CoinbaseBooks()
         try:
@@ -288,8 +290,12 @@ def retimed(lines: Iterator[tuple[int, str, bytes]], retime: dict[str, int]) -> 
                 raw = fastjson.dumps(msg)
             t = block_ms(msg)
             if t is None:
-                continue
-            new = t + retime["hl"]
+                if msg.get("channel") != "activeAssetCtx":
+                    continue
+                # an oracle update has no block time: it moves by as much as the feed's typical lag
+                new = local_ms + retime["hl"] - retime.get("ctx_lag", 250)
+            else:
+                new = t + retime["hl"]
         else:
             new = local_ms + retime["cb"]
         heapq.heappush(heap, (new, seq, venue, raw))
