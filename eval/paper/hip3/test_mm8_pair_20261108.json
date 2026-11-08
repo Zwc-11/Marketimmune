@@ -1,0 +1,102 @@
+{
+ "hours": {
+  "test/test": 6.0
+ },
+ "configs": [
+  "250x4"
+ ],
+ "budget_usd": 5000.0,
+ "latency_ms": 200,
+ "retime": null,
+ "fees_bps": {
+  "maker": 0.3,
+  "taker": 0.9
+ },
+ "clock_corrected": [],
+ "causal_clock": false,
+ "max_orders_per_usd": 1.0,
+ "options": 4,
+ "excluded": 0,
+ "over_limit": [],
+ "families": {
+  "mm": {
+   "best": {
+    "strategy": "mm@10",
+    "config": "250x4",
+    "usd_per_hour": 0.9,
+    "orders_per_usd": 0.16,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "test/test": 0.9
+   },
+   "cv_usd_per_hour": 0.5,
+   "folds": [
+    {
+     "left_out": "test/test",
+     "pick": "mm@8 250x4",
+     "left_out_usd_per_hour": 0.5
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "mm@10",
+     "config": "250x4",
+     "usd_per_hour": 0.9,
+     "orders_per_usd": 0.16,
+     "test/test": 0.9,
+     "held_out_usd_per_hour": {}
+    },
+    {
+     "strategy": "mm@8",
+     "config": "250x4",
+     "usd_per_hour": 0.5,
+     "orders_per_usd": 0.13,
+     "test/test": 0.5,
+     "held_out_usd_per_hour": {}
+    },
+    {
+     "strategy": "mm@6",
+     "config": "250x4",
+     "usd_per_hour": -2.8,
+     "orders_per_usd": 0.13,
+     "test/test": -2.8,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  },
+  "touch": {
+   "best": {
+    "strategy": "touch",
+    "config": "250x4",
+    "usd_per_hour": -42.7,
+    "orders_per_usd": 0.04,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "test/test": -42.7
+   },
+   "cv_usd_per_hour": -42.7,
+   "folds": [
+    {
+     "left_out": "test/test",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -42.7
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "touch",
+     "config": "250x4",
+     "usd_per_hour": -42.7,
+     "orders_per_usd": 0.04,
+     "test/test": -42.7,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  }
+ },
+ "held_out_hours": {}
+}
