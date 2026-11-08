@@ -80,6 +80,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--quote-usd", type=float, default=1_000.0)
     parser.add_argument("--max-quotes", type=int, default=5, help="per coin: the most quotes of position a strategy holds")
     parser.add_argument("--budget-usd", type=float, default=None, help="per strategy: the most gross exposure over all coins")
+    parser.add_argument(
+        "--twins", default="", help="HIP-3 markets referenced to another market's book: follower=leader,... (e.g. io:SNDK=xyz:SNDK)"
+    )
     parser.add_argument("--maker-fee-bps", type=float, default=1.5)
     parser.add_argument("--taker-fee-bps", type=float, default=4.5)
     parser.add_argument("--no-raw", action="store_true", help="do not keep the raw messages")
@@ -145,6 +148,7 @@ def make_engine(args: argparse.Namespace, out: Path) -> Engine:
         budget_usd=args.budget_usd,
         journal=None if args.no_journal else Journal(out / "journal"),
         registered=split_csv(args.registered) if args.registered else (),
+        twins=dict(x.split("=", 1) for x in split_csv(args.twins)) if args.twins else None,
     )
 
 

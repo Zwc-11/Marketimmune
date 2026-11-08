@@ -209,3 +209,17 @@ def test_hip3_oracle_is_the_reference_and_coin_names_keep_their_dex() -> None:
     assert parse_hl({"channel": "activeAssetCtx", "data": {"coin": "BTC", "ctx": {"oraclePx": "1"}}}, 1_000) == []
     assert coin_list("xyz:XYZ100,btc,io:ANTH") == ("BTC", "xyz:XYZ100", "io:ANTH")
     assert coin_list("xyz:CL") == ("xyz:CL",)
+
+
+def test_a_twin_market_takes_its_reference_from_the_leader_book() -> None:
+    from marketimmune.paper.engine import Engine
+    from marketimmune.paper.events import RefTop, Top
+
+    eng = Engine(("io:SNDK", "xyz:SNDK"), strategies=("touch",), twins={"io:SNDK": "xyz:SNDK"}, sz_decimals={"io:SNDK": 2, "xyz:SNDK": 2})
+    eng.handle(RefTop("io:SNDK", 1_000, 830.0, 830.0), 1_000)  # its own oracle: ignored
+    assert eng.states["io:SNDK"].ref is None
+    eng.handle(Top("xyz:SNDK", 1_000, 833.0, 1.0, 833.5, 1.0), 1_010)
+    ref = eng.states["io:SNDK"].ref
+    assert ref is not None and (ref.bid, ref.ask) == (833.0, 833.5)
+    eng.handle(RefTop("xyz:SNDK", 1_020, 832.0, 832.0), 1_020)  # the leader keeps its oracle
+    assert eng.states["xyz:SNDK"].ref is not None
