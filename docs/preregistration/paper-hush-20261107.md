@@ -212,3 +212,28 @@ the folds agree. The 0.665 bp threshold is the 80th percentile of wallet scores 
 
 Test hours, interim, scoring and power are as above. The test chain is clock-corrected like the
 tuned chain.
+
+## Interim, descriptive only (2026-11-08 ~08:00 UTC)
+
+**Deviation in the data source.** The market-maker run on the PC stopped at 23:33 UTC, when the live
+`hush@` run started in its place. The live `hush@` run then stopped at 04:18, when the HIP-3 run
+started.
+- **What was used:** the market-maker run's 23:20–23:33 piece, then the live `hush@` run's own raw
+  recording of the same nine majors and Coinbase feeds, 23:34–04:18. Same PC, same feeds, all of it
+  recorded after the registration. 4.95 h in all.
+- **Warm-up:** as registered, the tuned chain plus the 21:20 segment, not scored.
+- **Files:** `eval/paper/test_hush_interim_report_20261108.json` (paired with the ungated control)
+  and `test_hush_interim_vs_zgap_20261108.json`.
+
+| Setting | $/h [95%] | Over `hush@d=3/quiet=0` [95%], blocks better |
+|---|---|---|
+| `hush@d=3/quiet=5/inf=0.665/tol=0.3` (registered) | −2.70 [−8.24, +1.68] | −0.96 [−3.32, +1.28], 11/20 |
+| `hush@d=3/quiet=0/tol=0.3` (control) | −1.73 [−6.52, +2.68] | — |
+| `hush@d=4/quiet=5/tol=0.3` | −2.37 [−5.56, +0.40] | −0.63 [−3.68, +1.84], 12/20 |
+| `hush@d=3/quiet=5/tol=0.3` | −2.29 [−7.12, +1.92] | −0.55 [−1.80, +0.64], 10/20 |
+| `zgap@0.05` | −4.46 [−11.16, +2.52] | — |
+
+Every setting lost. The registered one had spread +1.50 bp, move in 1 s −2.43, position −0.90.
+The gate's paired gain from selection (+4.77) did not appear: −0.96 here. This interim decides
+nothing. The final uses whatever majors data exist by 16:00 UTC; unless the majors run is
+restarted, that is these same 4.95 h.
