@@ -922,6 +922,58 @@ on weekday hours (`paper-hip3-deep8-20261109.md`). The test data are the PC's `l
 segments from 01:28 UTC on Monday 9 November, 16 h. In the 11.7 weekend hours it made +$6.11/h
 [+0.44, +11.60], two-thirds of it on `xyz:ANT` and `io:ANTH`.
 
+## Searching the deep quotes (2026-11-09, exploratory)
+
+`scripts/search/`, `eval/paper/search/`.
+
+**Data.**
+- **Selection:** the cloud's Sunday HIP-3 recording (11.7 h, 32 markets).
+- **Check:** the PC's 12:19–16:20 UTC segments (3.7 h), hours the cloud recording does not cover.
+- **Locked:** none of the hours registered for the weekday test was read.
+
+**Depth.** The fixed bp from the mid on all 32 markets, $ an hour (first half / second half):
+
+| `hush@d=…/quiet=0` | 4 | 6 | 8 | 10 | 12 | 16 | 20 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Selection, 11.7 h | −1.27 | +2.50 | +6.12 | +6.07 | +2.98 | +2.34 | +2.25 |
+| Halves | +3.0 / −5.5 | +3.7 / +1.3 | +7.9 / +4.3 | +9.4 / +2.7 | +7.9 / −1.9 | +4.7 / 0.0 | +4.3 / +0.2 |
+| Check, 3.7 h | | +11.67 [+3.12, +19.28] | +9.13 [−0.60, +18.60] | +12.39 [+4.56, +19.60] | +10.61 [+4.12, +16.72] | | |
+
+`mm@8` made +$8.41/h [+3.64, +12.92] on the check hours.
+
+**What did not help** (each against fixed 8 bp on the selection's second half, +$4.33/h):
+- **Depth scaled to each market's 60 s volatility** (floor 6 or 8 bp, 1–4 σ): −$0.42 to +$2.24.
+- **Each market's best depth on the first half:** +$2.62.
+- **A faster exit** (the reducing side 0.5–6 bp from the mid) loses: −$14.92 to +$3.07 over the
+  11.7 h. The positions held through the reversion are part of the edge.
+- **Pulling a side on the oracle gap** (z = 1 or 2): +$2.81 and +$5.64, no better. On a weekend the
+  oracle barely moves, so this cannot show what it would do on a weekday.
+- **Quoting `xyz:ANT` and `io:ANTH` off each other's book (`--twins`):** no paired gain over plain
+  8 bp quotes. The two barely move together at short horizons: 250 ms return correlation about
+  0.01 at every lag.
+- **Deep quotes on the majors** (16 h, 1.5 bp): +$0.6 to +$0.9 an hour on $0.4–2k filled an hour,
+  all from positions; 1.1–2.4 orders per filled $, over the rate limit.
+
+**Where the money is.** Fill markouts before the fee, `hush@d=8`, selection hours:
+
+| Markets | Fills | 1 s | 60 s | 5 min | 30 min |
+|---|---:|---:|---:|---:|---:|
+| `xyz:ANT`, `io:ANTH` | 1,129 | +1.59 | +0.84 | +2.09 | +1.95 |
+| `xyz:KORU`, `xyz:SOXL` | 98 | −2.14 | −1.43 | −2.12 | +4.65 |
+| The other 28 | 93 | +0.77 | +2.73 | +4.15 | +7.54 |
+
+- **On the two Anthropic markets the fills beat their own price at every horizon,** and by more
+  the deeper the quote: +3.6 bp at 1 s at 16 bp.
+- **Neither has a listed stock behind it,** so nothing outside Hyperliquid moves their price. The
+  takers there overshoot and the price comes back.
+- **On the check hours the pair again made it all:** `hush@d=8` made +$9.4/h on the pair and
+  −$0.3 on the other 30 markets.
+
+**Next data.** `scripts/run_paper_hip3_wide.ps1` runs a second PC paper run (port 8770,
+`live-hip3-wide`). It covers the 50 growth-mode markets with over $300k a day and an impact spread
+of at least 6 bp (2026-11-09 03:00 UTC), including `io:OAI` (OpenAI). It quotes 6, 8, 10 and 12 bp
+deep, plus `mm@8` and `touch`. The cloud recorded the same 50 from 03:59 UTC as selection data.
+
 ## What a faster server would buy: the delay frontier (2026-11-09, exploratory)
 
 `scripts/latency/`, `eval/paper/latency/frontier_20261109.csv`.

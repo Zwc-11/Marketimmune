@@ -1,0 +1,860 @@
+{
+ "runs": [
+  "data/paper/search/pair_tw"
+ ],
+ "hours": 11.708,
+ "settings": {
+  "latency_ms": 200,
+  "quote_usd": 250.0,
+  "max_quotes": 4,
+  "budget_usd": 5000.0,
+  "strategies": [
+   "hush@d=8/quiet=0/tol=0.3",
+   "hush@d=8/quiet=0/z=0.5/tol=0.3",
+   "hush@d=8/quiet=0/z=1/tol=0.3",
+   "hush@d=8/quiet=0/z=2/tol=0.3",
+   "hush@d=4/quiet=0/z=1/tol=0.3",
+   "zgap@0.05",
+   "touch"
+  ],
+  "registered": [],
+  "mm": {
+   "hush@d=8/quiet=0/tol=0.3": {
+    "d": 8.0,
+    "x": -1.0,
+    "quiet": 0.0,
+    "inf": 1.3,
+    "n": 5.0,
+    "z": 0.0,
+    "lean": 1.0,
+    "net": 0.0,
+    "stop": 0.0,
+    "hold": 0.0,
+    "dd": 0.0,
+    "pause": 600.0,
+    "cool": 60.0,
+    "stale": 3.0,
+    "tol": 0.3
+   },
+   "hush@d=8/quiet=0/z=0.5/tol=0.3": {
+    "d": 8.0,
+    "x": -1.0,
+    "quiet": 0.0,
+    "inf": 1.3,
+    "n": 5.0,
+    "z": 0.5,
+    "lean": 1.0,
+    "net": 0.0,
+    "stop": 0.0,
+    "hold": 0.0,
+    "dd": 0.0,
+    "pause": 600.0,
+    "cool": 60.0,
+    "stale": 3.0,
+    "tol": 0.3
+   },
+   "hush@d=8/quiet=0/z=1/tol=0.3": {
+    "d": 8.0,
+    "x": -1.0,
+    "quiet": 0.0,
+    "inf": 1.3,
+    "n": 5.0,
+    "z": 1.0,
+    "lean": 1.0,
+    "net": 0.0,
+    "stop": 0.0,
+    "hold": 0.0,
+    "dd": 0.0,
+    "pause": 600.0,
+    "cool": 60.0,
+    "stale": 3.0,
+    "tol": 0.3
+   },
+   "hush@d=8/quiet=0/z=2/tol=0.3": {
+    "d": 8.0,
+    "x": -1.0,
+    "quiet": 0.0,
+    "inf": 1.3,
+    "n": 5.0,
+    "z": 2.0,
+    "lean": 1.0,
+    "net": 0.0,
+    "stop": 0.0,
+    "hold": 0.0,
+    "dd": 0.0,
+    "pause": 600.0,
+    "cool": 60.0,
+    "stale": 3.0,
+    "tol": 0.3
+   },
+   "hush@d=4/quiet=0/z=1/tol=0.3": {
+    "d": 4.0,
+    "x": -1.0,
+    "quiet": 0.0,
+    "inf": 1.3,
+    "n": 5.0,
+    "z": 1.0,
+    "lean": 1.0,
+    "net": 0.0,
+    "stop": 0.0,
+    "hold": 0.0,
+    "dd": 0.0,
+    "pause": 600.0,
+    "cool": 60.0,
+    "stale": 3.0,
+    "tol": 0.3
+   }
+  },
+  "fees_bps": {
+   "maker": 0.3,
+   "taker": 0.9
+  }
+ },
+ "feed_delay_ms_p10_p50_p90": [
+  {
+   "hl_top": [
+    287.0,
+    313.0,
+    388.0
+   ],
+   "hl_trade": [
+    289.0,
+    317.0,
+    402.0
+   ]
+  }
+ ],
+ "connection_gaps": 0,
+ "by_strategy": [
+  {
+   "strategy": "hush@d=4/quiet=0/z=1/tol=0.3",
+   "fills": 2319,
+   "notional_usd": 453195.14,
+   "total_usd": 4.47,
+   "usd_per_hour": 0.38,
+   "usd_per_hour_ci95": [
+    -5.32,
+    5.64
+   ],
+   "bps": 0.099,
+   "break_even_fee_bps": 0.399,
+   "components_bps": {
+    "spread": 3.596,
+    "adverse_1s": -3.448,
+    "adverse_10s": -3.382,
+    "adverse_60s": -3.413,
+    "fee": -0.3,
+    "inventory": 0.251
+   },
+   "components_usd_per_hour": {
+    "spread": 13.92,
+    "adverse_1s": -13.35,
+    "adverse_10s": -13.09,
+    "adverse_60s": -13.21,
+    "fee": -1.16,
+    "inventory": 0.97
+   },
+   "block_sd_usd": 4.52,
+   "max_drawdown_usd": -34.95,
+   "mean_abs_net_usd": 1050.1,
+   "btc_corr_1min": null
+  },
+  {
+   "strategy": "hush@d=8/quiet=0/tol=0.3",
+   "fills": 1277,
+   "notional_usd": 252043.28,
+   "total_usd": 35.87,
+   "usd_per_hour": 3.06,
+   "usd_per_hour_ci95": [
+    -5.72,
+    10.68
+   ],
+   "bps": 1.423,
+   "break_even_fee_bps": 1.723,
+   "components_bps": {
+    "spread": 6.875,
+    "adverse_1s": -5.483,
+    "adverse_10s": -5.767,
+    "adverse_60s": -5.797,
+    "fee": -0.3,
+    "inventory": 0.332
+   },
+   "components_usd_per_hour": {
+    "spread": 14.8,
+    "adverse_1s": -11.8,
+    "adverse_10s": -12.41,
+    "adverse_60s": -12.48,
+    "fee": -0.65,
+    "inventory": 0.71
+   },
+   "block_sd_usd": 5.79,
+   "max_drawdown_usd": -55.0,
+   "mean_abs_net_usd": 854.2,
+   "btc_corr_1min": null
+  },
+  {
+   "strategy": "hush@d=8/quiet=0/z=0.5/tol=0.3",
+   "fills": 569,
+   "notional_usd": 111258.83,
+   "total_usd": 33.81,
+   "usd_per_hour": 2.89,
+   "usd_per_hour_ci95": [
+    -0.6,
+    6.36
+   ],
+   "bps": 3.039,
+   "break_even_fee_bps": 3.339,
+   "components_bps": {
+    "spread": 6.983,
+    "adverse_1s": -5.565,
+    "adverse_10s": -5.36,
+    "adverse_60s": -5.191,
+    "fee": -0.3,
+    "inventory": 1.919
+   },
+   "components_usd_per_hour": {
+    "spread": 6.64,
+    "adverse_1s": -5.29,
+    "adverse_10s": -5.09,
+    "adverse_60s": -4.93,
+    "fee": -0.29,
+    "inventory": 1.82
+   },
+   "block_sd_usd": 3.33,
+   "max_drawdown_usd": -12.84,
+   "mean_abs_net_usd": 730.7,
+   "btc_corr_1min": null
+  },
+  {
+   "strategy": "hush@d=8/quiet=0/z=1/tol=0.3",
+   "fills": 772,
+   "notional_usd": 153360.04,
+   "total_usd": 22.85,
+   "usd_per_hour": 1.95,
+   "usd_per_hour_ci95": [
+    -3.44,
+    7.08
+   ],
+   "bps": 1.49,
+   "break_even_fee_bps": 1.79,
+   "components_bps": {
+    "spread": 7.024,
+    "adverse_1s": -6.004,
+    "adverse_10s": -6.162,
+    "adverse_60s": -6.479,
+    "fee": -0.3,
+    "inventory": 0.769
+   },
+   "components_usd_per_hour": {
+    "spread": 9.2,
+    "adverse_1s": -7.86,
+    "adverse_10s": -8.07,
+    "adverse_60s": -8.49,
+    "fee": -0.39,
+    "inventory": 1.01
+   },
+   "block_sd_usd": 4.65,
+   "max_drawdown_usd": -40.07,
+   "mean_abs_net_usd": 751.7,
+   "btc_corr_1min": null
+  },
+  {
+   "strategy": "hush@d=8/quiet=0/z=2/tol=0.3",
+   "fills": 1150,
+   "notional_usd": 226599.45,
+   "total_usd": 36.92,
+   "usd_per_hour": 3.15,
+   "usd_per_hour_ci95": [
+    -4.8,
+    10.2
+   ],
+   "bps": 1.629,
+   "break_even_fee_bps": 1.929,
+   "components_bps": {
+    "spread": 6.985,
+    "adverse_1s": -5.566,
+    "adverse_10s": -5.666,
+    "adverse_60s": -5.361,
+    "fee": -0.3,
+    "inventory": 0.511
+   },
+   "components_usd_per_hour": {
+    "spread": 13.52,
+    "adverse_1s": -10.77,
+    "adverse_10s": -10.97,
+    "adverse_60s": -10.38,
+    "fee": -0.58,
+    "inventory": 0.99
+   },
+   "block_sd_usd": 5.21,
+   "max_drawdown_usd": -52.91,
+   "mean_abs_net_usd": 834.6,
+   "btc_corr_1min": null
+  },
+  {
+   "strategy": "touch",
+   "fills": 20625,
+   "notional_usd": 2475203.79,
+   "total_usd": -349.59,
+   "usd_per_hour": -29.86,
+   "usd_per_hour_ci95": [
+    -45.28,
+    -17.84
+   ],
+   "bps": -1.412,
+   "break_even_fee_bps": -1.112,
+   "components_bps": {
+    "spread": 1.336,
+    "adverse_1s": -1.775,
+    "adverse_10s": -2.097,
+    "adverse_60s": -2.369,
+    "fee": -0.3,
+    "inventory": -0.674
+   },
+   "components_usd_per_hour": {
+    "spread": 28.25,
+    "adverse_1s": -37.52,
+    "adverse_10s": -44.34,
+    "adverse_60s": -50.08,
+    "fee": -6.34,
+    "inventory": -14.24
+   },
+   "block_sd_usd": 8.84,
+   "max_drawdown_usd": -353.83,
+   "mean_abs_net_usd": 972.8,
+   "btc_corr_1min": null
+  },
+  {
+   "strategy": "zgap@0.05",
+   "fills": 3389,
+   "notional_usd": 616543.02,
+   "total_usd": 33.24,
+   "usd_per_hour": 2.84,
+   "usd_per_hour_ci95": [
+    -4.12,
+    8.88
+   ],
+   "bps": 0.539,
+   "break_even_fee_bps": 0.839,
+   "components_bps": {
+    "spread": 1.257,
+    "adverse_1s": -1.451,
+    "adverse_10s": -0.949,
+    "adverse_60s": -1.007,
+    "fee": -0.3,
+    "inventory": 1.033
+   },
+   "components_usd_per_hour": {
+    "spread": 6.62,
+    "adverse_1s": -7.64,
+    "adverse_10s": -5.0,
+    "adverse_60s": -5.3,
+    "fee": -1.58,
+    "inventory": 5.44
+   },
+   "block_sd_usd": 4.74,
+   "max_drawdown_usd": -47.5,
+   "mean_abs_net_usd": 556.1,
+   "btc_corr_1min": null
+  }
+ ],
+ "by_coin": [
+  {
+   "coin": "io:ANTH",
+   "strategy": "hush@d=4/quiet=0/z=1/tol=0.3",
+   "fills": 1009,
+   "notional_usd": 201052.61,
+   "total_usd": 41.35,
+   "usd_per_hour": 3.53,
+   "usd_per_hour_ci95": [
+    0.44,
+    6.88
+   ],
+   "bps": {
+    "spread": 3.441,
+    "adverse_1s": -2.801,
+    "adverse_10s": -2.407,
+    "adverse_60s": -3.176,
+    "fee": -0.3,
+    "inventory": 1.716,
+    "total": 2.057
+   },
+   "break_even_fee_bps": 2.357
+  },
+  {
+   "coin": "io:ANTH",
+   "strategy": "hush@d=8/quiet=0/tol=0.3",
+   "fills": 364,
+   "notional_usd": 76060.94,
+   "total_usd": 24.28,
+   "usd_per_hour": 2.07,
+   "usd_per_hour_ci95": [
+    -1.6,
+    5.16
+   ],
+   "bps": {
+    "spread": 6.567,
+    "adverse_1s": -5.676,
+    "adverse_10s": -5.987,
+    "adverse_60s": -5.662,
+    "fee": -0.3,
+    "inventory": 2.601,
+    "total": 3.192
+   },
+   "break_even_fee_bps": 3.492
+  },
+  {
+   "coin": "io:ANTH",
+   "strategy": "hush@d=8/quiet=0/z=0.5/tol=0.3",
+   "fills": 230,
+   "notional_usd": 46839.2,
+   "total_usd": 47.34,
+   "usd_per_hour": 4.04,
+   "usd_per_hour_ci95": [
+    1.72,
+    6.6
+   ],
+   "bps": {
+    "spread": 6.646,
+    "adverse_1s": -5.353,
+    "adverse_10s": -5.009,
+    "adverse_60s": -5.129,
+    "fee": -0.3,
+    "inventory": 9.113,
+    "total": 10.106
+   },
+   "break_even_fee_bps": 10.406
+  },
+  {
+   "coin": "io:ANTH",
+   "strategy": "hush@d=8/quiet=0/z=1/tol=0.3",
+   "fills": 278,
+   "notional_usd": 56645.89,
+   "total_usd": 50.58,
+   "usd_per_hour": 4.32,
+   "usd_per_hour_ci95": [
+    1.88,
+    6.76
+   ],
+   "bps": {
+    "spread": 6.821,
+    "adverse_1s": -5.501,
+    "adverse_10s": -5.478,
+    "adverse_60s": -5.641,
+    "fee": -0.3,
+    "inventory": 7.909,
+    "total": 8.929
+   },
+   "break_even_fee_bps": 9.229
+  },
+  {
+   "coin": "io:ANTH",
+   "strategy": "hush@d=8/quiet=0/z=2/tol=0.3",
+   "fills": 354,
+   "notional_usd": 74002.24,
+   "total_usd": 29.24,
+   "usd_per_hour": 2.5,
+   "usd_per_hour_ci95": [
+    -0.76,
+    5.44
+   ],
+   "bps": {
+    "spread": 6.647,
+    "adverse_1s": -5.643,
+    "adverse_10s": -5.914,
+    "adverse_60s": -5.548,
+    "fee": -0.3,
+    "inventory": 3.248,
+    "total": 3.952
+   },
+   "break_even_fee_bps": 4.252
+  },
+  {
+   "coin": "io:ANTH",
+   "strategy": "touch",
+   "fills": 14309,
+   "notional_usd": 1602968.83,
+   "total_usd": -181.37,
+   "usd_per_hour": -15.49,
+   "usd_per_hour_ci95": [
+    -22.4,
+    -10.12
+   ],
+   "bps": {
+    "spread": 0.858,
+    "adverse_1s": -1.166,
+    "adverse_10s": -1.391,
+    "adverse_60s": -1.677,
+    "fee": -0.3,
+    "inventory": -0.524,
+    "total": -1.131
+   },
+   "break_even_fee_bps": -0.831
+  },
+  {
+   "coin": "io:ANTH",
+   "strategy": "zgap@0.05",
+   "fills": 2357,
+   "notional_usd": 386606.5,
+   "total_usd": 6.91,
+   "usd_per_hour": 0.59,
+   "usd_per_hour_ci95": [
+    -3.64,
+    4.24
+   ],
+   "bps": {
+    "spread": 0.6,
+    "adverse_1s": -1.017,
+    "adverse_10s": -0.474,
+    "adverse_60s": -0.249,
+    "fee": -0.3,
+    "inventory": 0.895,
+    "total": 0.179
+   },
+   "break_even_fee_bps": 0.479
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "hush@d=4/quiet=0/z=1/tol=0.3",
+   "fills": 1310,
+   "notional_usd": 252142.53,
+   "total_usd": -36.88,
+   "usd_per_hour": -3.15,
+   "usd_per_hour_ci95": [
+    -7.28,
+    0.4
+   ],
+   "bps": {
+    "spread": 3.719,
+    "adverse_1s": -3.965,
+    "adverse_10s": -4.159,
+    "adverse_60s": -3.601,
+    "fee": -0.3,
+    "inventory": -0.917,
+    "total": -1.463
+   },
+   "break_even_fee_bps": -1.163
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "hush@d=8/quiet=0/tol=0.3",
+   "fills": 913,
+   "notional_usd": 175982.34,
+   "total_usd": 11.59,
+   "usd_per_hour": 0.99,
+   "usd_per_hour_ci95": [
+    -4.68,
+    6.08
+   ],
+   "bps": {
+    "spread": 7.007,
+    "adverse_1s": -5.4,
+    "adverse_10s": -5.672,
+    "adverse_60s": -5.855,
+    "fee": -0.3,
+    "inventory": -0.649,
+    "total": 0.659
+   },
+   "break_even_fee_bps": 0.959
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "hush@d=8/quiet=0/z=0.5/tol=0.3",
+   "fills": 339,
+   "notional_usd": 64419.63,
+   "total_usd": -13.53,
+   "usd_per_hour": -1.16,
+   "usd_per_hour_ci95": [
+    -4.64,
+    1.96
+   ],
+   "bps": {
+    "spread": 7.229,
+    "adverse_1s": -5.718,
+    "adverse_10s": -5.616,
+    "adverse_60s": -5.236,
+    "fee": -0.3,
+    "inventory": -3.311,
+    "total": -2.101
+   },
+   "break_even_fee_bps": -1.801
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "hush@d=8/quiet=0/z=1/tol=0.3",
+   "fills": 494,
+   "notional_usd": 96714.15,
+   "total_usd": -27.73,
+   "usd_per_hour": -2.37,
+   "usd_per_hour_ci95": [
+    -7.8,
+    2.0
+   ],
+   "bps": {
+    "spread": 7.144,
+    "adverse_1s": -6.298,
+    "adverse_10s": -6.562,
+    "adverse_60s": -6.969,
+    "fee": -0.3,
+    "inventory": -3.413,
+    "total": -2.868
+   },
+   "break_even_fee_bps": -2.568
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "hush@d=8/quiet=0/z=2/tol=0.3",
+   "fills": 796,
+   "notional_usd": 152597.21,
+   "total_usd": 7.68,
+   "usd_per_hour": 0.66,
+   "usd_per_hour_ci95": [
+    -4.88,
+    5.68
+   ],
+   "bps": {
+    "spread": 7.149,
+    "adverse_1s": -5.528,
+    "adverse_10s": -5.546,
+    "adverse_60s": -5.271,
+    "fee": -0.3,
+    "inventory": -0.817,
+    "total": 0.504
+   },
+   "break_even_fee_bps": 0.804
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "touch",
+   "fills": 6316,
+   "notional_usd": 872234.96,
+   "total_usd": -168.22,
+   "usd_per_hour": -14.37,
+   "usd_per_hour_ci95": [
+    -23.84,
+    -7.48
+   ],
+   "bps": {
+    "spread": 2.215,
+    "adverse_1s": -2.895,
+    "adverse_10s": -3.395,
+    "adverse_60s": -3.641,
+    "fee": -0.3,
+    "inventory": -0.948,
+    "total": -1.929
+   },
+   "break_even_fee_bps": -1.629
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "zgap@0.05",
+   "fills": 1032,
+   "notional_usd": 229936.52,
+   "total_usd": 26.33,
+   "usd_per_hour": 2.25,
+   "usd_per_hour_ci95": [
+    -2.08,
+    6.52
+   ],
+   "bps": {
+    "spread": 2.362,
+    "adverse_1s": -2.181,
+    "adverse_10s": -1.748,
+    "adverse_60s": -2.281,
+    "fee": -0.3,
+    "inventory": 1.264,
+    "total": 1.145
+   },
+   "break_even_fee_bps": 1.445
+  }
+ ],
+ "vs_touch": [
+  {
+   "coin": "io:ANTH",
+   "strategy": "hush@d=4/quiet=0/z=1/tol=0.3",
+   "usd_per_hour": 18.95,
+   "ci95": [
+    12.4,
+    27.12
+   ],
+   "blocks_better": "41/47"
+  },
+  {
+   "coin": "io:ANTH",
+   "strategy": "hush@d=8/quiet=0/tol=0.3",
+   "usd_per_hour": 17.5,
+   "ci95": [
+    12.4,
+    23.16
+   ],
+   "blocks_better": "44/47"
+  },
+  {
+   "coin": "io:ANTH",
+   "strategy": "hush@d=8/quiet=0/z=0.5/tol=0.3",
+   "usd_per_hour": 19.46,
+   "ci95": [
+    12.84,
+    28.12
+   ],
+   "blocks_better": "45/47"
+  },
+  {
+   "coin": "io:ANTH",
+   "strategy": "hush@d=8/quiet=0/z=1/tol=0.3",
+   "usd_per_hour": 19.74,
+   "ci95": [
+    13.12,
+    28.0
+   ],
+   "blocks_better": "45/47"
+  },
+  {
+   "coin": "io:ANTH",
+   "strategy": "hush@d=8/quiet=0/z=2/tol=0.3",
+   "usd_per_hour": 17.92,
+   "ci95": [
+    12.56,
+    24.04
+   ],
+   "blocks_better": "44/47"
+  },
+  {
+   "coin": "io:ANTH",
+   "strategy": "zgap@0.05",
+   "usd_per_hour": 16.02,
+   "ci95": [
+    11.12,
+    21.56
+   ],
+   "blocks_better": "38/47"
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "hush@d=4/quiet=0/z=1/tol=0.3",
+   "usd_per_hour": 11.18,
+   "ci95": [
+    5.8,
+    17.64
+   ],
+   "blocks_better": "36/47"
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "hush@d=8/quiet=0/tol=0.3",
+   "usd_per_hour": 15.3,
+   "ci95": [
+    8.0,
+    24.28
+   ],
+   "blocks_better": "36/47"
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "hush@d=8/quiet=0/z=0.5/tol=0.3",
+   "usd_per_hour": 13.16,
+   "ci95": [
+    6.28,
+    22.08
+   ],
+   "blocks_better": "34/47"
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "hush@d=8/quiet=0/z=1/tol=0.3",
+   "usd_per_hour": 11.96,
+   "ci95": [
+    5.72,
+    19.88
+   ],
+   "blocks_better": "28/47"
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "hush@d=8/quiet=0/z=2/tol=0.3",
+   "usd_per_hour": 14.97,
+   "ci95": [
+    7.56,
+    24.08
+   ],
+   "blocks_better": "34/47"
+  },
+  {
+   "coin": "xyz:ANT",
+   "strategy": "zgap@0.05",
+   "usd_per_hour": 16.56,
+   "ci95": [
+    9.8,
+    24.24
+   ],
+   "blocks_better": "41/47"
+  }
+ ],
+ "baseline": "hush@d=8/quiet=0/tol=0.3",
+ "vs_baseline": [
+  {
+   "strategy": "hush@d=4/quiet=0/z=1/tol=0.3",
+   "usd_per_hour": -2.67,
+   "ci95": [
+    -12.2,
+    7.0
+   ],
+   "blocks_better": "25/47"
+  },
+  {
+   "strategy": "hush@d=8/quiet=0/z=0.5/tol=0.3",
+   "usd_per_hour": -0.18,
+   "ci95": [
+    -5.96,
+    7.2
+   ],
+   "blocks_better": "21/47"
+  },
+  {
+   "strategy": "hush@d=8/quiet=0/z=1/tol=0.3",
+   "usd_per_hour": -1.11,
+   "ci95": [
+    -4.92,
+    3.4
+   ],
+   "blocks_better": "23/47"
+  },
+  {
+   "strategy": "hush@d=8/quiet=0/z=2/tol=0.3",
+   "usd_per_hour": 0.09,
+   "ci95": [
+    -1.4,
+    1.76
+   ],
+   "blocks_better": "21/47"
+  },
+  {
+   "strategy": "touch",
+   "usd_per_hour": -32.8,
+   "ci95": [
+    -46.6,
+    -20.92
+   ],
+   "blocks_better": "5/47"
+  },
+  {
+   "strategy": "zgap@0.05",
+   "usd_per_hour": -0.22,
+   "ci95": [
+    -9.32,
+    8.68
+   ],
+   "blocks_better": "22/47"
+  }
+ ],
+ "model_oos_r2": {
+  "xyz:ANT": {
+   "fits": 69,
+   "mean_oos_r2": 0.0337
+  },
+  "io:ANTH": {
+   "fits": 69,
+   "mean_oos_r2": 0.0044
+  }
+ }
+}
