@@ -88,3 +88,42 @@ four times in five; +1 bp would not.
   one Sunday.
 - **Overlap:** the first hours coincide with the last hours of `paper-hip3-wide-20261109.md`
   (10 bp fixed quotes). Each test is scored on its own criterion.
+
+## Addendum, 2026-11-09 about 23:37 UTC (before any test segment was recorded)
+
+Two things changed after the registration above was committed at 23:15 UTC. Neither the pick nor
+the criteria change.
+
+**1. Where the test data is recorded.** `live-hip3-wide` stopped at 20:54 UTC, before this
+registration was written (5.4 h recorded; found at 23:17 UTC). The same 50 markets are being
+recorded by an audited copy of the runner, in
+`G:\Crypto Data\paper\live-hip3-audited-20261109T2056` (segments `seg-<start>-<id>`, started
+20:55 UTC). That recording is the test data:
+- **Hours:** the first 24 two-hour segments that start after this addendum's commit, about 48 h.
+- **Warm-up:** the segment in progress at this addendum's commit (started 22:55 UTC).
+- **Read so far:** file listings, the first two segments' `meta.json` and `manifest.json` (market
+  list and settings), and the runner's log. No fills, prices or reports.
+- The recording is scheduled to run until about 16 November 15:30 UTC.
+
+**2. The engine that scores it.** An audit of the paper engine finished the same evening
+(`G:\Crypto Data\paper\audit-hip3-20261109`, in this repository as branch `audit/hip3-20261109`).
+It found that the engine this registration names fills too much:
+- a trade through a quote filled the whole order, whatever the trade's size;
+- displayed size that shrank was counted as the queue ahead cancelling;
+- a quote beyond the recorded book levels was treated as first in line;
+- each 2-hour segment started flat, so leftover positions were closed for free.
+
+All four flatter deep quotes. So:
+- **Primary:** P1 and P2 are scored on the audited engine (branch `audit/hip3-20261109` at
+  `a1c3d11`, which also carries `k`). It decides the result.
+- **Also reported:** the same replay on the engine as registered (master at `ff481d8`).
+- **Sensitivity:** `--cap-through-fills` no longer does anything, because the audited engine
+  always caps a fill at its trade's size. The stress is `--latency-ms 700` alone.
+- **Positions** now carry from one segment to the next. "The cost of closing each segment's
+  leftover positions" becomes the cost of closing what is held at the end of the test.
+
+**3. A limit that was not stated.** Hyperliquid allows an address one request per $1 it has
+traded, plus 10,000. On the selection data the pick sent more than that: 1.2 orders per filled $
+on the registered engine, and the audited engine fills less. The test reports orders and cancels
+per filled $, and a pass on P1 and P2 with that number above 1 is a pass for the fills only, not for
+a strategy a new account could run.
