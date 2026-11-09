@@ -1,6 +1,6 @@
 # Pre-registration: volatility-scaled deep quotes on HIP-3 markets while the underlying markets are closed
 
-Written 2026-11-09 about 23:30 UTC, four days before the first test hour. Scored once.
+Written 2026-11-09 about 23:15 UTC, four days before the first test hour. Scored once.
 
 ## Where this comes from
 
