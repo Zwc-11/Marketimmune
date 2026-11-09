@@ -1,0 +1,7 @@
+market,flow,usd_m,prints,spread_paid,mk1,mk10,mk60,mk300,key
+"Majors, 43 h",TWAP slice,59.6,120928,0.164,0.118,0.122,0.089,-0.18,"Majors, 43 h | TWAP slice"
+"Majors, 43 h",signed order,1348.1,325199,0.793,-0.274,-0.53,-0.429,-0.108,"Majors, 43 h | signed order"
+"HIP-3 Sunday, 16 h",TWAP slice,9.4,40284,1.832,0.747,0.982,1.26,1.014,"HIP-3 Sunday, 16 h | TWAP slice"
+"HIP-3 Sunday, 16 h",signed order,154.4,287015,1.74,0.344,0.181,0.116,0.106,"HIP-3 Sunday, 16 h | signed order"
+"HIP-3 Monday, 16 h",TWAP slice,44.1,63984,0.962,0.717,0.652,0.383,-1.57,"HIP-3 Monday, 16 h | TWAP slice"
+"HIP-3 Monday, 16 h",signed order,3682.9,2181413,1.341,-0.321,-0.609,-0.975,-0.531,"HIP-3 Monday, 16 h | signed order"

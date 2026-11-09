@@ -225,7 +225,7 @@ def test_a_twin_market_takes_its_reference_from_the_leader_book() -> None:
     assert eng.states["xyz:SNDK"].ref is not None
 
 
-def test_capped_through_fill_is_a_sensitivity_setting():
+def test_capped_through_fill_is_a_sensitivity_setting() -> None:
     from marketimmune.paper import orders
 
     full = PaperOrder(side=1, px=10.0, qty=5.0, t_live=0)
