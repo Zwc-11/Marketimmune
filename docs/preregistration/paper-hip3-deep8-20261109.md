@@ -76,7 +76,7 @@ both push the true value below +6.
 - **Concentration:** if the pair carries the result again, it is a bet on one underlying.
 - **Capacity:** $250 quotes.
 
-## Correction (2026-11-09 01:45 UTC, before any test segment was read)
+## Correction (2026-11-09 about 01:35 UTC, before any test segment was read)
 
 The evidence recording was first described as 13 h (00:00–13:00 UTC). The replay covers
 00:24–12:05 UTC, 11.7 h; the text above now says so. Nothing registered changed.
