@@ -802,6 +802,18 @@ PC's 23:20-15:20 UTC segments, which were recorded after the registration commit
   markouts (+0.3 to +0.9 bp) and intervals above zero (+$2.2/h). These variants send about four
   orders per filled dollar, so Hyperliquid's limit rules them out at this size.
 
+**The registered test fails on both criteria** (`eval/paper/test_hush_*_20261108.*`). The data
+were 16.0 h of the PC's `live-optimized` recording, 23:29–15:29 UTC, recorded after registration
+(Addendum B).
+- **P1:** the pick made −$2.08/h [−4.16, −0.16]. The whole interval is below zero.
+- **P2:** gated minus ungated was −$0.88/h [−1.92, +0.12], better in 28 of 64 quarter-hours.
+  Selection had +4.77; the sign reversed. The gate lowered $/h on eight of the nine coins.
+- **The fills:** spread +1.29 bp, move in 1 s −2.61 bp. Markouts before the fee were −1.32 bp at
+  1 s, −1.33 at 60 s, −2.08 at 5 min, −0.32 at 30 min. In selection the range-bound hours paid
+  for the held position; these hours did not.
+- **`zgap@0.05`:** −$2.15/h. Its fills are about flat before the fee (+0.02 bp at 1 s, +0.77 at
+  30 min), so it loses roughly the 1.5 bp fee on $34k an hour.
+
 **Correction to earlier selection replays.** `paper_tune --clock` kept only its last value, so
 `--clock live --clock tuned` corrected one chain. It now accepts every flag (2e00e44).
 - **This round:** the 2026-11-06 16:06 and 18:06 segments were replayed again with the correction
