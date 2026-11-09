@@ -223,3 +223,17 @@ def test_a_twin_market_takes_its_reference_from_the_leader_book() -> None:
     assert ref is not None and (ref.bid, ref.ask) == (833.0, 833.5)
     eng.handle(RefTop("xyz:SNDK", 1_020, 832.0, 832.0), 1_020)  # the leader keeps its oracle
     assert eng.states["xyz:SNDK"].ref is not None
+
+
+def test_capped_through_fill_is_a_sensitivity_setting():
+    from marketimmune.paper import orders
+
+    full = PaperOrder(side=1, px=10.0, qty=5.0, t_live=0)
+    assert full.match(10, 9.9, 2.0, False, 0.0) == 5.0  # a trade through the bid fills it all
+    orders.CAP_THROUGH = True
+    try:
+        capped = PaperOrder(side=1, px=10.0, qty=5.0, t_live=0)
+        assert capped.match(10, 9.9, 2.0, False, 0.0) == 2.0  # at most the print's size
+        assert capped.match(11, 9.9, 4.0, False, 0.0) == 3.0  # then the rest
+    finally:
+        orders.CAP_THROUGH = False
