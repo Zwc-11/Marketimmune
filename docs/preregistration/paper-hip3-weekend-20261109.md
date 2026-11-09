@@ -113,3 +113,11 @@ traded, plus 10,000. On the selection data the pick sent more than that: 1.2 ord
 on the registered engine, and the audited engine fills less. The test reports orders and cancels
 per filled $, and a pass on P1 and P2 with that number above 1 is a pass for the fills only, not for
 a strategy a new account could run.
+
+**4. One more setting reported (added 23:45 UTC, before any test segment).** The audited engine
+pulls a market's quotes when that market's own book has not changed for 3 s (`stale`, default 3).
+The engine as registered pulled them only when the whole feed was silent. In two Sunday selection
+hours (02:00 and 06:00 UTC on 8 November) a market's book went unchanged for more than 3 s during
+45% to 55% of the time, averaged over the 32 markets, so under the audited engine the pick is out
+of the book for about half of a quiet market's hours. Reported beside the primary: the pick with
+`/stale=30` on the audited engine. The primary is unchanged.

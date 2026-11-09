@@ -91,3 +91,8 @@ flatter deep quotes. So P1 is scored on the audited engine (branch `audit/hip3-2
 `a1c3d11`), which decides the result, and the engine as registered (master at `e68c306`) is
 reported beside it. Positions carry across segments, so "positions start flat" holds for the
 first segment only.
+
+**3. One more setting reported (added 23:45 UTC, before any test segment was read).** The audited
+engine pulls a market's quotes when that market's own book has not changed for 3 s; the engine as
+registered pulled them only when the whole feed was silent. Reported beside P1: `hush@d=10` with
+`/stale=30` on the audited engine, replayed from the same recording. P1 is unchanged.
