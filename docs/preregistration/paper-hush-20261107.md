@@ -264,3 +264,64 @@ Coinbase products the whole time, with clock correction.
 **Also reported:** the interim's 4.95 h, the market-maker run's 23:20–23:33 piece plus the `hush@`
 run's own recording 23:34–04:18. It overlaps the first 4.8 h of the window above, so the two are
 not independent.
+
+## Result (2026-11-09 00:15 UTC)
+
+**Data:** as Addendum B. The eight segments of `live-optimized-20261107T192854Z`, 23:29 to 15:29 UTC,
+16.0 h. Warm-up was the registered chain plus the 21:20 segment, not scored. Settings were as
+registered: `--clock test --causal-clock`, $250 × 4, $5,000, 200 ms, fees 1.5 / 4.5 bp.
+
+**Files:**
+- `eval/paper/test_hush_20261108.{json,md}`;
+- `test_hush_report_20261108.json` (paired with the ungated control);
+- `test_hush_vs_zgap_20261108.json`;
+- `test_hush_markouts_20261108.csv`;
+- `test_hush_by_coin_20261108.csv`.
+
+**Verdicts:**
+- **P1 fails.** `hush@d=3/quiet=5/inf=0.665/tol=0.3` made −2.08 $/h [−4.16, −0.16]. The whole
+  interval is below zero.
+- **P2 fails.** Gated minus ungated was −0.88 $/h [−1.92, +0.12]; the gated setting did better in
+  28 of 64 blocks. Selection measured +4.77 [+2.24, +8.16]. The sign reversed.
+
+| Setting | $/h [95%] | Filled $ | bp per filled $ | Spread | Move in 1 s | Position | Orders per $ |
+|---|---|---:|---:|---:|---:|---:|---:|
+| `hush@d=3/quiet=5/inf=0.665/tol=0.3` (registered) | −2.08 [−4.16, −0.16] | 113,438 | −2.94 | +1.29 | −2.61 | −0.12 | 0.53 |
+| `hush@d=3/quiet=0/tol=0.3` (ungated control) | −1.20 [−3.52, +1.12] | 133,437 | −1.44 | +1.21 | −2.41 | +1.26 | 0.44 |
+| `hush@d=4/quiet=5/tol=0.3` | −0.85 [−2.32, +0.52] | 65,835 | −2.08 | +1.77 | −3.30 | +0.95 | 0.83 |
+| `hush@d=3/quiet=5/tol=0.3` | −1.70 [−4.04, +0.52] | 122,435 | −2.22 | +1.31 | −2.55 | +0.52 | 0.48 |
+| `zgap@0.05` (baseline) | −2.15 [−5.12, +0.48] | 547,389 | −0.63 | +0.27 | −0.25 | +0.85 | 0.29 |
+
+"bp per filled $" is net of the 1.5 bp fee; spread, move and position are the parts before it.
+
+**Paired comparisons:**
+
+| Pair | $/h [95%] | Blocks better |
+|---|---|---|
+| Registered minus its ungated control (P2) | −0.88 [−1.92, +0.12] | 28/64 |
+| `hush@d=3/quiet=5/tol=0.3` minus the control | −0.50 [−1.28, +0.32] | 27/64 |
+| `hush@d=4/quiet=5/tol=0.3` minus the control | +0.35 [−1.68, +2.32] | 36/64 |
+| Registered minus `zgap@0.05` | +0.07 [−3.60, +3.80] | 32/64 |
+
+**Fill markouts before the fee** (bp against the fill price, weighted by filled $):
+
+| Setting | 1 s | 10 s | 60 s | 5 min | 30 min |
+|---|---:|---:|---:|---:|---:|
+| Registered | −1.32 | −1.43 | −1.33 | −2.08 | −0.32 |
+| Ungated control | −1.20 | −1.22 | −1.00 | −1.65 | +0.09 |
+| `hush@d=4/quiet=5` | −1.52 | −1.55 | −1.74 | −2.06 | −0.50 |
+| `zgap@0.05` | +0.02 | −0.03 | −0.05 | +0.14 | +0.77 |
+
+**By coin:**
+- The registered setting lost on seven of the nine coins; only AVAX was above zero (+0.19 $/h).
+- The gate lowered $/h on eight of the nine; only BCH improved (+0.23).
+- Orders per filled $ were 0.53, within the rate limit.
+
+**Reading:**
+- The deep quotes earn about 1.3 bp of spread against the mid. The move in the next second takes
+  about 2.6 bp, so a second after the fill they are 1.2–1.5 bp under water before the fee.
+- The wallet gate made the fills slightly worse, not better. The informed-wallet score from
+  selection did not carry to these 16 h.
+- `zgap@0.05`'s fills are about flat before the fee. It loses the 1.5 bp fee on four times the
+  volume.
+- This closes the `hush@` line: both registered criteria fail on data recorded after registration.
