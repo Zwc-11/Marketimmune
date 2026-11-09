@@ -1,0 +1,178 @@
+{
+ "hours": {
+  "test/seg-20261109T0129": 1.998,
+  "test/seg-20261109T0330": 1.998,
+  "test/seg-20261109T0531": 1.998,
+  "test/seg-20261109T0732": 1.998,
+  "test/seg-20261109T0932": 1.998,
+  "test/seg-20261109T1133": 1.998,
+  "test/seg-20261109T1334": 1.921
+ },
+ "configs": [
+  "250x4"
+ ],
+ "budget_usd": 5000.0,
+ "latency_ms": 200,
+ "retime": null,
+ "fees_bps": {
+  "maker": 0.3,
+  "taker": 0.9
+ },
+ "clock_corrected": [
+  "test"
+ ],
+ "causal_clock": true,
+ "max_orders_per_usd": 1.0,
+ "options": 2,
+ "excluded": 0,
+ "over_limit": [],
+ "families": {
+  "hush": {
+   "best": {
+    "strategy": "hush@d=8/quiet=0/tol=0.3",
+    "config": "250x4",
+    "usd_per_hour": -43.5,
+    "orders_per_usd": 0.31,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "test/seg-20261109T0129": -10.4,
+    "test/seg-20261109T0330": 1.3,
+    "test/seg-20261109T0531": -15.3,
+    "test/seg-20261109T0732": -42.9,
+    "test/seg-20261109T0932": -46.0,
+    "test/seg-20261109T1133": 10.3,
+    "test/seg-20261109T1334": -208.1
+   },
+   "cv_usd_per_hour": -43.5,
+   "folds": [
+    {
+     "left_out": "test/seg-20261109T0129",
+     "pick": "hush@d=8/quiet=0/tol=0.3 250x4",
+     "left_out_usd_per_hour": -10.4
+    },
+    {
+     "left_out": "test/seg-20261109T0330",
+     "pick": "hush@d=8/quiet=0/tol=0.3 250x4",
+     "left_out_usd_per_hour": 1.3
+    },
+    {
+     "left_out": "test/seg-20261109T0531",
+     "pick": "hush@d=8/quiet=0/tol=0.3 250x4",
+     "left_out_usd_per_hour": -15.3
+    },
+    {
+     "left_out": "test/seg-20261109T0732",
+     "pick": "hush@d=8/quiet=0/tol=0.3 250x4",
+     "left_out_usd_per_hour": -42.9
+    },
+    {
+     "left_out": "test/seg-20261109T0932",
+     "pick": "hush@d=8/quiet=0/tol=0.3 250x4",
+     "left_out_usd_per_hour": -46.0
+    },
+    {
+     "left_out": "test/seg-20261109T1133",
+     "pick": "hush@d=8/quiet=0/tol=0.3 250x4",
+     "left_out_usd_per_hour": 10.3
+    },
+    {
+     "left_out": "test/seg-20261109T1334",
+     "pick": "hush@d=8/quiet=0/tol=0.3 250x4",
+     "left_out_usd_per_hour": -208.1
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "hush@d=8/quiet=0/tol=0.3",
+     "config": "250x4",
+     "usd_per_hour": -43.5,
+     "orders_per_usd": 0.31,
+     "test/seg-20261109T0129": -10.4,
+     "test/seg-20261109T0330": 1.3,
+     "test/seg-20261109T0531": -15.3,
+     "test/seg-20261109T0732": -42.9,
+     "test/seg-20261109T0932": -46.0,
+     "test/seg-20261109T1133": 10.3,
+     "test/seg-20261109T1334": -208.1,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  },
+  "mm": {
+   "best": {
+    "strategy": "mm@8",
+    "config": "250x4",
+    "usd_per_hour": -25.6,
+    "orders_per_usd": 0.6,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "test/seg-20261109T0129": -20.3,
+    "test/seg-20261109T0330": -7.2,
+    "test/seg-20261109T0531": 2.4,
+    "test/seg-20261109T0732": -32.5,
+    "test/seg-20261109T0932": -18.2,
+    "test/seg-20261109T1133": -18.5,
+    "test/seg-20261109T1334": -87.0
+   },
+   "cv_usd_per_hour": -25.6,
+   "folds": [
+    {
+     "left_out": "test/seg-20261109T0129",
+     "pick": "mm@8 250x4",
+     "left_out_usd_per_hour": -20.3
+    },
+    {
+     "left_out": "test/seg-20261109T0330",
+     "pick": "mm@8 250x4",
+     "left_out_usd_per_hour": -7.2
+    },
+    {
+     "left_out": "test/seg-20261109T0531",
+     "pick": "mm@8 250x4",
+     "left_out_usd_per_hour": 2.4
+    },
+    {
+     "left_out": "test/seg-20261109T0732",
+     "pick": "mm@8 250x4",
+     "left_out_usd_per_hour": -32.5
+    },
+    {
+     "left_out": "test/seg-20261109T0932",
+     "pick": "mm@8 250x4",
+     "left_out_usd_per_hour": -18.2
+    },
+    {
+     "left_out": "test/seg-20261109T1133",
+     "pick": "mm@8 250x4",
+     "left_out_usd_per_hour": -18.5
+    },
+    {
+     "left_out": "test/seg-20261109T1334",
+     "pick": "mm@8 250x4",
+     "left_out_usd_per_hour": -87.0
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "mm@8",
+     "config": "250x4",
+     "usd_per_hour": -25.6,
+     "orders_per_usd": 0.6,
+     "test/seg-20261109T0129": -20.3,
+     "test/seg-20261109T0330": -7.2,
+     "test/seg-20261109T0531": 2.4,
+     "test/seg-20261109T0732": -32.5,
+     "test/seg-20261109T0932": -18.2,
+     "test/seg-20261109T1133": -18.5,
+     "test/seg-20261109T1334": -87.0,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  }
+ },
+ "held_out_hours": {}
+}
