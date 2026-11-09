@@ -22,6 +22,7 @@ Every time is in milliseconds. Hyperliquid's are block times; ``RefTop.t_ms`` is
 from __future__ import annotations
 
 import heapq
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -58,6 +59,7 @@ class Trade:
     sz: float
     taker_buy: bool
     taker: str
+    tid: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +75,22 @@ class RefTop:
 
 
 Event = Top | Depth | Trade | RefTop
+
+
+def valid_event(ev: Event) -> bool:
+    """Validate numeric feed values before they reach positions or online estimators."""
+    if not math.isfinite(ev.t_ms) or ev.t_ms < 0:
+        return False
+    if isinstance(ev, Trade):
+        return all(math.isfinite(x) and x > 0 for x in (ev.px, ev.sz))
+    if isinstance(ev, Depth):
+        return bool(ev.bids and ev.asks) and max(ev.bids) < min(ev.asks) and all(
+            math.isfinite(p) and p > 0 and math.isfinite(s) and s >= 0
+            for levels in (ev.bids, ev.asks) for p, s in levels.items()
+        )
+    if not all(math.isfinite(x) and x > 0 for x in (ev.bid, ev.ask)) or ev.bid > ev.ask:
+        return False
+    return not isinstance(ev, Top) or (ev.bid < ev.ask and all(math.isfinite(x) and x >= 0 for x in (ev.bid_sz, ev.ask_sz)))
 
 
 def parse_hl(msg: dict[str, Any], local_ms: int) -> list[Event]:
@@ -100,8 +118,10 @@ def parse_hl(msg: dict[str, Any], local_ms: int) -> list[Event]:
             t = int(x["time"])
             if local_ms - t > STALE_TRADE_MS:
                 continue
+            if x["side"] not in ("B", "A"):
+                continue
             buy = x["side"] == "B"
-            out.append(Trade(x["coin"], t, float(x["px"]), float(x["sz"]), buy, x["users"][0 if buy else 1]))
+            out.append(Trade(x["coin"], t, float(x["px"]), float(x["sz"]), buy, x["users"][0 if buy else 1], x.get("tid")))
         return out
     if channel == "activeAssetCtx" and ":" in str(data.get("coin", "")):
         oracle = data["ctx"].get("oraclePx")

@@ -163,6 +163,8 @@ class CoinState:
     def __init__(self, coin: str, wallets: Wallets, sz_decimals: int | None = None) -> None:
         self.coin = coin
         self.wallets = wallets
+        self.book_received_ms: int | None = None
+        self.ref_received_ms: int | None = None
         self.sz_decimals = sz_decimals
         self.top: Top | None = None
         self.depth: Depth | None = None
@@ -198,6 +200,7 @@ class CoinState:
     # --- events
     def on_top(self, ev: Top, local_ms: int) -> None:
         self.top = ev
+        self.book_received_ms = local_ms
         self.view.add(local_ms, ev.mid)
         self.exch.add(ev.t_ms, ev.mid)
         self.mids.append((ev.t_ms, ev.mid))
@@ -207,8 +210,11 @@ class CoinState:
             if mid1 is not None:
                 self.wallets.add(wallet, sign * (mid1 - mid0) / mid0 * BPS)
 
-    def on_depth(self, ev: Depth) -> None:
+    def on_depth(self, ev: Depth, local_ms: int | None = None) -> None:
         self.depth = ev
+        if (local_ms is not None and self.top is not None and ev.t_ms >= self.top.t_ms
+                and max(ev.bids) == self.top.bid and min(ev.asks) == self.top.ask):
+            self.book_received_ms = local_ms
 
     def on_trade(self, ev: Trade, local_ms: int) -> None:
         side = 1 if ev.taker_buy else -1
@@ -225,6 +231,7 @@ class CoinState:
 
     def on_ref(self, ev: RefTop, local_ms: int) -> None:
         self.ref = ev
+        self.ref_received_ms = local_ms
         self.ref_view.add(local_ms, ev.mid)
 
     @property
@@ -368,6 +375,10 @@ class CoinState:
 
     # --- the 100 ms grid
     def sample(self, local_ms: int) -> None:
+        if self.book_received_ms is None or self.ref_received_ms is None or any(
+            local_ms - t > 3000 for t in (self.book_received_ms, self.ref_received_ms)
+        ):
+            return  # a quiet/disconnected feed cannot supply fabricated flat-return labels
         raw = self.raw_gap()
         if raw is None or self.top is None:
             return

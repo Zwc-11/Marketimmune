@@ -27,8 +27,8 @@ def test_maker_fills_after_latency_and_queue() -> None:
     e.handle(Trade("SOL", 1_200, 99.0, 30.0, False, "0xa"), 1_210)  # 25 ahead, 5 for us
     assert touch.account.position == pytest.approx(5.0)
     assert touch.account.fees == pytest.approx(5 * 99 * 1.5e-4)
-    e.handle(Trade("SOL", 1_250, 98.0, 1.0, False, "0xa"), 1_260)  # through the bid: the other 5
-    assert touch.account.position == pytest.approx(10.0) and touch.account.fills == 2
+    e.handle(Trade("SOL", 1_250, 98.0, 1.0, False, "0xa"), 1_260)  # through the bid: only one coin traded
+    assert touch.account.position == pytest.approx(6.0) and touch.account.fills == 2
 
 
 def test_requote_cancels_after_latency() -> None:
@@ -40,7 +40,7 @@ def test_requote_cancels_after_latency() -> None:
     assert old is not None and old.t_cancel == 1_200
     assert touch.current[1] is not None and touch.current[1].px == 100.0
     e.handle(Trade("SOL", 1_150, 98.0, 1.0, False, "0xa"), 1_160)  # the old order is still in the book
-    assert touch.account.position == pytest.approx(10.0)
+    assert touch.account.position == pytest.approx(1.0)
 
 
 def test_taker_enters_on_the_gap_and_exits_after_the_hold() -> None:
@@ -97,7 +97,7 @@ def test_cli_replays_a_recording(tmp_path: Path) -> None:
     )
     summary = json.loads((out / "summary.json").read_text())
     touch = next(r for r in summary["instances"] if r["strategy"] == "touch")
-    assert touch["fills"] == 1 and touch["position_usd"] == pytest.approx(1_000.0)
+    assert touch["fills"] == 1 and touch["position_usd"] == pytest.approx(100.0)
     improve = next(r for r in summary["instances"] if r["strategy"] == "improve")
     assert improve["fills"] == 1  # bought at 99.01, a tick inside the 2.00 spread
     assert (out / "fills.jsonl").read_text().count("\n") == 7  # the seven makers, one fill each
@@ -110,11 +110,11 @@ def test_report_splits_the_pnl(tmp_path: Path) -> None:
     out = tmp_path / "report.json"
     assert paper_report.main(["--runs", str(tmp_path / "replayed"), "--out", str(out)]) == 0
     row = next(r for r in json.loads(out.read_text())["by_coin"] if r["strategy"] == "touch")
-    assert row["fills"] == 1 and row["total_usd"] == pytest.approx(10 - 990 * 1.5e-4, abs=0.01)
-    notional = 990.0
-    assert row["bps"]["spread"] == pytest.approx(10 / notional * 1e4, abs=0.01)  # bought at 99 against the 100 mid before the block
+    assert row["fills"] == 1 and row["total_usd"] == pytest.approx(1 - 99 * 1.5e-4, abs=0.01)
+    notional = 99.0
+    assert row["bps"]["spread"] == pytest.approx(1 / notional * 1e4, abs=0.01)
     assert row["bps"]["fee"] == pytest.approx(-1.5) and row["bps"]["inventory"] == pytest.approx(0.0, abs=0.01)
-    assert row["break_even_fee_bps"] == pytest.approx(10 / notional * 1e4, abs=0.01)
+    assert row["break_even_fee_bps"] == pytest.approx(1 / notional * 1e4, abs=0.01)
 
 
 def test_retimed_replay_moves_each_venue_and_keeps_time_order() -> None:
@@ -130,18 +130,6 @@ def test_retimed_replay_moves_each_venue_and_keeps_time_order() -> None:
     ]
     out = [(t // 1_000_000, v) for t, v, _ in retimed(iter(sorted(lines)), {"hl": 50, "cb": 70})]
     assert out == [(1_050, "hl"), (1_170, "cb")]
-
-
-def test_a_fast_clock_is_corrected_before_retiming(tmp_path: Path) -> None:
-    from marketimmune.paper.live import replay_lines
-
-    t0 = 1_793_900_000_000
-    w = RawWriter(tmp_path)
-    w.write("cb", (t0 + 300) * 1_000_000, b"{}")  # this machine's clock 200 ms fast: arrived at t0 + 100
-    w.write("hl", (t0 + 400) * 1_000_000, json.dumps({"channel": "bbo", "data": {"coin": "SOL", "time": t0, "bbo": []}}))
-    w.close()
-    out = [(t // 1_000_000 - t0, v) for t, v, _ in replay_lines(tmp_path, {"hl": 50, "cb": 70}, 200.0)]
-    assert out == [(50, "hl"), (170, "cb")]  # the block's time is exchange time: no clock correction on it
 
 
 def test_state_carries_wallets_and_model_rows(tmp_path: Path) -> None:

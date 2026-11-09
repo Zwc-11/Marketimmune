@@ -138,7 +138,7 @@ def prepare_training_frame(frame: pd.DataFrame, *, horizon: str) -> pd.DataFrame
         if frame[column].dtype == object:
             frame[column] = pd.to_numeric(frame[column], errors="coerce")
         keep = keep & np.isfinite(frame[column].to_numpy(dtype=np.float64, na_value=np.nan))
-    frame = frame.loc[keep]
+    frame = frame.loc[keep].copy()
     frame[label_col] = frame[label_col].astype(bool)
     return frame.sort_values("ts_ms").reset_index(drop=True)
 

@@ -82,6 +82,12 @@ warn_unreachable = true
 module = ["pyarrow", "pyarrow.*", "boto3", "boto3.*", "lz4", "lz4.*", "matplotlib", "matplotlib.*", "catboost", "catboost.*", "pandas", "pandas.*", "joblib", "joblib.*", "hftbacktest", "hftbacktest.*", "numba", "numba.*"]
 ignore_missing_imports = true
 
+# PyArrow wheels have partial platform-dependent stubs for Cython exports.
+# Keep that external boundary dynamic; application arrays and functions stay strict.
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.*"]
+follow_imports = "skip"
+
 [tool.pytest.ini_options]
 addopts = "-q --import-mode=importlib"
 testpaths = ["tests"]

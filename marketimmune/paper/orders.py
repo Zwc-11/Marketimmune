@@ -7,11 +7,11 @@ model:
   ``latency_ms`` after a cancel (``t_cancel``). Trades in between can fill it; a trade is placed
   by its block time.
 - **Queue.** It joins behind the size the first book message at or after ``t_live`` shows at its
-  price (the latest seen book before that). Every later book message can only shrink the queue
-  ahead (``min``): cancels are assumed to come from behind.
+  price. Only eligible trade prints reduce that queue; disappearing displayed size gives
+  no cancellation credit.
 - **Fills.** A taker trade at the order's price uses up the queue ahead first and fills the order
   with the rest. A trade at a worse price for the taker than the order's means the order's level was
-  emptied, so the order fills in full.
+  emptied. Total simulated fills still cannot exceed that print's quantity.
 - The order is not in the real book, so real takers never saw it. That flatters it a little: a
   sweep would have stopped one order sooner.
 
@@ -20,6 +20,7 @@ Sides are +1 for a bid (we buy) and -1 for an ask.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -37,6 +38,8 @@ class PaperOrder:
     joined: float | None = None  # queue ahead when it joined (for the journal; the fill model uses ``queue``)
     placed: int = 0  # local ms of the decision that sent it
     ctx: dict[str, Any] | None = None  # the signals at that decision, when a journal is kept
+    arrived: bool = False
+    queue_time: int = -1
 
     def live_at(self, t_ms: int) -> bool:
         return self.qty > 0 and self.t_live <= t_ms < self.t_cancel
@@ -48,21 +51,27 @@ class PaperOrder:
             return
         if self.queue is None:
             self.joined = size
-        self.queue = size if self.queue is None else min(self.queue, size)
+            self.queue = size
+            self.queue_time = t_ms
 
-    def match(self, t_ms: int, px: float, sz: float, taker_buy: bool, seen_size: float) -> float:
+    def match(self, t_ms: int, px: float, sz: float, taker_buy: bool, seen_size: float | None, max_fill: float = math.inf) -> float:
         """Quantity this order fills from one trade; ``seen_size`` is the latest seen size at the
         order's price, used if no book message has arrived since ``t_live``."""
         if not self.live_at(t_ms) or taker_buy == (self.side > 0):
             return 0.0
+        if self.queue_time >= t_ms:
+            return 0.0  # a book already reflecting this block cannot establish its earlier queue
         better = px < self.px if self.side > 0 else px > self.px
         if better:
-            fill = self.qty
+            fill = min(self.qty, sz, max_fill)
+            self.queue = 0.0
         elif px == self.px:
             ahead = seen_size if self.queue is None else self.queue
+            if ahead is None:
+                return 0.0
             if self.joined is None:
                 self.joined = ahead
-            fill = min(self.qty, max(0.0, sz - ahead))
+            fill = min(self.qty, max(0.0, sz - ahead), max_fill)
             self.queue = max(0.0, ahead - sz)
         else:
             return 0.0

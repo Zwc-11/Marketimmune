@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import json
 import math
-from collections import deque
 from pathlib import Path
 from typing import Any
 
@@ -27,363 +26,21 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from marketimmune.logger import init_logger
-from marketimmune.paper.events import Depth, Event, RefTop, Top, Trade
-from marketimmune.paper.journal import SIDES, SIGNAL_MS, Journal, context, num
-from marketimmune.paper.mm import MarketMaking, Portfolio, entry_after, info, is_mm, sweep
-from marketimmune.paper.orders import Account, PaperOrder
+from marketimmune.paper.checkpoint import execution_state, restore_execution
+from marketimmune.paper.events import Depth, Event, RefTop, Top, Trade, valid_event
+from marketimmune.paper.journal import SIGNAL_MS, Journal, context, num
+from marketimmune.paper.maker import Maker, MarketMaker, mid_before, new_minute, risky, seen_size, sides_of
+from marketimmune.paper.mm import Portfolio, info, is_mm, sweep_fill
+from marketimmune.paper.orders import Account
 from marketimmune.paper.signals import CoinState, Wallets
-from marketimmune.paper.strategies import LIVE_STRATEGIES, Guard, Hush, Immune, LeadLag, Optimal, Quoter, quoter, taker_threshold
+from marketimmune.paper.strategies import LIVE_STRATEGIES, quoter, taker_threshold
 
 logger = init_logger(__name__)
 BPS = 1e4
 EVAL_MS = 20
 SNAPSHOT_MS = 60_000
 
-
-def new_minute() -> dict[str, Any]:
-    return {"orders": 0, "cancels": 0, "fills": 0, "budget": 0, "changes": 0, "ms": dict.fromkeys(SIDES, 0)}
-
-
-def mid_before(coin: CoinState, t_ms: int) -> float | None:
-    """The last Hyperliquid mid of a block before ``t_ms``."""
-    for t, mid in reversed(coin.mids):
-        if t < t_ms:
-            return mid
-    return None
-
-
-class Maker:
-    def __init__(
-        self,
-        name: str,
-        quoter: Quoter,
-        qty: float,
-        max_position: float,
-        latency_ms: int,
-        fee_rate: float,
-        coin: str = "",
-        journal: Journal | None = None,
-    ) -> None:
-        self.name = name
-        self.coin = coin
-        self.journal = journal
-        self.minute = new_minute()
-        self.since: int | None = None  # local ms the current sides began
-        self.quoter = quoter
-        self.qty = qty
-        self.max_position = max_position
-        self.latency_ms = latency_ms
-        self.fee_rate = fee_rate
-        self.orders: list[PaperOrder] = []
-        self.current: dict[int, PaperOrder | None] = {1: None, -1: None}
-        self.account = Account()
-        self.actions = 0  # orders sent plus cancels sent: what the venue's rate limit counts
-        self.sides = ""
-        self.events: deque[tuple[int, str, str]] = deque(maxlen=50)  # local ms, sides quoted, reason
-
-    def decide(self, coin: CoinState, local_ms: int, room: float = math.inf, ctx: dict[str, Any] | None = None) -> None:
-        """``room``: the most of this coin, in coins, the strategy's budget lets it hold. A side that would
-        take the position past it is dropped; a side that reduces the position never is. ``ctx``: the
-        signals now, kept with each order sent for the journal."""
-        bid, ask = self.quoter.quotes(coin, local_ms, self.account.position, self.max_position)
-        self.place(coin, local_ms, bid, ask, room, ctx)
-
-    def keep(self, coin: CoinState, side: int, live_px: float, px: float) -> bool:
-        """Whether a live order at ``live_px`` may stay when the strategy now wants ``px`` (same side).
-        The gap quoters move an order on any change; ``paper.mm`` keeps it within a tolerance."""
-        return live_px == px
-
-    def place(self, coin: CoinState, local_ms: int, bid: float | None, ask: float | None, room: float, ctx: dict[str, Any] | None) -> None:
-        """Send the orders and cancels that turn the live quotes into ``bid`` / ``ask`` (None: no quote)."""
-        want = sides_of(bid, ask)
-        pos, slack = self.account.position, room + 1e-9 * self.qty
-        if bid is not None and pos >= 0 and pos + self.qty > slack:
-            bid = None
-        if ask is not None and pos <= 0 and self.qty - pos > slack:
-            ask = None
-        sides = sides_of(bid, ask)
-        if sides != want:
-            self.minute["budget"] += 1
-        if sides != self.sides:
-            self.time_in_state(local_ms)
-            self.sides = sides
-            why = self.quoter.reason(coin, local_ms)
-            self.events.append((local_ms, sides, why))
-            self.minute["changes"] += 1
-            if self.journal is not None:
-                top = coin.top
-                self.journal.write(
-                    "decisions",
-                    {
-                        "t": local_ms,
-                        "s": self.name,
-                        "c": self.coin,
-                        "want": want,
-                        "sides": sides,
-                        "why": why,
-                        "pos": num(pos, 8),
-                        "pos_usd": num(pos * top.mid, 2) if top else None,
-                        "ctx": ctx,
-                    },
-                )
-        for side, px in ((1, bid), (-1, ask)):
-            cur = self.current[side]
-            if cur is not None and (px is None or cur.qty <= 0 or not self.keep(coin, side, cur.px, px)):
-                if cur.qty > 0:  # a filled order needs no cancel
-                    cur.t_cancel = min(cur.t_cancel, local_ms + self.latency_ms)
-                    self.actions += 1
-                    self.minute["cancels"] += 1
-                cur = self.current[side] = None
-            if px is not None and cur is None:
-                order = PaperOrder(side, px, self.qty, local_ms + self.latency_ms, placed=local_ms, ctx=ctx)
-                self.orders.append(order)
-                self.current[side] = order
-                self.actions += 1
-                self.minute["orders"] += 1
-
-    def time_in_state(self, local_ms: int) -> None:
-        """Add the time since the last change (or minute) to the current sides."""
-        if self.sides and self.since is not None:
-            self.minute["ms"][self.sides] += max(0, local_ms - self.since)
-        self.since = local_ms
-
-    def close_minute(self, local_ms: int) -> dict[str, Any]:
-        self.time_in_state(local_ms)
-        out, self.minute = self.minute, new_minute()
-        return out
-
-    def on_top(self, ev: Top) -> None:
-        self.orders = [o for o in self.orders if o.qty > 0 and o.t_cancel > ev.t_ms]
-        for o in self.orders:
-            if o.side > 0 and o.px >= ev.bid:
-                o.see_level(ev.t_ms, ev.bid_sz if o.px == ev.bid else 0.0)
-            elif o.side < 0 and o.px <= ev.ask:
-                o.see_level(ev.t_ms, ev.ask_sz if o.px == ev.ask else 0.0)
-
-    def on_depth(self, ev: Depth) -> None:
-        for o in self.orders:
-            levels = ev.bids if o.side > 0 else ev.asks
-            if not levels:
-                continue
-            best = max(levels) if o.side > 0 else min(levels)
-            if (o.px > best) if o.side > 0 else (o.px < best):
-                o.see_level(ev.t_ms, 0.0)
-            elif o.px in levels:
-                o.see_level(ev.t_ms, levels[o.px])
-
-    def on_trade(self, ev: Trade, coin: CoinState, local_ms: int = 0) -> None:
-        for o in self.orders:
-            seen = seen_size(coin, o)
-            ahead = seen if o.queue is None else o.queue
-            q = o.match(ev.t_ms, ev.px, ev.sz, ev.taker_buy, seen)
-            if q > 0:
-                self.account.fill(ev.t_ms, o.side, o.px, q, self.fee_rate)
-                self.minute["fills"] += 1
-                if self.journal is not None:
-                    self.journal.write(
-                        "fills",
-                        {
-                            "t": local_ms,
-                            "blk": ev.t_ms,
-                            "s": self.name,
-                            "c": self.coin,
-                            "kind": "maker",
-                            "side": o.side,
-                            "px": o.px,
-                            "qty": num(q, 8),
-                            "fee": num(self.fee_rate * o.px * q, 6),
-                            "pos": num(self.account.position, 8),
-                            "placed": o.placed,
-                            "live": o.t_live,
-                            "q0": num(o.joined, 8),
-                            "ahead": num(ahead, 8),
-                            "through": ev.px < o.px if o.side > 0 else ev.px > o.px,
-                            "mid0": mid_before(coin, ev.t_ms),
-                            "ctx": o.ctx,
-                        },
-                    )
-        self.orders = [o for o in self.orders if o.qty > 0 and o.t_cancel > ev.t_ms]
-
-
-def risky(name: str) -> MarketMaking | Guard | Immune | Optimal | LeadLag | Hush:
-    """The quoter of a strategy ``MarketMaker`` runs (``paper.mm.is_mm``)."""
-    q = quoter(name)
-    assert isinstance(q, (MarketMaking, Guard, Immune, Optimal, LeadLag, Hush)), name
-    return q
-
-
-class MarketMaker(Maker):
-    """``mm@...`` in one coin (``paper.mm``): quotes from ``MarketMaking.targets``, live orders kept
-    within a tolerance, and the exits a taker order closes (stop, hold, kill switch)."""
-
-    def __init__(
-        self,
-        name: str,
-        quoter: MarketMaking | Guard | Immune | Optimal | LeadLag | Hush,
-        qty: float,
-        max_position: float,
-        latency_ms: int,
-        fee_rate: float,
-        taker_fee_rate: float,
-        portfolio: Portfolio,
-        coin: str = "",
-        journal: Journal | None = None,
-    ) -> None:
-        super().__init__(name, quoter, qty, max_position, latency_ms, fee_rate, coin=coin, journal=journal)
-        self.mm = quoter
-        self.params = quoter.p
-        if isinstance(quoter, (Immune, Optimal, LeadLag, Hush)):
-            quoter.qty = qty
-        self.taker_fee = taker_fee_rate
-        self.portfolio = portfolio
-        self.state: CoinState | None = None
-        self.entry: float | None = None  # average entry price of the open position
-        self.opened_ms: int | None = None  # block ms the open position began
-        self.tracked = 0.0  # position as of the fills folded into ``entry``
-        self.absorbed = 0
-        self.pending: tuple[int, int, str] | None = None  # taker exit: side, ms it reaches the book, why
-        self.pending_ctx: dict[str, Any] | None = None
-        self.cool_until = 0
-        self.exits: dict[str, int] = {"stop": 0, "hold": 0, "kill": 0}
-        self.last_ms = 0
-
-    def absorb(self) -> None:
-        """Fold new fills into the average entry, the open time and the strategy's net dollars."""
-        log, eps = self.account.log, 1e-9 * self.qty
-        for t, side, px, qty, _ in log[self.absorbed :]:
-            self.entry, self.tracked, opened = entry_after(self.entry, self.tracked, side, px, qty, eps)
-            if opened:
-                self.opened_ms = t
-            elif self.entry is None:
-                self.opened_ms = None
-            self.portfolio.net_usd += side * px * qty
-        self.absorbed = len(log)
-
-    def keep(self, coin: CoinState, side: int, live_px: float, px: float) -> bool:
-        if self.params.tol <= 0:
-            return live_px == px
-        tick = coin.tick or 0.0
-        top = coin.top
-        tol = max(tick, self.params.tol * self.mm.half_spread(coin) / BPS * (top.mid if top else live_px))
-        return abs(live_px - px) <= tol + 1e-12
-
-    def blocked(self, local_ms: int) -> str | None:
-        port = self.portfolio
-        if self.pending is not None:
-            return f"closing the position with a taker order ({self.pending[2]})"
-        if port.paused(local_ms):
-            return (
-                f"kill switch: equity fell ${self.params.dd:g} from its peak; no quotes for {(port.paused_until - local_ms) / 1_000:.0f} s"
-            )
-        if local_ms < self.cool_until:
-            return f"stopped out: no quotes for {(self.cool_until - local_ms) / 1_000:.0f} s"
-        if not port.fresh(local_ms):
-            if len(port.seen) < 2:
-                return "waiting for both feeds: no quotes"
-            return f"a feed has been silent over {self.params.stale:g} s: no quotes"
-        return None
-
-    def decide(self, coin: CoinState, local_ms: int, room: float = math.inf, ctx: dict[str, Any] | None = None) -> None:
-        self.state, self.last_ms = coin, local_ms
-        self.absorb()
-        p, pos, top = self.params, self.account.position, coin.top
-        if self.pending is None and abs(pos) > 1e-9 * self.qty and top is not None:
-            why = None
-            if self.portfolio.paused(local_ms):
-                why = "kill"
-            elif p.stop > 0 and self.entry is not None and (top.mid / self.entry - 1.0) * BPS * (1 if pos > 0 else -1) <= -p.stop:
-                why = "stop"
-            elif p.hold > 0 and self.opened_ms is not None and local_ms - self.opened_ms >= p.hold * 1_000:
-                why = "hold"
-            if why is not None:
-                self.exit(local_ms, why, ctx)
-        blocked = self.blocked(local_ms)
-        if blocked is not None:
-            self.mm.why = blocked
-            bid, ask = None, None
-        else:
-            bid, ask = self.mm.targets(coin, local_ms, pos, self.max_position, self.portfolio.net_usd)
-        self.place(coin, local_ms, bid, ask, room, ctx)
-
-    def exit(self, local_ms: int, why: str, ctx: dict[str, Any] | None) -> None:
-        side = -1 if self.account.position > 0 else 1
-        self.pending = (side, local_ms + self.latency_ms, why)
-        self.pending_ctx = ctx
-        self.exits[why] += 1
-        self.actions += 1
-        self.minute["orders"] += 1
-        if why == "stop":
-            self.cool_until = local_ms + int(self.params.cool * 1_000)
-        if self.journal is not None:
-            self.journal.write("taker", {"t": local_ms, "s": self.name, "c": self.coin, "leg": why, "side": side, "ctx": ctx})
-
-    def pull(self, deadline_ms: int) -> None:
-        """Cancel every live order by ``deadline_ms`` (block time), with no message: the venue's dead
-        man's switch."""
-        for side in (1, -1):
-            cur = self.current[side]
-            if cur is not None:
-                cur.t_cancel = min(cur.t_cancel, deadline_ms)
-                self.current[side] = None
-        if self.sides not in ("", "none"):
-            self.time_in_state(self.last_ms)
-            self.sides = "none"
-
-    def on_trade(self, ev: Trade, coin: CoinState, local_ms: int = 0) -> None:
-        super().on_trade(ev, coin, local_ms)
-        self.absorb()
-
-    def on_top(self, ev: Top) -> None:
-        super().on_top(ev)
-        if self.pending is None or ev.t_ms < self.pending[1]:
-            return
-        side, _, why = self.pending
-        self.pending = None
-        pos = self.account.position
-        if abs(pos) <= 1e-9 * self.qty or (pos > 0) == (side > 0):  # already closed by a maker fill
-            return
-        qty = abs(pos)
-        px = sweep(ev, self.state.depth if self.state is not None else None, side, qty)
-        self.account.fill(ev.t_ms, side, px, qty, self.taker_fee)
-        self.account.position = 0.0  # float residue
-        self.minute["fills"] += 1
-        self.absorb()
-        if self.journal is not None:
-            self.journal.write(
-                "fills",
-                {
-                    "t": self.last_ms,
-                    "blk": ev.t_ms,
-                    "s": self.name,
-                    "c": self.coin,
-                    "kind": "taker",
-                    "leg": why,
-                    "side": side,
-                    "px": num(px, 8),
-                    "qty": num(qty, 8),
-                    "fee": num(self.taker_fee * px * qty, 6),
-                    "pos": 0.0,
-                    "mid0": ev.mid,
-                    "ctx": self.pending_ctx,
-                },
-            )
-
-
-def sides_of(bid: float | None, ask: float | None) -> str:
-    return "both" if bid is not None and ask is not None else "bid" if bid is not None else "ask" if ask is not None else "none"
-
-
-def seen_size(coin: CoinState, o: PaperOrder) -> float:
-    """The latest seen size at an order's price: the top's, else the depth's, else 0."""
-    top = coin.top
-    if top is not None:
-        if o.side > 0 and o.px >= top.bid:
-            return top.bid_sz if o.px == top.bid else 0.0
-        if o.side < 0 and o.px <= top.ask:
-            return top.ask_sz if o.px == top.ask else 0.0
-    if coin.depth is not None:
-        return (coin.depth.bids if o.side > 0 else coin.depth.asks).get(o.px, 0.0)
-    return 0.0
+__all__ = ["Engine", "Taker", "Maker", "MarketMaker", "mid_before", "new_minute", "risky", "seen_size", "sides_of"]
 
 
 class Taker:
@@ -411,6 +68,7 @@ class Taker:
         self.pending: tuple[int, int] | None = None  # side, block ms it reaches the book
         self.entered_ms: int | None = None  # local ms the entry fill was seen
         self.account = Account()
+        self.depth_used: dict[tuple[int, int, float], float] = {}
         self.actions = 0
 
     def decide(self, coin: CoinState, local_ms: int, room: float = math.inf, ctx: dict[str, Any] | None = None) -> None:
@@ -441,15 +99,20 @@ class Taker:
         out, self.minute = self.minute, new_minute()
         return out
 
-    def on_top(self, ev: Top, local_ms: int) -> None:
-        if self.pending is None or ev.t_ms < self.pending[1]:
+    def on_top(self, ev: Top, local_ms: int, depth: Depth | None = None) -> None:
+        if self.pending is None or min(ev.t_ms, local_ms) < self.pending[1]:
             return
         side = self.pending[0]
         closing = self.account.position != 0
         qty = abs(self.account.position) if closing else self.qty
-        px = ev.ask if side > 0 else ev.bid
+        oldest = min(ev.t_ms, depth.t_ms) if depth is not None and 0 <= ev.t_ms - depth.t_ms <= 3000 else ev.t_ms
+        self.depth_used = {key: value for key, value in self.depth_used.items() if key[0] >= oldest}
+        px, qty = sweep_fill(ev, depth, side, qty, self.depth_used)
+        self.pending = None
+        if qty <= 0:
+            return
         self.account.fill(ev.t_ms, side, px, qty, self.fee_rate)
-        if closing:
+        if abs(self.account.position) < 1e-9 * self.qty:
             self.account.position = 0.0  # float residue
         self.minute["fills"] += 1
         if self.journal is not None:
@@ -471,8 +134,10 @@ class Taker:
                     "ctx": self.ctx,
                 },
             )
-        self.entered_ms = None if closing else local_ms
-        self.pending = None
+        if self.account.position == 0:
+            self.entered_ms = None
+        elif not closing:
+            self.entered_ms = local_ms
 
 
 class Engine:
@@ -492,6 +157,14 @@ class Engine:
         registered: tuple[str, ...] = (),
         twins: dict[str, str] | None = None,
     ) -> None:
+        if not coins or len(set(coins)) != len(coins) or not strategies or len(set(strategies)) != len(strategies):
+            raise ValueError("coins and strategies must be nonempty and unique")
+        if not math.isfinite(quote_usd) or quote_usd <= 0 or latency_ms < 0 or max_quotes <= 0:
+            raise ValueError("quote size and position limit must be positive; latency cannot be negative")
+        if not all(math.isfinite(x) for x in (latency_ms, max_quotes, maker_fee_bps, taker_fee_bps)) or taker_fee_bps < 0:
+            raise ValueError("latency, limits and fees must be finite; taker fee cannot be negative")
+        if budget_usd is not None and (not math.isfinite(budget_usd) or budget_usd <= 0):
+            raise ValueError("budget must be finite and positive")
         self.coins = coins
         # HIP-3 twins: a market whose reference is another market's book (``{"io:SNDK": "xyz:SNDK"}``)
         # instead of its own oracle; the gap's EWMA basis takes out the ratio between the two
@@ -524,6 +197,7 @@ class Engine:
         self.started_ms: int | None = None
         self.last_ms = 0
         self.seen: dict[str, int] = {}  # venue -> last receive ms of any of its events
+        self.trade_ids: dict[tuple[str, int], None] = {}
         self.portfolios: dict[str, Portfolio] = {s: Portfolio(risky(s).p, self.seen) for s in strategies if is_mm(s)}
 
     def instances(self) -> list[tuple[str, Maker | Taker]]:
@@ -532,8 +206,15 @@ class Engine:
             out += [(coin, m) for m in self.makers.get(coin, [])] + [(coin, t) for t in self.takers.get(coin, [])]
         return out
 
-    def _start_coin(self, coin: str, mid: float) -> None:
-        qty = self.quote_usd / mid
+    def _start_coin(self, coin: str, mid: float, qty: float | None = None) -> None:
+        qty = self.quote_usd / mid if qty is None else qty
+        decimals = self.states[coin].sz_decimals
+        if decimals is not None:
+            unit = 10**decimals
+            qty = math.floor(qty * unit + 1e-10) / unit
+        if qty <= 0:
+            self.makers[coin], self.takers[coin] = [], []
+            return
         makers = [n for n in self.strategies if taker_threshold(n) is None]
         self.makers[coin] = [
             MarketMaker(
@@ -573,10 +254,13 @@ class Engine:
         for c, inst in self.by_strategy.get(strategy, {}).items():
             t = self.states[c].top
             if c != coin and t is not None:
-                other += abs(inst.account.position) * t.mid
+                exposure = inst.exposure() if isinstance(inst, Maker) else max(abs(inst.account.position), inst.qty if inst.pending else 0)
+                other += exposure * t.mid
         return max(0.0, self.budget_usd - other) / top.mid
 
     def handle(self, ev: Event, local_ms: int) -> None:
+        if not valid_event(ev) or not math.isfinite(local_ms) or local_ms < self.last_ms:
+            return
         if isinstance(ev, RefTop) and ev.coin in self.twins and ev.bid == ev.ask:
             return  # a twin-referenced market ignores its own oracle
         if isinstance(ev, Top) and ev.coin in self.twin_of:
@@ -585,7 +269,22 @@ class Engine:
         coin = self.states.get(ev.coin)
         if coin is None:
             return
-        self.started_ms = self.started_ms or local_ms
+        if isinstance(ev, Top) and coin.top is not None and ev.t_ms < coin.top.t_ms:
+            return
+        if isinstance(ev, Depth) and coin.depth is not None and ev.t_ms < coin.depth.t_ms:
+            return
+        if isinstance(ev, Trade):
+            if coin.top is None or ev.t_ms < coin.top.t_ms:
+                return
+            if ev.tid is not None:
+                key = (ev.coin, ev.tid)
+                if key in self.trade_ids:
+                    return
+                self.trade_ids[key] = None
+                if len(self.trade_ids) > 100_000:
+                    self.trade_ids.pop(next(iter(self.trade_ids)))
+        if self.started_ms is None:
+            self.started_ms = local_ms
         self.last_ms = max(self.last_ms, local_ms)
         kind = type(ev).__name__
         self.counts[kind] = self.counts.get(kind, 0) + 1
@@ -597,14 +296,14 @@ class Engine:
             if self.counts[kind] % 50 == 0:
                 self.lags["hl_top"].append(local_ms - ev.t_ms)
             for m in self.makers[ev.coin]:
-                m.on_top(ev)
+                m.on_top(ev, local_ms)
             for t in self.takers[ev.coin]:
-                t.on_top(ev, local_ms)
+                t.on_top(ev, local_ms, coin.depth)
             self.evaluate(coin, local_ms)
         elif isinstance(ev, Depth):
-            coin.on_depth(ev)
+            coin.on_depth(ev, local_ms)
             for m in self.makers.get(ev.coin, []):
-                m.on_depth(ev)
+                m.on_depth(ev, local_ms)
         elif isinstance(ev, Trade):
             coin.on_trade(ev, local_ms)
             if self.counts[kind] % 20 == 0:
@@ -625,8 +324,29 @@ class Engine:
         for t in self.takers[coin.coin]:
             t.decide(coin, local_ms, self.room(t.name, coin.coin), ctx)
 
+    def feed_gap(self, venue: str, local_ms: int, reason: str) -> None:
+        self.gaps.append({"venue": venue, "t_ms": local_ms, "error": reason})
+        self.seen.pop(venue, None)
+        for name, state in self.states.items():
+            if venue == "cb" and ":" in name:
+                continue  # HIP-3 references arrive on Hyperliquid, not Coinbase
+            if venue == "hl":
+                state.book_received_ms = None
+                state.pending.clear()
+            else:
+                state.ref_received_ms = None
+            for maker in self.makers.get(name, []):
+                for order in maker.orders:
+                    order.t_cancel = min(order.t_cancel, local_ms + maker.latency_ms)
+                maker.time_in_state(local_ms)
+                maker.current = {1: None, -1: None}
+                maker.sides = "none"
+
     def tick(self, local_ms: int) -> None:
         """Called every 100 ms: the model grid, and an equity snapshot every minute."""
+        if not math.isfinite(local_ms) or local_ms < self.last_ms:
+            return
+        self.last_ms = local_ms
         for coin in self.states.values():
             coin.sample(local_ms)
         if self.portfolios:
@@ -650,14 +370,17 @@ class Engine:
                 if top is not None:
                     equity += inst.account.equity(top.mid)
                     net += inst.account.position * top.mid
-            if port.mark(local_ms, equity, net) and self.journal is not None:
+            tripped = port.mark(local_ms, equity, net)
+            if tripped and self.journal is not None:
                 self.journal.write(
                     "decisions", {"t": local_ms, "s": name, "c": "*", "why": f"kill switch: equity {equity:+.2f}", "sides": "none"}
                 )
-            if not port.fresh(local_ms):
-                for inst in self.by_strategy.get(name, {}).values():
-                    if isinstance(inst, MarketMaker):
-                        inst.pull(local_ms)
+            for c, inst in self.by_strategy.get(name, {}).items():
+                if isinstance(inst, MarketMaker):
+                    if tripped:
+                        inst.decide(self.states[c], local_ms, self.room(name, c))
+                    if not inst.fresh(self.states[c], local_ms):
+                        inst.pull(local_ms + inst.latency_ms)
 
     def snapshot(self, local_ms: int) -> None:
         for coin, inst in self.instances():
@@ -709,6 +432,7 @@ class Engine:
                     "equity": round(a.equity(top.mid), 4) if top else 0.0,
                     "position_usd": round(a.position * top.mid, 2) if top else 0.0,
                     "actions": inst.actions,
+                    "rejected_arrivals": inst.rejects if isinstance(inst, Maker) else 0,
                 }
                 | ({"exits": dict(inst.exits), "kills": inst.portfolio.kills} if isinstance(inst, MarketMaker) else {})
             )
@@ -716,7 +440,7 @@ class Engine:
         return {
             "started_ms": self.started_ms,
             "last_ms": self.last_ms,
-            "hours": round((self.last_ms - (self.started_ms or self.last_ms)) / 3.6e6, 3),
+            "hours": round((self.last_ms - (self.started_ms if self.started_ms is not None else self.last_ms)) / 3.6e6, 3),
             "settings": {
                 "latency_ms": self.latency_ms,
                 "quote_usd": self.quote_usd,
@@ -737,7 +461,9 @@ class Engine:
 
     def write(self, out: Path, final: bool) -> None:
         out.mkdir(parents=True, exist_ok=True)
-        (out / "summary.json").write_text(json.dumps(self.summary(), indent=1) + "\n", encoding="utf-8")
+        summary_tmp = out / ".summary.json.tmp"
+        summary_tmp.write_text(json.dumps(self.summary(), indent=1) + "\n", encoding="utf-8")
+        summary_tmp.replace(out / "summary.json")
         if not final:
             return
         self.snapshot(self.last_ms)
@@ -762,17 +488,26 @@ class Engine:
 
     def save_state(self, state_dir: Path) -> None:
         state_dir.mkdir(parents=True, exist_ok=True)
-        (state_dir / "wallets.json").write_text(json.dumps(self.wallets.state()), encoding="utf-8")
+        wallet_tmp = state_dir / ".wallets.json.tmp"
+        wallet_tmp.write_text(json.dumps(self.wallets.state()), encoding="utf-8")
+        wallet_tmp.replace(state_dir / "wallets.json")
+        execution_tmp = state_dir / ".execution.json.tmp"
+        execution_tmp.write_text(json.dumps(execution_state(self), allow_nan=False), encoding="utf-8")
+        execution_tmp.replace(state_dir / "execution.json")
         for c, s in self.states.items():
             st = s.state()
             if st["rows"]:
-                np.savez(
-                    state_dir / f"{c.replace(':', '_')}.npz",  # HIP-3 names have a colon, which Windows forbids
-                    rows=np.asarray(st["rows"]),
-                    row_ms=np.asarray(st["row_ms"]),
-                    row_mid=np.asarray(st["row_mid"]),
-                    basis=np.asarray([st["basis"]]),
-                )
+                path = state_dir / f"{c.replace(':', '_')}.npz"
+                temporary = path.with_suffix(".npz.tmp")
+                with temporary.open("wb") as handle:
+                    np.savez(
+                        handle,
+                        rows=np.asarray(st["rows"]),
+                        row_ms=np.asarray(st["row_ms"]),
+                        row_mid=np.asarray(st["row_mid"]),
+                        basis=np.asarray([st["basis"]]),
+                    )
+                temporary.replace(path)
 
     def load_state(self, state_dir: Path) -> None:
         if (state_dir / "wallets.json").exists():
@@ -780,13 +515,16 @@ class Engine:
         for c, s in self.states.items():
             path = state_dir / f"{c.replace(':', '_')}.npz"
             if path.exists():
-                z = np.load(path)
-                s.load(
-                    {
-                        "rows": z["rows"].tolist(),
-                        "row_ms": z["row_ms"].tolist(),
-                        "row_mid": z["row_mid"].tolist(),
-                        "basis": float(z["basis"][0]),
-                    }
-                )
+                with np.load(path) as z:
+                    s.load(
+                        {
+                            "rows": z["rows"].tolist(),
+                            "row_ms": z["row_ms"].tolist(),
+                            "row_mid": z["row_mid"].tolist(),
+                            "basis": float(z["basis"][0]),
+                        }
+                    )
+        execution = state_dir / "execution.json"
+        if execution.exists():
+            restore_execution(self, json.loads(execution.read_text(encoding="utf-8")))
         logger.info(f"loaded state from {state_dir}: {len(self.wallets.count)} wallets")

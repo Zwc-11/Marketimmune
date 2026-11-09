@@ -708,6 +708,15 @@ class HushParams:
     stale: float = 3.0
     tol: float = 0.0
 
+    def __post_init__(self) -> None:
+        for setting in fields(self):
+            if not math.isfinite(getattr(self, setting.name)):
+                raise ValueError(f"hush {setting.name} must be finite")
+        if self.d <= 0 or self.quiet < 0 or not 0 <= self.lean <= 1 or self.n < 1 or not float(self.n).is_integer():
+            raise ValueError("hush requires d > 0, quiet >= 0, lean in [0, 1] and integer n >= 1")
+        if any(getattr(self, name) < 0 for name in ("net", "stop", "hold", "dd", "pause", "cool", "stale", "tol")):
+            raise ValueError("hush risk limits cannot be negative")
+
 
 def parse_hush(arg: str) -> HushParams:
     values: dict[str, float] = {}
@@ -761,8 +770,9 @@ class Hush:
         x = p.d if p.x < 0 else p.x
         bid_bps = x if units < -1e-6 else p.d
         ask_bps = x if units > 1e-6 else p.d
-        bid = min(_down(top.mid * (1 - bid_bps / BPS), tick), top.bid) if position < max_position - eps else None
-        ask = max(_up(top.mid * (1 + ask_bps / BPS), tick), top.ask) if position > -max_position + eps else None
+        limit = p.lean * max_position
+        bid = min(_down(top.mid * (1 - bid_bps / BPS), tick), top.bid) if position < limit - eps else None
+        ask = max(_up(top.mid * (1 + ask_bps / BPS), tick), top.ask) if position > -limit + eps else None
         notes = [f"quiet {quiet_ms / 1_000:.0f} s: bid {bid_bps:g} bp, ask {ask_bps:g} bp from the mid"]
         if p.z > 0:
             gz = signal_z(coin.gap(), coin.gap_sigma)

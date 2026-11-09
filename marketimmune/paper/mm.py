@@ -61,6 +61,14 @@ class MMParams:
     cool: float = 60.0  # seconds without quotes in a coin after its stop
     stale: float = 3.0  # seconds of silence on either feed that cancels every quote
 
+    def __post_init__(self) -> None:
+        for setting in fields(self):
+            value = getattr(self, setting.name)
+            if value is not None and not math.isfinite(value):
+                raise ValueError(f"mm {setting.name} must be finite")
+        if self.h <= 0 or any(getattr(self, name) < 0 for name in ("net", "stop", "hold", "dd", "pause", "burst", "vol", "tol", "cool", "stale")):
+            raise ValueError("mm spread must be positive and risk limits cannot be negative")
+
     @property
     def skew_bps(self) -> float:
         return self.skew if self.skew is not None else max(self.h, 1.0)
@@ -113,25 +121,38 @@ def micro_bps(top: Top) -> float:
     return ((top.bid * top.ask_sz + top.ask * top.bid_sz) / size / top.mid - 1.0) * BPS
 
 
-def sweep(top: Top, depth: Depth | None, side: int, qty: float) -> float:
+def sweep_fill(top: Top, depth: Depth | None, side: int, qty: float,
+               used: dict[tuple[int, int, float], float] | None = None) -> tuple[float, float]:
     """Average price of a taker order of ``qty`` (``side`` +1 buys) through the seen book: the top's
-    size first, then the depth's levels beyond it; any rest at the last level seen."""
+    size first, then fresh depth beyond it. Unobserved size is not executable."""
+    if not math.isfinite(qty) or qty <= 0:
+        raise ValueError("sweep quantity must be finite and positive")
     best, size = (top.ask, top.ask_sz) if side > 0 else (top.bid, top.bid_sz)
-    levels = [(best, size)]
-    if depth is not None:
+    levels = [(best, size, top.t_ms)]
+    if depth is not None and 0 <= top.t_ms - depth.t_ms <= 3000:
         book = depth.asks if side > 0 else depth.bids
-        beyond = [(p, s) for p, s in book.items() if (p > best if side > 0 else p < best)]
+        beyond = [(p, s, depth.t_ms) for p, s in book.items() if (p > best if side > 0 else p < best)]
         levels += sorted(beyond, key=lambda x: x[0], reverse=side < 0)
     left, cost = qty, 0.0
-    for px, sz in levels:
-        take = min(left, sz)
+    for px, sz, stamp in levels:
+        key = (stamp, side, px)
+        take = min(left, max(0.0, sz - (used.get(key, 0.0) if used is not None else 0.0)))
         cost += take * px
+        if used is not None:
+            used[key] = used.get(key, 0.0) + take
         left -= take
         if left <= 0:
             break
-    if left > 0:
-        cost += left * levels[-1][0]
-    return cost / qty
+    filled = qty - left
+    return (cost / filled, filled) if filled > 0 else (0.0, 0.0)
+
+
+def sweep(top: Top, depth: Depth | None, side: int, qty: float) -> float:
+    """Price a complete observable sweep, failing explicitly when depth is insufficient."""
+    price, filled = sweep_fill(top, depth, side, qty)
+    if not math.isclose(filled, qty, rel_tol=1e-10, abs_tol=1e-12):
+        raise ValueError("insufficient observed depth for taker order")
+    return price
 
 
 class MarketMaking:

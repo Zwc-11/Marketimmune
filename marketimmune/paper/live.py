@@ -15,6 +15,7 @@ import asyncio
 import calendar
 import contextlib
 import gzip
+import hashlib
 import heapq
 import math
 import re
@@ -99,7 +100,7 @@ class Clock:
 
     def now_ns(self) -> int:
         t = time.time_ns() - int(self.offset_ms * 1e6)
-        self.last_ns = max(self.last_ns, t)
+        self.last_ns = max(self.last_ns + 1, t)
         return self.last_ns
 
     def info(self) -> dict[str, Any]:
@@ -116,9 +117,16 @@ class RawWriter:
     def __init__(self, root: Path) -> None:
         self.root = root
         root.mkdir(parents=True, exist_ok=True)
+        if any(root.glob("*-*.log.gz")):
+            raise FileExistsError(f"Recording directory already contains inputs: {root}")
         self.files: dict[str, tuple[str, gzip.GzipFile]] = {}
+        self.hash = hashlib.sha256()
+        self.count = 0
+        self.closed = False
 
     def write(self, venue: str, local_ns: int, raw: str | bytes) -> None:
+        if self.closed:
+            raise ValueError("Recording is closed")
         hour = time.strftime("%Y%m%d%H", time.gmtime(local_ns // 1_000_000_000))
         cur = self.files.get(venue)
         if cur is None or cur[0] != hour:
@@ -126,12 +134,27 @@ class RawWriter:
                 cur[1].close()
             fh = gzip.GzipFile(self.root / f"{venue}-{hour}.log.gz", "ab", compresslevel=1)
             self.files[venue] = cur = (hour, fh)
-        cur[1].write(b"%d\t%s\n" % (local_ns, raw.encode() if isinstance(raw, str) else raw))
+        line = b"%d\t%s\n" % (local_ns, raw.encode() if isinstance(raw, str) else raw)
+        cur[1].write(line)
+        self.hash.update(venue.encode() + b"\0" + line)
+        self.count += 1
 
     def close(self) -> None:
+        if self.closed:
+            return
         for _, fh in self.files.values():
             fh.close()
         self.files.clear()
+        (self.root / "recording.json").write_bytes(fastjson.dumps({"records": self.count, "sha256": self.hash.hexdigest()}))
+        self.closed = True
+
+
+def feed_gap(engine: Engine, writer: RawWriter | None, clock: Clock, venue: str, error: Exception) -> None:
+    stamp = clock.now_ns()
+    reason = repr(error)[:200]
+    if writer is not None:
+        writer.write("gap", stamp, fastjson.dumps({"venue": venue, "error": reason}))
+    engine.feed_gap(venue, stamp // 1_000_000, reason)
 
 
 async def hl_feed(engine: Engine, writer: RawWriter | None, clock: Clock) -> None:
@@ -159,7 +182,7 @@ async def hl_feed(engine: Engine, writer: RawWriter | None, clock: Clock) -> Non
         except asyncio.CancelledError:
             raise
         except Exception as e:  # any drop: log the gap and reconnect
-            engine.gaps.append({"venue": "hl", "t_ms": now_ms(), "error": repr(e)[:200]})
+            feed_gap(engine, writer, clock, "hl", e)
             logger.warning(f"hyperliquid dropped ({e!r}); reconnecting in {backoff:.0f} s")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 30.0)
@@ -189,7 +212,7 @@ async def cb_feed(engine: Engine, writer: RawWriter | None, clock: Clock) -> Non
         except asyncio.CancelledError:
             raise
         except Exception as e:  # includes a sequence gap: reconnect for a fresh snapshot
-            engine.gaps.append({"venue": "cb", "t_ms": now_ms(), "error": repr(e)[:200]})
+            feed_gap(engine, writer, clock, "cb", e)
             logger.warning(f"coinbase dropped ({e!r}); reconnecting in {backoff:.0f} s")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 30.0)
@@ -258,6 +281,21 @@ def raw_lines(root: Path) -> Iterator[tuple[int, str, bytes]]:
                 logger.warning(f"{path}: ends mid-stream; replaying the lines before the cut")
 
     yield from heapq.merge(*(one(p) for p in sorted(root.glob("*.log.gz"))), key=lambda x: x[0])
+
+
+def verified_lines(root: Path) -> Iterator[tuple[int, str, bytes]]:
+    metadata = root / "recording.json"
+    if not metadata.exists():
+        raise ValueError("Recording lacks a completed input digest")
+    expected = fastjson.loads(metadata.read_bytes())
+    digest = hashlib.sha256()
+    count = 0
+    for stamp, venue, raw in raw_lines(root):
+        digest.update(venue.encode() + b"\0" + b"%d\t%s\n" % (stamp, raw))
+        count += 1
+        yield stamp, venue, raw
+    if count != expected["records"] or digest.hexdigest() != expected["sha256"]:
+        raise ValueError("Recording input count or digest mismatch")
 
 
 RETIME_WINDOW_MS = 10_000
@@ -376,6 +414,7 @@ def replay(
     until_ms: int | None = None,
     clock: dict[int, float] | float | None = None,
     causal: bool = False,
+    verify: bool = False,
 ) -> None:
     """Feed a recorded run through ``engine`` in receive order (or ``retimed``); with ``until_ms``,
     only the messages received by then (to compare with a live run's ``summary.json``, whose
@@ -385,12 +424,19 @@ def replay(
     books = CoinbaseBooks()
     next_tick: int | None = None
     exact = retime is None and any(root.glob("tick-*.log.gz"))
-    for local_ns, venue, raw in replay_lines(root, retime, clock, causal):
+    lines = verified_lines(root) if verify else replay_lines(root, retime, clock, causal)
+    for local_ns, venue, raw in lines:
         local_ms = local_ns // 1_000_000
         if until_ms is not None and local_ms > until_ms:
             break
         if venue == "tick":
             engine.tick(int(raw.split()[0]))
+            continue
+        if venue == "gap":
+            gap = fastjson.loads(raw)
+            engine.feed_gap(gap["venue"], local_ms, gap["error"])
+            if gap["venue"] == "cb":
+                books = CoinbaseBooks()
             continue
         if not exact:
             if next_tick is None:

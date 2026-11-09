@@ -62,7 +62,7 @@ def ridge(z: FloatArray, d: FloatArray, y: FloatArray, w: FloatArray, alpha: flo
     aw, yw = a * sw[:, None], y * sw
     pen = np.zeros(a.shape[1])
     pen[d.shape[1] :] = alpha
-    beta = np.linalg.solve(aw.T @ aw + np.diag(pen) + 1e-9 * np.eye(a.shape[1]), aw.T @ yw)
+    beta: FloatArray = np.asarray(np.linalg.solve(aw.T @ aw + np.diag(pen) + 1e-9 * np.eye(a.shape[1]), aw.T @ yw), dtype=np.float64)
     return beta[: d.shape[1]], beta[d.shape[1] :]
 
 

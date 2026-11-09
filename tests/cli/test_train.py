@@ -255,6 +255,8 @@ def test_partition_leakage_status_requires_a_passing_report(tmp_path: Path) -> N
     parts = tuple(TrainingPartition("SOL", d, tmp_path / f"SOL-training-{d}.parquet") for d in ("20251201", "20251202"))
     for part in parts:
         pq.write_table(pa.table({"ts_ms": [2.0], "feature_ts_ms": [1.0]}), part.path)
+    for part in parts:
+        pd.DataFrame({"ts_ms": [1000], "feature_ts_ms": [999]}).to_parquet(part.path)
     ok, details = partition_leakage_status(parts)
     assert ok is False and details[0]["reason"] == "no leakage report"
     parts[0].path.with_suffix(".leakage.json").write_text(json.dumps({"passed": True, "n_checked": 5}))

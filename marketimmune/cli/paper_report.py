@@ -2,7 +2,8 @@
 
     python -m marketimmune.cli.paper_report --runs data/paper/seg1-* --out eval/paper/night_20261106.json
 
-Each run (``cli.paper_trade``) starts flat and is marked to the mid at its end, so runs add up. Per
+New recording segments retain inventory and report PnL from the previous mark. Legacy runs
+started flat and marked inventory to mid at each boundary without an exit trade. Per
 coin and strategy, in USD and in bps of filled notional (as in ``docs/research/block-simulator.md``):
 
 - ``spread``: the fill against the Hyperliquid mid before the fill's block;
@@ -51,6 +52,8 @@ def mid_lookup(mids: pd.DataFrame, coin: str, t: FloatArray, *, before: bool = F
     before the fill's own block). NaN before the run's first mid; past its end, the last mid, where
     the run marks its positions."""
     m = mids[mids["coin"] == coin]
+    if m.empty:
+        return np.full(t.shape, np.nan, dtype=np.float64)
     ts, px = m["t_ms"].to_numpy(), m["mid"].to_numpy()
     i = np.searchsorted(ts, t, side="left" if before else "right") - 1
     out: FloatArray = np.where(i >= 0, px[np.clip(i, 0, None)], np.nan)
@@ -60,7 +63,9 @@ def mid_lookup(mids: pd.DataFrame, coin: str, t: FloatArray, *, before: bool = F
 def run_tables(run: Path) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     """One run's fills with mids and markouts, its 15-minute block PnL, and its summary."""
     summary = json.loads((run / "summary.json").read_text(encoding="utf-8"))
-    fills = pd.read_json(run / "fills.jsonl", lines=True) if (run / "fills.jsonl").stat().st_size else pd.DataFrame()
+    fills = pd.read_json(run / "fills.jsonl", lines=True) if (run / "fills.jsonl").stat().st_size else pd.DataFrame(
+        {key: pd.Series(dtype="object" if key in ("coin", "strategy") else "float64")
+         for key in ("coin", "strategy", "side", "qty", "px", "fee_rate", "mid", *(f"mid_{h}" for h in HORIZONS_MS))})
     mids = pq.read_table(run / "mids.parquet").to_pandas().sort_values(["coin", "t_ms"], kind="stable")
     if not fills.empty:
         parts = []
@@ -74,6 +79,8 @@ def run_tables(run: Path) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
         fills = pd.concat(parts, ignore_index=True)
         fills["run"] = run.name
     eq = pd.read_json(run / "equity.jsonl", lines=True)
+    if eq.empty:
+        return fills, pd.DataFrame(columns=["coin", "strategy", "block", "pnl"]), summary
     eq["block"] = (eq["t_ms"] - eq["t_ms"].min()) // BLOCK_MS
     last = eq.sort_values("t_ms").groupby(["coin", "strategy", "block"])["equity"].last().reset_index()
     last["pnl"] = last.groupby(["coin", "strategy"])["equity"].diff().fillna(last["equity"])
@@ -88,6 +95,8 @@ def risk(runs: list[Path]) -> dict[str, dict[str, float | None]]:
     series: dict[str, list[pd.DataFrame]] = defaultdict(list)
     for run in runs:
         eq = pd.read_json(run / "equity.jsonl", lines=True)
+        if eq.empty:
+            continue
         mids = pq.read_table(run / "mids.parquet").to_pandas()
         btc = mids[mids["coin"] == "BTC"].sort_values("t_ms")
         per = eq.groupby(["strategy", "t_ms"]).agg(equity=("equity", "sum"), net=("position_usd", "sum")).reset_index()
@@ -130,12 +139,14 @@ def score(
 ) -> dict[str, Any]:
     """``funding``: each run's hourly rates per coin (``paper.funding.funding_for_run``); None
     leaves funding out."""
+    if not runs:
+        raise ValueError("No completed paper runs to score")
     tables = [run_tables(r) for r in runs]
     paid: dict[tuple[str, str], float] = defaultdict(float)
     for run, rates in (funding or {}).items():
         for pay in funding_payments(pd.read_json(run / "equity.jsonl", lines=True), rates).itertuples():
             paid[(str(pay.coin), str(pay.strategy))] += float(pay.funding_usd)
-    fills = pd.concat([t[0] for t in tables if not t[0].empty], ignore_index=True)
+    fills = pd.concat([t[0] for t in tables], ignore_index=True)
     blocks = pd.concat([t[1] for t in tables], ignore_index=True)
     final: dict[tuple[str, str], float] = defaultdict(float)
     for _, _, s in tables:

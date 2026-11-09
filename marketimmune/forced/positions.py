@@ -87,7 +87,7 @@ def wallet_events(fills: pd.DataFrame) -> pd.DataFrame:
 
     def pick(column: str, dtype: type) -> npt.NDArray[Any]:
         maker_col, taker_col = (fills[f"{role}_{column}"].to_numpy(dtype=dtype)[rows] for role in ("maker", "taker"))
-        return np.where(taker, taker_col, maker_col)
+        return np.asarray(np.where(taker, taker_col, maker_col), dtype=dtype)
 
     taker_sign = np.where(fills["taker_side"].to_numpy()[rows] == "B", 1.0, -1.0)
     events = pd.DataFrame(

@@ -194,7 +194,7 @@ def fit_isotonic_calibrator(raw_probabilities: FloatArray, labels: npt.NDArray[A
 def apply_isotonic_calibrator(calibrator: IsotonicRegression | None, raw_probabilities: FloatArray) -> FloatArray:
     if calibrator is None:
         return raw_probabilities.astype(float)
-    return np.clip(np.asarray(calibrator.predict(raw_probabilities.astype(float)), dtype=float), 0.0, 1.0)
+    return np.asarray(np.clip(calibrator.predict(raw_probabilities.astype(float)), 0.0, 1.0), dtype=np.float64)
 
 
 def write_isotonic_calibrator(path: Path, calibrator: IsotonicRegression | None, *, metadata: Mapping[str, Any]) -> None:

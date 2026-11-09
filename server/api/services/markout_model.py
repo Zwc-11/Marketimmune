@@ -33,7 +33,7 @@ def configured_path(name: str) -> Path:
 
 def display_path(path: Path) -> str:
     """Repository-relative when under the repository, else absolute."""
-    return str(path.relative_to(settings.BASE_DIR)) if path.is_relative_to(settings.BASE_DIR) else str(path)
+    return path.relative_to(settings.BASE_DIR).as_posix() if path.is_relative_to(settings.BASE_DIR) else path.as_posix()
 
 
 def promoted_artifacts() -> dict[str, Path]:

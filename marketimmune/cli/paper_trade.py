@@ -8,8 +8,9 @@ Writes ``summary.json`` every minute, and at the end ``fills.jsonl``, ``equity.j
 ``mids.parquet`` and the raw messages under ``raw/``. ``journal/`` holds every strategy's decisions,
 fills with the signals behind them, each coin's signals every second and per-minute counters, written
 as the run goes (``marketimmune.paper.journal``; ``--no-journal`` to skip; ``cli.paper_journal``
-reads it). ``--state-dir`` carries the model rows and the
-wallet scores from one run to the next. ``--retime`` replays a recording as a maker elsewhere would
+reads it). ``--state-dir`` carries inventory, risk state, model rows and wallet scores
+between segments. Incremental PnL starts at the previous mark; inventory stays exposed.
+Legacy checkpoints carry only models and wallet scores. ``--retime`` replays a recording as a maker elsewhere would
 have seen it: Hyperliquid's messages ``hl`` ms after their block, Coinbase's ``cb`` ms later than they
 arrived here (``paper.live.retimed``). Strategies and fill model: ``marketimmune.paper``; results:
 ``docs/research/paper-trading.md``.
@@ -23,18 +24,21 @@ import json
 import time
 import urllib.request
 from pathlib import Path
+from uuid import uuid4
 
 from marketimmune.logger import init_logger
 from marketimmune.paper.dashboard import Board
 from marketimmune.paper.engine import Engine
 from marketimmune.paper.journal import Journal
 from marketimmune.paper.live import Clock, clock_offsets, replay, run_live
+from marketimmune.paper.provenance import prepare_run, replay_manifest, source_fingerprint, verify_results
 from marketimmune.paper.strategies import LIVE_STRATEGIES
 from marketimmune.utils import parse_symbol_spec, split_csv
 
 logger = init_logger(__name__)
 COINS = "BTC,ETH,SOL,XRP,LTC,BCH,LINK,AVAX,DOGE"
 INFO_URL = "https://api.hyperliquid.xyz/info"
+SOURCE_SHA256 = source_fingerprint()
 
 
 def sz_decimals(out: Path, replay: Path | None, coins: list[str] | None = None) -> dict[str, int]:
@@ -63,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--state-dir", type=Path, default=None)
     parser.add_argument("--replay", type=Path, default=None, help="a recorded run's raw/ directory, instead of the live feeds")
+    parser.add_argument("--verify-recording", action="store_true", help="require the recorded source and initial state when replaying")
     parser.add_argument(
         "--retime",
         default="",
@@ -108,9 +113,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--segment-hours", type=float, default=None, help="split a live run into segments of this length under --out")
     args = parser.parse_args(argv)
     if args.replay is not None:
+        manifest = replay_manifest(args.replay, SOURCE_SHA256, args.verify_recording)
+        if args.verify_recording:
+            if args.retime or args.clock_offset or args.until_ms is not None or manifest is None:
+                raise ValueError("Exact verification requires the complete original receipt sequence")
+            config = manifest["settings"]
+            for key in ("latency_ms", "quote_usd", "max_quotes", "budget_usd"):
+                setattr(args, key, config[key])
+            args.coins = ",".join(manifest["coins"])
+            args.strategies = ",".join(config["strategies"])
+            args.registered = ",".join(config["registered"])
+            args.maker_fee_bps, args.taker_fee_bps = manifest["fees_bps"]["maker"], manifest["fees_bps"]["taker"]
+            args.twins = ",".join(f"{follower}={leader}" for follower, leader in manifest.get("twins", {}).items())
         engine = make_engine(args, args.out)
-        if args.state_dir is not None:
-            engine.load_state(args.state_dir)
+        initial = args.state_dir or (args.replay.parent / "initial_state" if manifest is not None else None)
+        if args.verify_recording and (args.state_dir is not None or not initial or not initial.is_dir()):
+            raise ValueError("Exact verification requires this recording's captured initial state")
+        if initial is not None:
+            engine.load_state(initial)
         retime = {k: int(v) for k, v in (kv.split("=") for kv in args.retime.split(",") if kv)}
         clock: dict[int, float] | float | None = None
         if args.clock_offset in ("coinbase", "coinbase-causal"):
@@ -118,7 +138,9 @@ def main(argv: list[str] | None = None) -> int:
             logger.info(f"clock ahead of Coinbase by {min(clock.values()):.0f} to {max(clock.values()):.0f} ms over the recording")
         elif args.clock_offset is not None:
             clock = float(args.clock_offset)
-        replay(engine, args.replay, retime or None, args.until_ms, clock, causal=args.clock_offset == "coinbase-causal")
+        replay(engine, args.replay, retime or None, args.until_ms, clock, causal=args.clock_offset == "coinbase-causal", verify=args.verify_recording)
+        if args.verify_recording:
+            verify_results(engine, args.replay.parent)
         engine.write(args.out, final=True)
         if args.state_dir is not None:
             engine.save_state(args.state_dir)
@@ -136,6 +158,8 @@ def coin_list(spec: str) -> tuple[str, ...]:
 
 
 def make_engine(args: argparse.Namespace, out: Path) -> Engine:
+    if any((out / marker).exists() for marker in ("summary.json", "manifest.json", "raw", "fills.jsonl")):
+        raise FileExistsError(f"Output already contains a paper run: {out}")
     return Engine(
         coin_list(args.coins),
         latency_ms=args.latency_ms,
@@ -165,10 +189,11 @@ async def live(args: argparse.Namespace) -> None:
     started = time.monotonic()
     try:
         while (left := total - (time.monotonic() - started)) > 1:
-            out = args.out / time.strftime("seg-%Y%m%dT%H%M", time.gmtime()) if args.segment_hours else args.out
+            out = args.out / f"seg-{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}-{uuid4().hex[:8]}" if args.segment_hours else args.out
             engine = make_engine(args, out)
             if state_dir is not None and state_dir.exists():
                 engine.load_state(state_dir)
+            prepare_run(engine, out, state_dir, SOURCE_SHA256)
             board.attach(engine)
             seconds = min(left, args.segment_hours * 3600) if args.segment_hours else left
             stopped = await run_live(engine, out, seconds, raw=not args.no_raw, board=board, clock=clock)

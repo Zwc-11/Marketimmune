@@ -32,23 +32,25 @@ maker, or as a taker after ``max_s`` or ``stop``.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
 try:
-    from numba import njit
+    from numba import njit as _numba_njit
 except ImportError:  # pragma: no cover - the simulators also run (slowly) without numba
 
-    def njit(*a: Any, **k: Any) -> Any:  # type: ignore[no-redef]
-        def wrap(f: Any) -> Any:
-            return f
+    _numba_njit = None
 
-        return wrap if not a or not callable(a[0]) else a[0]
+
+def _jit[**P, T](fn: Callable[P, T]) -> Callable[P, T]:
+    """Preserve a numerical kernel's signature with or without optional Numba."""
+    return fn if _numba_njit is None else cast(Callable[P, T], _numba_njit(cache=True)(fn))
 
 
 FloatArray = npt.NDArray[np.float64]
@@ -135,27 +137,27 @@ def load(bars: list[Path], extremes: Path, until_ms: int | None = None, from_ms:
     return out
 
 
-@njit(cache=True)
+@_jit
 def _floor(p: float, tick: float) -> float:
     return float(np.floor(p / tick + 1e-9) * tick)
 
 
-@njit(cache=True)
+@_jit
 def _ceil(p: float, tick: float) -> float:
     return float(np.ceil(p / tick - 1e-9) * tick)
 
 
-@njit(cache=True)
+@_jit
 def _bid_fills(b: float, t: int, sell_min: FloatArray, ask: FloatArray, tick: float) -> bool:
     return bool((sell_min[t] == sell_min[t] and sell_min[t] < b - 1e-12) or ask[t] <= b - tick + 1e-12)
 
 
-@njit(cache=True)
+@_jit
 def _ask_fills(a: float, t: int, buy_max: FloatArray, bid: FloatArray, tick: float) -> bool:
     return bool((buy_max[t] == buy_max[t] and buy_max[t] > a + 1e-12) or bid[t] >= a + tick - 1e-12)
 
 
-@njit(cache=True)
+@_jit
 def _put(out: FloatArray, k: int, a: float, b: float, c: float, d: float, e: float, f: float, g: float) -> None:
     out[k, 0] = a
     out[k, 1] = b
@@ -166,7 +168,7 @@ def _put(out: FloatArray, k: int, a: float, b: float, c: float, d: float, e: flo
     out[k, 6] = g
 
 
-@njit(cache=True)
+@_jit
 def _dislocation(
     bid: FloatArray,
     ask: FloatArray,
@@ -234,7 +236,7 @@ def _dislocation(
     return out[:k]
 
 
-@njit(cache=True)
+@_jit
 def _llas(
     bid: FloatArray,
     ask: FloatArray,
@@ -292,7 +294,7 @@ def _llas(
     return out
 
 
-@njit(cache=True)
+@_jit
 def _sweep(
     bid: FloatArray,
     ask: FloatArray,

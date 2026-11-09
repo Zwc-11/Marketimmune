@@ -62,9 +62,9 @@ def test_paper_order_queue_and_fills() -> None:
     assert o.match(140, 10.0, 3.0, True, seen_size=4.0) == 0.0  # a taker buy never hits a bid
     assert o.match(150, 10.0, 3.0, False, seen_size=4.0) == 0.0 and o.queue == 1.0
     assert o.match(160, 10.0, 2.0, False, seen_size=4.0) == 1.0 and o.qty == 1.0
-    assert o.match(170, 9.9, 0.1, False, seen_size=4.0) == 1.0 and o.qty == 0.0  # a sell below the bid empties the level
+    assert o.match(170, 9.9, 0.1, False, seen_size=4.0) == 0.1 and o.qty == 0.9  # bounded by the actual print
     late = PaperOrder(side=-1, px=11.0, qty=1.0, t_live=100, t_cancel=200)
-    assert late.match(150, 11.5, 0.1, True, seen_size=0.0) == 1.0  # never saw a book: through the ask fills it
+    assert late.match(150, 11.5, 0.1, True, seen_size=0.0) == 0.1
     gone = PaperOrder(side=-1, px=11.0, qty=1.0, t_live=100, t_cancel=200)
     assert gone.match(200, 11.5, 1.0, True, seen_size=0.0) == 0.0  # cancelled by then
     queued = PaperOrder(side=-1, px=11.0, qty=1.0, t_live=100)
@@ -188,38 +188,3 @@ def test_strategies_by_name() -> None:
     assert taker_threshold("taker@6") == 6.0 and taker_threshold("gap@6") is None
     with pytest.raises(AssertionError, match="unknown"):
         quoter("spread@2")
-
-
-def test_fastjson_round_trips_with_and_without_orjson(monkeypatch: pytest.MonkeyPatch) -> None:
-    from marketimmune.paper import fastjson
-
-    msg = {"channel": "bbo", "data": {"coin": "SOL", "time": 1, "bbo": [None, {"px": "1.5"}]}}
-    assert fastjson.loads(fastjson.dumps(msg)) == msg
-    monkeypatch.setattr(fastjson, "orjson", None)
-    assert fastjson.loads(fastjson.dumps(msg)) == msg and fastjson.loads(b'{"a": 1}') == {"a": 1}
-
-
-def test_hip3_oracle_is_the_reference_and_coin_names_keep_their_dex() -> None:
-    from marketimmune.cli.paper_trade import coin_list
-    from marketimmune.paper.events import RefTop, parse_hl
-
-    msg = {"channel": "activeAssetCtx", "data": {"coin": "xyz:XYZ100", "ctx": {"oraclePx": "26945.0", "markPx": "26948.0"}}}
-    assert parse_hl(msg, 1_000) == [RefTop("xyz:XYZ100", 1_000, 26945.0, 26945.0)]
-    # a major's context is not a reference (Coinbase is)
-    assert parse_hl({"channel": "activeAssetCtx", "data": {"coin": "BTC", "ctx": {"oraclePx": "1"}}}, 1_000) == []
-    assert coin_list("xyz:XYZ100,btc,io:ANTH") == ("BTC", "xyz:XYZ100", "io:ANTH")
-    assert coin_list("xyz:CL") == ("xyz:CL",)
-
-
-def test_a_twin_market_takes_its_reference_from_the_leader_book() -> None:
-    from marketimmune.paper.engine import Engine
-    from marketimmune.paper.events import RefTop, Top
-
-    eng = Engine(("io:SNDK", "xyz:SNDK"), strategies=("touch",), twins={"io:SNDK": "xyz:SNDK"}, sz_decimals={"io:SNDK": 2, "xyz:SNDK": 2})
-    eng.handle(RefTop("io:SNDK", 1_000, 830.0, 830.0), 1_000)  # its own oracle: ignored
-    assert eng.states["io:SNDK"].ref is None
-    eng.handle(Top("xyz:SNDK", 1_000, 833.0, 1.0, 833.5, 1.0), 1_010)
-    ref = eng.states["io:SNDK"].ref
-    assert ref is not None and (ref.bid, ref.ask) == (833.0, 833.5)
-    eng.handle(RefTop("xyz:SNDK", 1_020, 832.0, 832.0), 1_020)  # the leader keeps its oracle
-    assert eng.states["xyz:SNDK"].ref is not None

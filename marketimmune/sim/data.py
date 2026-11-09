@@ -24,7 +24,8 @@ def load_day(lake_root: Path, coin: str, date: str) -> DayBook:
 
     def depth(side: str, what: str) -> FloatArray:
         cols = [l2[f"{side}_{what}_{i}"].to_numpy(zero_copy_only=False).astype(np.float64) for i in range(1, L2_DEPTH + 1)]
-        return np.nan_to_num(np.column_stack(cols), nan=0.0)
+        out: FloatArray = np.asarray(np.nan_to_num(np.column_stack(cols), nan=0.0), dtype=np.float64)
+        return out
 
     def ticks(side: str) -> IntArray:
         return np.rint(depth(side, "px") * PX_SCALE).astype(np.int64)

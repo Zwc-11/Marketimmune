@@ -3,11 +3,9 @@
 #   powershell -ExecutionPolicy Bypass -File .\scripts\run_paper_hip3_wide.ps1
 #   ... -Hours 168 -Port 8770          # the defaults
 # Then open http://127.0.0.1:8770/#/paper. Ctrl+C stops it; the current segment is written first.
-# Why: 8-12 bp quotes made money on the 32-market run's weekend hours, mostly on the markets with the
-# widest spreads and no live outside price (xyz:ANT, io:ANTH). These 50 markets are every growth-mode
-# market with over $300k a day and an impact spread of 6 bp or more (2026-11-09 03:00 UTC), including
-# io:OAI, an OpenAI market with no listed stock behind it. Fees: 0.3 bp maker / 0.9 bp taker
-# (growth mode, deployer fee scale 1.0 on xyz, io and para).
+# Compare the original 50-market selection and six strategies under the audited execution model.
+# Fees remain the experiment's assumptions: 0.3 bp maker / 0.9 bp taker.
+# Previous results require replay with the corrected engine before drawing strategy conclusions.
 # The raw recordings are the point: they are the next selection and test data.
 param(
     [double]$Hours = 168,
@@ -19,8 +17,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path -Parent $PSScriptRoot)
 $PaperDir = Split-Path -Parent (Get-Location).Path  # data\paper, beside this app folder
-if (-not $Out) { $Out = Join-Path $PaperDir "live-hip3-wide" }
-if (-not $WarmFrom) { $WarmFrom = Join-Path $PaperDir "live-mm\state" }
+if (-not $Out) { $Out = Join-Path $PaperDir ("live-hip3-audited-" + [DateTime]::UtcNow.ToString("yyyyMMddTHHmmss")) }
 $Candidates = @($env:PYTHON, ".\.venv\Scripts\python.exe", "..\..\..\.venv\Scripts\python.exe") | Where-Object { $_ -and (Test-Path $_) }
 $Python = if ($Candidates) { @($Candidates)[0] } else { "python" }
 & $Python -c "import importlib.util as u, sys; sys.exit(0 if u.find_spec('websockets') else 1)"
@@ -32,7 +29,7 @@ if (-not (Test-Path "frontend\dist\index.html")) { throw "frontend\dist is missi
 
 # Wallet scores are shared across coins: start from the market-maker run's (coin models stay per coin)
 $State = Join-Path $Out "state"
-if (-not (Test-Path $State) -and (Test-Path (Join-Path $WarmFrom "wallets.json"))) {
+if ($WarmFrom -and -not (Test-Path $State) -and (Test-Path (Join-Path $WarmFrom "wallets.json"))) {
     New-Item -ItemType Directory -Force -Path $State | Out-Null
     Copy-Item -Path (Join-Path $WarmFrom "wallets.json") -Destination $State
     Write-Host "Warm start: wallet scores copied from $WarmFrom"
