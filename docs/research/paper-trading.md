@@ -917,6 +917,93 @@ synthetic markets, `xyz:ANT` and `io:ANTH`.
   70–200 ms instead of about 450 ms, `mm@3` and `hush@d=1` turned positive. A server in Tokyo is
   the one structural lever not yet tested live.
 
+**Next registered test:** `hush@d=8/quiet=0/tol=0.3` (8 bp deep quotes, no gate) on all 32 markets,
+on weekday hours (`paper-hip3-deep8-20261109.md`). The test data are the PC's `live-hip3`
+segments from 01:28 UTC on Monday 9 November, 16 h. In the 11.7 weekend hours it made +$6.11/h
+[+0.44, +11.60], two-thirds of it on `xyz:ANT` and `io:ANTH`.
+
+## What a faster server would buy: the delay frontier (2026-11-09, exploratory)
+
+`scripts/latency/`, `eval/paper/latency/frontier_20261109.csv`.
+
+**Method.** Each recording is replayed with `--retime`: every Hyperliquid message arrives D/2 ms
+after its block, and each order takes D/2 ms. Only the total D matters (150/150 and 250/50 gave
+the same fills).
+- **As recorded,** the feed is about 290 ms behind the block on the PC and 318 ms on the cloud,
+  with 200 ms orders, so D is about 490–520 ms. Retimed to 530 ms, the replays come within
+  $0.1–2/h of the replay as recorded.
+- **Majors:** the PC's 16 h `live-optimized` recording (the `hush@` test hours), after a warm-up on
+  the three PC segments before it. At D ≤ 300, Coinbase arrives 90 ms later than the PC saw it, as
+  it would in Tokyo.
+- **HIP-3:** the cloud's 11.7 h Sunday recording (00:24–12:05 UTC), 32 growth-mode markets at 0.3 / 0.9 bp.
+
+**Majors, $ an hour at the 1.5 bp maker fee:**
+
+| Strategy | As recorded | 530 ms | 300 ms | 200 ms | 100 ms | 50 ms |
+|---|---:|---:|---:|---:|---:|---:|
+| `touch` | −27.13 | −27.03 | −26.06 | −26.06 | −25.69 | −25.54 |
+| `zgap@0.05` | −2.15 | −2.39 | −2.77 | −4.08 | −4.10 | −3.68 |
+| `mm@1.5` | −4.61 | −4.84 | −4.27 | −3.01 | −2.22 | −2.24 |
+| `mm@3` | −1.94 | −2.19 | −1.27 | −1.16 | −0.98 | −0.60 [−1.32, +0.12] |
+| `hush@d=3/quiet=5/inf=0.665` | −1.81 | −1.93 | −1.67 | −1.34 | −0.94 | −1.05 |
+
+- **No delay makes a majors quoter pay the fee.** The best at 50 ms is `mm@3`, −$0.60/h, which
+  would break even at a 0.04 bp maker fee.
+- **Touch is picked off the same at every delay:** −1.0 bp within 1 s. On a one-tick book the
+  takers who hit the touch are informed, and a faster maker that stays at the touch still fills
+  against them.
+- **The gap quoter gets worse with speed.** In Tokyo, Coinbase arrives later. Even at 100 ms with
+  Coinbase as recorded it made −$3.23/h, against −$2.15 as recorded.
+
+**Majors, the fee lever** (the same replays with the maker part of the fee set to each tier):
+- **`zgap@0.05`'s fills are about flat before the fee.** As recorded it makes −$1.12/h at
+  Hyperliquid's 1.2 bp tier, +$0.24 at 0.8 bp, +$1.61 at 0.4 bp and +$2.98 at zero.
+- **Volume.** It filled $34k an hour, $11.5M per 14 days: tier 1 (1.2 bp, $5M). The 0.4 bp tier
+  needs $100M per 14 days, about nine times as much. Scaling the quotes nine-fold would change the
+  fills, so this is an upper bound.
+
+**HIP-3, $ an hour at 0.3 bp:**
+
+| Strategy | As recorded | 530 ms | 300 ms | 200 ms | 100 ms | 50 ms |
+|---|---:|---:|---:|---:|---:|---:|
+| `hush@d=8/quiet=0` | +6.11 [+0.44, +11.60] | +5.38 | +7.58 | +5.64 | +5.81 | +6.96 |
+| `mm@8` | +1.65 | +1.75 | +2.40 | +2.24 | +3.19 | +2.97 |
+| `zgap@0.05` | −5.54 | −6.73 | −7.06 | −5.30 | −3.65 | −4.29 |
+| `mm@3` | −12.24 | −10.22 | −7.50 | −5.94 | −6.11 | −6.72 |
+| `hush@d=1/quiet=5` | −13.67 | −13.39 | −10.37 | −7.73 | −6.53 | −7.10 |
+| `touch` | −40.22 | −38.34 | −33.77 | −31.00 | −28.85 | −29.39 |
+
+- **Speed helps the shallow quoters most,** and none turns positive: touch gains $11/h and is still
+  −$29.
+- **Earlier exploratory result revised.** `mm@3` and `hush@d=1` were positive at 70–200 ms in the
+  first 46 minutes. Over the 11.7 h they are −$6 to −$8.
+- **The deep quotes don't depend on speed:** +$5.4 to +$7.6 at every delay, within one interval
+  (about ±$6) of each other.
+
+**What a Tokyo server can actually reach.**
+- **Where Hyperliquid runs.** All of its validators run in AWS Tokyo
+  ([Glassnode](https://hyperlatency.glassnode.com/about)).
+- **The feed.** From Tokyo, the public API's book feed arrives a median 266–282 ms after the block;
+  paid dedicated nodes arrive in 177–195 ms
+  ([Dwellir, 28 October 2026](https://www.dwellir.com/blog/hyperliquid-data-latency-benchmark)).
+  The PC is at about 290 ms. Moving to Tokyo on the public feed saves 10–50 ms, and a dedicated
+  node about 100 ms.
+- **Orders.** From AWS Tokyo, an order's round trip to its fill confirmation took a median 884 ms,
+  of which about 5 ms is network; from Virginia, 1,079 ms
+  ([Glassnode](https://hyperlatency.glassnode.com/fill-latency)). Moving saves about 100 ms each
+  way. Our engine's 200 ms order delay is an assumption, and these figures say it may be
+  optimistic.
+- **So a Tokyo server reaches D of about 370 ms on the public feed, or about 280 ms with a dedicated
+  node.** That is the 300 ms column: no change on the majors, and no clear one on HIP-3's deep
+  quotes. Below about 180 ms is out of reach: the fastest feed alone takes that long.
+
+**What follows.**
+- A Tokyo server is not worth setting up for the majors.
+- On HIP-3, the deep quotes don't need one. If they pass the weekday test, a Tokyo recorder would
+  measure the real feed delay, and the pick would be replayed on it.
+- The fee lever on the majors needs about nine times the gap quoter's volume to reach a tier where
+  its flat fills pay.
+
 ## Reading
 
 - **The December conclusions hold live.** Quoting at the touch on Hyperliquid at retail latency
@@ -983,3 +1070,5 @@ The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
 | `eval/paper/hush_markouts_20261107.csv` | Each `hush@` setting's fill markouts at 1 s, 10 s, 60 s, 5 min and 30 min before the fee |
 | `eval/paper/hip3/` | HIP-3 growth-mode markets: selection and test replays of the two registrations, fill markouts, coin list |
 | `eval/paper/loss/` | Every live PC run scored: dollars by component per run, markout curve 0.2–300 s, the move before each fill, by coin and hour |
+| `eval/paper/test_hush_*_20261108.*` | The `hush@` registered test: tune output, reports paired with the ungated control and with `zgap@0.05`, markouts, by coin, the dashboard table |
+| `eval/paper/latency/` | The delay frontier: each replay's report by venue and total delay, and `frontier_20261109.csv` with $ an hour at each maker-fee tier (`scripts/latency/`) |
