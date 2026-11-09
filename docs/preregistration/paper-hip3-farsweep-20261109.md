@@ -1,6 +1,6 @@
 # Pre-registration: volatility-scaled deep quotes on HIP-3 markets, weekday hours
 
-Written 2026-11-09 about 23:30 UTC. Every test hour is recorded after this commit. Scored once.
+Written 2026-11-09 about 23:15 UTC. Every test hour is recorded after this commit. Scored once.
 
 ## Where this comes from
 
