@@ -157,8 +157,9 @@ class Engine:
         registered: tuple[str, ...] = (),
         twins: dict[str, str] | None = None,
     ) -> None:
-        if not coins or len(set(coins)) != len(coins) or not strategies or len(set(strategies)) != len(strategies):
-            raise ValueError("coins and strategies must be nonempty and unique")
+        # no strategies is allowed: paper_factors' sampler is an engine that only keeps the signals
+        if not coins or len(set(coins)) != len(coins) or len(set(strategies)) != len(strategies):
+            raise ValueError("coins must be nonempty, and coins and strategies unique")
         if not math.isfinite(quote_usd) or quote_usd <= 0 or latency_ms < 0 or max_quotes <= 0:
             raise ValueError("quote size and position limit must be positive; latency cannot be negative")
         if not all(math.isfinite(x) for x in (latency_ms, max_quotes, maker_fee_bps, taker_fee_bps)) or taker_fee_bps < 0:

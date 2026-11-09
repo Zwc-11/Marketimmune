@@ -121,6 +121,8 @@ def run_chain(segments: list[Segment], config: str, args: argparse.Namespace, st
         if args.retime:
             cmd += ["--retime", args.retime]
         cmd += ["--maker-fee-bps", str(args.maker_fee_bps), "--taker-fee-bps", str(args.taker_fee_bps)]
+        if args.cap_through_fills:
+            cmd += ["--cap-through-fills"]
         if args.coins:
             cmd += ["--coins", args.coins]
         if args.twins:
@@ -288,6 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-orders-per-usd", type=float, default=1.0)
     parser.add_argument("--coins", default="", help="perps to replay (paper_trade's default: the nine majors)")
     parser.add_argument("--twins", default="", help="paper_trade --twins")
+    parser.add_argument("--cap-through-fills", action="store_true", help="paper_trade --cap-through-fills")
     args = parser.parse_args(argv)
     args.clock = clock_chains(args.clock)
     configs = args.config or ["250x4"]

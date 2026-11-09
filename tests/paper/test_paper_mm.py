@@ -64,7 +64,8 @@ def test_a_taker_sweep_walks_the_seen_book() -> None:
     depth = Depth("SOL", 0, {99.0: 1.0, 98.5: 3.0}, {100.0: 1.0, 100.5: 2.0, 101.0: 5.0})
     assert sweep(top, depth, 1, 2.5) == pytest.approx((100.0 + 1.5 * 100.5) / 2.5)
     assert sweep(top, depth, -1, 2.0) == pytest.approx((99.0 + 98.5) / 2)
-    assert sweep(top, None, 1, 3.0) == 100.0  # no depth: the rest at the top's price
+    with pytest.raises(ValueError, match="insufficient observed depth"):
+        sweep(top, None, 1, 3.0)  # no depth seen: only the top's size is known, so 3 cannot be priced
 
 
 def test_kill_switch_trips_on_the_drawdown_and_pauses() -> None:

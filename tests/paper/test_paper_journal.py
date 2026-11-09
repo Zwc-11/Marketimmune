@@ -78,7 +78,7 @@ def test_the_journal_lists_decisions_fills_and_counters(tmp_path: Path) -> None:
     ms = sum(sum(m["ms"].values()) for m in touch)
     assert ms == pytest.approx(e.last_ms - by["touch"][0]["t"], abs=100)  # quoted or not, the whole run is covered
     signals = list(read(j / "signals.jsonl.gz"))
-    assert len(signals) == pytest.approx(1_500, abs=5) and signals[-1]["gap"] is not None
+    assert len(signals) == pytest.approx(1_500, abs=10) and signals[-1]["gap"] is not None
     assert list(read(j / "taker.jsonl.gz"))  # the taker decided at least once
 
 

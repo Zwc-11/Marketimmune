@@ -44,7 +44,6 @@ import pandas as pd
 try:
     from numba import njit as _numba_njit
 except ImportError:  # pragma: no cover - the simulators also run (slowly) without numba
-
     _numba_njit = None
 
 

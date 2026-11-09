@@ -84,9 +84,10 @@ def valid_event(ev: Event) -> bool:
     if isinstance(ev, Trade):
         return all(math.isfinite(x) and x > 0 for x in (ev.px, ev.sz))
     if isinstance(ev, Depth):
-        return bool(ev.bids and ev.asks) and max(ev.bids) < min(ev.asks) and all(
-            math.isfinite(p) and p > 0 and math.isfinite(s) and s >= 0
-            for levels in (ev.bids, ev.asks) for p, s in levels.items()
+        return (
+            bool(ev.bids and ev.asks)
+            and max(ev.bids) < min(ev.asks)
+            and all(math.isfinite(p) and p > 0 and math.isfinite(s) and s >= 0 for levels in (ev.bids, ev.asks) for p, s in levels.items())
         )
     if not all(math.isfinite(x) and x > 0 for x in (ev.bid, ev.ask)) or ev.bid > ev.ask:
         return False

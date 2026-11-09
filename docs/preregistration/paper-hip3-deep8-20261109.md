@@ -80,3 +80,62 @@ both push the true value below +6.
 
 The evidence recording was first described as 13 h (00:00–13:00 UTC). The replay covers
 00:24–12:05 UTC, 11.7 h; the text above now says so. Nothing registered changed.
+
+## Result (2026-11-09 about 19:00 UTC)
+
+**Data.** The PC's `live-hip3` segments `seg-20261109T0129` to `seg-20261109T1334`, 01:29 to
+15:31 UTC on Monday 9 November, 13.9 h. Warm-up was `seg-20261108T2127` and `seg-20261108T2328`.
+Settings as registered (`eval/paper/hip3/test_deep8_*`).
+
+**Deviations, both covered by the registration's own rules:**
+- **Segment name:** the first test segment is `seg-20261109T0129`, not `…0128` as written above.
+  The rule ("the first eight segments that start after this commit") picks the same segment.
+- **Seven segments, not eight:** the run stopped at 15:31 UTC, when the 50-market run
+  (`live-hip3-wide`) started. 13.9 h is above the 8 h minimum, so the test is scored on these.
+
+**Verdict.** **P1 fails.** `hush@d=8/quiet=0/tol=0.3` made −$36.49/h [−81.96, −4.52]. The whole
+interval is below zero.
+
+| Setting | $/h [95%] | Filled $/h | bp per filled $ | Spread | Move in 1 s | Position | Orders per $ |
+|---|---|---:|---:|---:|---:|---:|---:|
+| `hush@d=8/quiet=0` (registered) | −36.49 [−81.96, −4.52] | 118,332 | −3.08 | +1.98 | −4.43 | −0.33 | 0.26 |
+| `hush@d=8/quiet=5` | −8.22 [−20.28, +3.04] | 28,949 | −2.84 | +3.01 | −4.49 | −1.06 | 0.65 |
+| `mm@8` | −29.15 [−47.40, −15.20] | 154,677 | −1.89 | +1.75 | −2.91 | −0.36 | 0.50 |
+| `mm@5` | −63.87 [−89.28, −43.64] | 314,377 | −2.03 | +0.58 | −1.99 | −0.29 | 0.35 |
+| `zgap@0.05` | −172.30 [−264.00, −108.92] | 941,131 | −1.83 | −0.48 | −0.89 | −0.16 | 0.08 |
+| `touch` | −498.64 [−773.80, −318.80] | 2,833,802 | −1.76 | −0.34 | −0.97 | −0.15 | 0.08 |
+
+**Reported regardless:**
+- **The pick paired with `touch`:** +$459.15/h [+305.52, +693.88], better in 56 of 56 blocks. It
+  lost far less than quoting at the touch.
+- **Without `xyz:ANT` and `io:ANTH`:** −$37.04/h. The pair made +$0.53/h (`io:ANTH` +2.64,
+  `xyz:ANT` −2.11).
+- **Before and after the US open** (by equity change in each window):
+  - 01:29–14:30 UTC, 12.8 h: −$16.44/h;
+  - 14:30–15:31 UTC, 1.0 h: −$291.18/h.
+- **Fill markouts before the fee, bp:** −2.45 at 1 s, −2.98 at 60 s, −1.91 at 5 min, −3.10 at
+  30 min. On Sunday the same setting's fills were +1.18 at 1 s, +0.78 at 60 s, +1.87 at 5 min and
+  +2.65 at 30 min.
+- **By market:**
+  - It lost on 24 of 32 markets; most on `xyz:SOXL` (−$5.78/h), `xyz:SNDK` (−$4.94) and
+    `xyz:MRVL` (−$3.52).
+  - `io:ANTH` (+$2.64) and `xyz:SKHX` (+$1.37) were the largest gains.
+  - `xyz:SP500`, `xyz:XYZ100`, `xyz:JPY` and `xyz:SILVER` never filled.
+- **Orders per filled $:** 0.26, within the rate limit.
+- **Risk:** the largest gross position was $9,868; the worst drawdown −$525.70.
+
+**Sensitivity** (not registered; from the 2026-11-09 audit, `claude/hush-d10-check-2026-11-09.md`):
+- **Closing each segment's leftover positions** through the last book seen, plus the taker fee:
+  $6.61 over the 13.9 h, about −$0.5/h more.
+- **Capped through-fills** (`--cap-through-fills`: a trade through a quote fills at most its own
+  size): −$43.53/h [−95.00, −8.16] on $104k filled an hour; `mm@8` −$25.57.
+- **Retimed, as from a faster server** (exploratory, registered as reported): total delay 300 ms
+  −$16.26/h [−42.00, +4.80]; 200 ms −$7.26 [−25.84, +11.88]. Speed cuts the loss but does not turn
+  it positive.
+
+**Reading:**
+- **The weekend edge does not survive a weekday.** On Sunday the equity oracles barely moved, and
+  8 bp quotes filled mostly when takers overshot.
+- **On Monday the same quotes filled five times as much,** on moves that kept going: the fills
+  were behind at every horizon.
+- **The Anthropic pair,** with no listed stock behind it, was about flat.

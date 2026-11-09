@@ -63,9 +63,16 @@ def mid_lookup(mids: pd.DataFrame, coin: str, t: FloatArray, *, before: bool = F
 def run_tables(run: Path) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     """One run's fills with mids and markouts, its 15-minute block PnL, and its summary."""
     summary = json.loads((run / "summary.json").read_text(encoding="utf-8"))
-    fills = pd.read_json(run / "fills.jsonl", lines=True) if (run / "fills.jsonl").stat().st_size else pd.DataFrame(
-        {key: pd.Series(dtype="object" if key in ("coin", "strategy") else "float64")
-         for key in ("coin", "strategy", "side", "qty", "px", "fee_rate", "mid", *(f"mid_{h}" for h in HORIZONS_MS))})
+    fills = (
+        pd.read_json(run / "fills.jsonl", lines=True)
+        if (run / "fills.jsonl").stat().st_size
+        else pd.DataFrame(
+            {
+                key: pd.Series(dtype="object" if key in ("coin", "strategy") else "float64")
+                for key in ("coin", "strategy", "side", "qty", "px", "fee_rate", "mid", *(f"mid_{h}" for h in HORIZONS_MS))
+            }
+        )
+    )
     mids = pq.read_table(run / "mids.parquet").to_pandas().sort_values(["coin", "t_ms"], kind="stable")
     if not fills.empty:
         parts = []

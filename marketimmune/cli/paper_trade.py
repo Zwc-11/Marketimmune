@@ -89,6 +89,9 @@ def main(argv: list[str] | None = None) -> int:
         "--twins", default="", help="HIP-3 markets referenced to another market's book: follower=leader,... (e.g. io:SNDK=xyz:SNDK)"
     )
     parser.add_argument("--maker-fee-bps", type=float, default=1.5)
+    parser.add_argument(
+        "--cap-through-fills", action="store_true", help="accepted and ignored: every fill is already bounded by its trade's size"
+    )
     parser.add_argument("--taker-fee-bps", type=float, default=4.5)
     parser.add_argument("--no-raw", action="store_true", help="do not keep the raw messages")
     parser.add_argument("--no-journal", action="store_true", help="do not write the decision journal")
@@ -138,7 +141,15 @@ def main(argv: list[str] | None = None) -> int:
             logger.info(f"clock ahead of Coinbase by {min(clock.values()):.0f} to {max(clock.values()):.0f} ms over the recording")
         elif args.clock_offset is not None:
             clock = float(args.clock_offset)
-        replay(engine, args.replay, retime or None, args.until_ms, clock, causal=args.clock_offset == "coinbase-causal", verify=args.verify_recording)
+        replay(
+            engine,
+            args.replay,
+            retime or None,
+            args.until_ms,
+            clock,
+            causal=args.clock_offset == "coinbase-causal",
+            verify=args.verify_recording,
+        )
         if args.verify_recording:
             verify_results(engine, args.replay.parent)
         engine.write(args.out, final=True)

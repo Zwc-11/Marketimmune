@@ -922,6 +922,31 @@ on weekday hours (`paper-hip3-deep8-20261109.md`). The test data are the PC's `l
 segments from 01:28 UTC on Monday 9 November, 16 h. In the 11.7 weekend hours it made +$6.11/h
 [+0.44, +11.60], two-thirds of it on `xyz:ANT` and `io:ANTH`.
 
+**It fails on weekdays** (`eval/paper/hip3/test_deep8_*`). The data were 13.9 h, 01:29–15:31 UTC
+Monday; the run stopped when the 50-market run started.
+
+| Setting | Weekend (11.7 h) | Weekday [95%] | bp per filled $, weekday |
+|---|---:|---|---:|
+| `hush@d=8/quiet=0` (registered) | +6.11 | −36.49 [−81.96, −4.52] | −3.08 |
+| `hush@d=8/quiet=5` | | −8.22 [−20.28, +3.04] | −2.84 |
+| `mm@8` | +1.65 | −29.15 [−47.40, −15.20] | −1.89 |
+| `mm@5` | | −63.87 [−89.28, −43.64] | −2.03 |
+| `zgap@0.05` | −5.54 | −172.30 [−264.00, −108.92] | −1.83 |
+| `touch` | −40.22 | −498.64 [−773.80, −318.80] | −1.76 |
+
+- **Five times the fills, and losing ones.** The 8 bp quotes filled $118k an hour against $23k on
+  Sunday. Their markout before the fee was −2.45 bp at 1 s and −3.10 at 30 min, against +1.18 and
+  +2.65 on Sunday.
+- **By session:** −$16.44/h before the US open and −$291.18/h in the hour after it.
+- **By market:** losses on 24 of 32 markets.
+- **The Anthropic pair:** about flat on weekdays, +$0.53/h for 8 bp quotes and +$1.93 for `mm@8`.
+- **Robustness:**
+  - Capping through-fills at the print's size: −$43.53/h.
+  - Closing leftovers at each segment's end: about −$0.5/h more.
+  - Retimed to 300 / 200 ms total delay: −$16.26 [−42.00, +4.80] / −$7.26 [−25.84, +11.88].
+- **So the weekend edge was the weekend:** stale oracles and takers who overshoot. Once the
+  underlying stocks trade, the quotes are run over.
+
 ## Searching the deep quotes (2026-11-09, exploratory)
 
 `scripts/search/`, `eval/paper/search/`.
@@ -973,6 +998,190 @@ segments from 01:28 UTC on Monday 9 November, 16 h. In the 11.7 weekend hours it
 `live-hip3-wide`). It covers the 50 growth-mode markets with over $300k a day and an impact spread
 of at least 6 bp (2026-11-09 03:00 UTC), including `io:OAI` (OpenAI). It quotes 6, 8, 10 and 12 bp
 deep, plus `mm@8` and `touch`. The cloud recorded the same 50 from 03:59 UTC as selection data.
+
+## Why the deep quotes lose on weekdays, and three ideas tested (2026-11-09, exploratory)
+
+`scripts/flow/`, `eval/paper/flow/`. The order was: ideas from first principles, tests on our own
+recordings, then a search for prior work.
+
+**Data.** Every public trade print with both wallets and its hash (`scripts/flow/prints.py`):
+- **Majors:** the 22 PC segments of 6–8 November, 43.4 h, 446,127 prints, $1,408M.
+- **HIP-3 Sunday:** the cloud recording and the PC's 12:19–16:20 UTC segments, 15.6 h, $164M.
+- **HIP-3 Monday:** the PC's segments from Sunday 23:28 to Monday 15:31 UTC, 16.0 h, $3,727M.
+
+Markouts here are the maker's, against the fill price, in bp, weighted by $; positive is good for
+the maker.
+
+### The diagnosis: the quote is no longer deep when it fills
+
+Each fill of the registered `hush@d=8/quiet=0` was matched to the public print that caused it, and
+to the true mid just before that print (`scripts/flow/ourfills.py`).
+
+| True distance from the mid at the fill | Monday: share of $ | Monday: 10 s | Sunday: share of $ | Sunday: 10 s |
+|---|---:|---:|---:|---:|
+| Under 0.75 bp (at the touch) | 39% | −6.42 | 7% | +0.33 |
+| 0.75–3 bp | 22% | −3.01 | 7% | −0.9 |
+| 3–5 bp | 13% | −2.12 | 12% | −1.29 |
+| 5–8 bp | 15% | −0.89 | 37% | +0.96 |
+| 8 bp or more | 11% | +2.00 | 37% | +2.06 |
+
+- **On Monday, 74% of the filled $ traded when the mid was already within 5 bp of the quote.**
+  Those fills lost $565 at 10 s. The fills that were still 8 bp or more away made +2.0 bp, about
+  what the same quotes made on Sunday.
+- **All of the bad fills fall inside the reaction time.** Counting from the moment the mid came
+  within the quote's 5.6 bp re-quote band: 22% of all filled $ traded within 0.3 s, 41% in
+  0.3–0.6 s, 10% in 0.6–1 s, and 0.5% after 1 s. The feed is 0.32–0.39 s late at the median and an
+  order takes 0.2 s, so the cancel arrives after 0.5–0.8 s.
+- **So this loss is the reaction time,** not the idea. A jump moves the market next to the quote,
+  and the next taker hits it before the cancel lands.
+
+**The whole market shows the same split** (signed orders only, by the fill's distance from the
+pre-trade mid, `eval/paper/flow/markout_by_distance.csv`):
+
+| Distance | Sunday $M | Sunday 10 s | Monday $M | Monday 10 s | Majors $M | Majors 10 s |
+|---|---:|---:|---:|---:|---:|---:|
+| Under 0.25 bp | 64.2 | −0.41 | 1,385 | −0.63 | 770 | −0.48 |
+| 0.25–3 bp | 70.9 | −0.17 | 1,846 | −0.75 | 508 | −0.68 |
+| 3–5 bp | 7.1 | −0.04 | 214 | −0.89 | 48 | −0.38 |
+| 5–8 bp | 5.0 | +0.53 | 123 | −0.42 | 18 | +1.09 |
+| 8–12 bp | 2.8 | +2.00 | 65 | −0.12 | 5 | −0.84 |
+| 12–20 bp | 2.0 | +4.87 | 37 | +2.79 | 0.4 | −7.17 |
+| Over 20 bp | 2.4 | +19.78 | 13 | +12.78 | — | — |
+
+- **Fills at the touch lose everywhere,** before any fee.
+- **On HIP-3, fills 12 bp or more from the mid paid makers on both days.** By hour on Monday, fills
+  5 bp or more away were positive at 1 s in every hour except 12:00–14:59 UTC, the US pre-open and
+  open.
+- **On the majors nothing clears the 1.5 bp fee.** The 5–8 bp bucket earns +1.09 bp on $18M.
+
+**Who earns as a maker** (`*_makers.csv`):
+- **Majors:** 5,044 maker wallets; the top five hold 23%. The two largest have markouts of −0.38
+  and −0.48 bp at 10 s; none of the top twelve is positive at 10 s. At the base fee they would
+  all lose; they are paid by rebates and scale.
+- **HIP-3 Monday:** 31 of the 150 makers with over $0.5M in each half of the day had a positive
+  10 s markout in both halves. The clearest, `0x5c9b8410`, filled $67M at an average 2.65 bp from
+  the mid and kept +0.7 to +2.2 bp at 10 s in each part of the day. Its fills earn at every
+  distance, so its quotes follow the true price faster than the book does.
+
+### Idea 1: flow on a public clock (TWAP slices)
+
+**The idea.** A quote loses in proportion to the time it is exposed. An order that arrives on a
+public clock lets a slow maker be exposed only then.
+
+**What the data shows.**
+- **Hyperliquid marks TWAP slices:** their hash is all zeros. Same-wallet zero-hash prints are
+  29–31 s apart in 80,482 of 109,315 gaps (majors), with the rest at multiples of 30 s. The next
+  slice is predictable to within 1 s 98.5% of the time (96.1% on HIP-3).
+- **Makers do not lose to them:**
+
+| | TWAP slices, $M | 1 s | 10 s | 60 s | Signed orders, $M | 1 s | 10 s | 60 s |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Majors | 59.6 | +0.12 | +0.12 | +0.09 | 1,348 | −0.27 | −0.53 | −0.43 |
+| HIP-3 Sunday | 9.4 | +0.75 | +0.98 | +1.26 | 154 | +0.34 | +0.18 | +0.12 |
+| HIP-3 Monday | 44.1 | +0.72 | +0.65 | +0.38 | 3,683 | −0.32 | −0.61 | −0.98 |
+
+**The strategy test** (`study.py`, "jit"): a quote one tick inside the spread, from 1.5 s before
+each predicted slice to 1.5 s after.
+- **Majors:** the spread is one tick for 98,017 of 100,216 predictable slices, so there is no price
+  to improve to. The rest net −1.33 bp after the 1.5 bp fee.
+- **HIP-3 Monday:** 13,755 fills by the slice (−0.15 bp at 30 s) and 6,900 by another taker who
+  came first (−1.26 bp). After the 0.3 bp fee: −$350 on $3.5M filled.
+- **HIP-3 Sunday:** −$14 on $1.9M; only `xyz:ANT` paid (+$20 on $174k).
+- **Why:** the tick given up to get in front (0.4–0.5 bp) is the whole edge.
+
+**Following large TWAPs** ("follow"): a position in the TWAP's direction from its third slice
+until it stops. HIP-3 Monday +6.9 bp per TWAP (478 TWAPs, t = 1.6; by market-hour t = 1.3). On
+Sunday no size bucket was above +1.1 bp, and on the majors none above +3.3 (t = 1.4). Not shown.
+
+**Prior work** (checked after the tests): the zero-hash marker is in Hyperliquid's own API
+documentation, and Barone and Lillo (arXiv 2606.15715, June 2026) show that visible TWAPs get
+cheaper execution and draw extra depth on the absorbing side. The maker-side numbers above agree
+with them; the idea is not new.
+
+### Idea 2: score the makers, not only the takers
+
+**The idea.** A1 scores taker wallets by what their takes cost makers. Every print also names the
+maker, so maker wallets can be scored the same way, and a good maker's presence might mark safe
+flow.
+
+**The test** (HIP-3 Monday, makers with over $0.5M in each half): quartiles by first-half 10 s
+markout, then their second half.
+
+| First-half quartile | First half | Second half |
+|---|---:|---:|
+| Worst | −1.97 | −2.25 |
+| 2 | −0.11 | −0.83 |
+| 3 | +0.49 | −0.61 |
+| Best | +1.50 | −0.00 |
+
+Rank correlation 0.28. Bad makers stay bad; good ones fall back to zero. It separates who to avoid
+copying, not when to quote. Not a signal.
+
+**Prior work:** wallet classification on HIP-3 by maker or taker role exists (Arrakis, April 2026);
+no maker-score quoting rule was found.
+
+### Idea 3: a reference from the same venue
+
+- **Crypto twins on HIP-3 dexes** (`hyna:BTC` and the like, anchored to the main book on the same
+  feed): none has growth mode and volume, so the fee is 1.67 bp or more. Dropped.
+- **Pulling a side on the oracle gap or on the Nasdaq-100 perp's move** (`z=1`, `z=2`; the index
+  through `--twins`), Monday: −$23 to −$61 an hour, and −2.7 to −3.8 bp per filled $, the same as
+  without. The guard reacts as late as the quote does.
+
+### The variable that helps: depth in units of volatility
+
+One-second moves of 8 bp or more happen 2 to 39 times an hour in the median market on Monday, and
+hundreds of times an hour in `xyz:SOXL`, `xyz:KORU` and `xyz:SNDK`. A fixed 8 bp is deep in one
+market and at the touch in another. New `hush@` setting `k`: the entry quotes are at least `k`
+times the mid's 1 s volatility from the mid.
+
+| `hush@…/quiet=0/tol=0.3` | Monday $/h [95%] | Monday bp per filled $ | Filled $ still 5 bp or more from the mid | Sunday $/h [95%] |
+|---|---|---:|---:|---|
+| `d=8` (registered, failed) | −36.49 [−81.96, −4.52] | −3.08 | 26% | +6.11 [+0.44, +11.60] |
+| `d=16` | −15.60 [−33.56, +1.32] | −6.38 | 51% | |
+| `d=20` | −13.49 [−30.32, +2.16] | −10.67 | | |
+| `d=8/jump=5/calm=60` | −12.20 [−23.08, −2.52] | −18.12 | | |
+| `d=8/k=6` | +2.90 [−18.76, +26.48] | +1.07 | 62% | +4.34 [−2.20, +11.04] |
+| `d=8/k=10` | +1.17 [−7.88, +10.68] | +1.09 | 67% | +2.20 [−4.32, +8.64] |
+| `d=12/k=10` | +2.89 [−8.04, +16.12] | +3.47 | 78% | +2.77 [−3.00, +8.48] |
+| `d=8/k=14` | −4.70 [−14.80, +4.80] | −8.08 | | +1.18 [−3.36, +5.72] |
+| `d=8/k=20` | −8.59 [−19.44, +2.08] | −26.51 | | |
+
+- **Scaling the depth to volatility stops the weekday loss.** From −$36.49/h, the three settings
+  with `k` of 6 to 10 made +$1.17 to +$2.90/h on Monday. No interval excludes zero.
+- **It does what it was built for:** with `d=12/k=10`, 78% of the filled $ traded 5 bp or more
+  from the true mid, against 26% for the fixed 8 bp.
+- **Edge per fill** (the fills' 60 s markout minus the 0.3 bp fee, `scripts/flow/edge.py`):
+  - fixed 8 bp, Monday: −3.28 bp [−4.66, −1.25];
+  - `d=12/k=10`, Monday: +3.41 bp [−0.66, +6.95];
+  - `d=12/k=10`, Sunday: +2.61 bp [+0.42, +4.41].
+- **A fixed deeper quote is worse per $,** because its fills pile into the most volatile markets,
+  where 16–20 bp is still close.
+- **Pausing after a jump loses:** the pause also stops the quote that would close the position
+  (position PnL −17.6 bp per filled $).
+- **Beyond `k=10` the fills keep paying for five minutes** (+4.06 and +4.61 bp at 60 s for `k` of
+  14 and 20), but there are too few of them to close positions, and the position PnL dominates
+  (−9.5 and −27.6 bp per filled $).
+- **It depends on the order delay.** With orders 0.7 s late instead of 0.2 s, and fills capped at
+  each trade's size:
+  - `d=12/k=10`, Monday: −$2.44/h [−19.60, +12.84], edge per fill −0.45 bp [−7.39, +4.98];
+  - `d=12/k=10`, Sunday: +$2.73/h [−3.68, +8.92], edge per fill +1.78 bp [−1.32, +3.85];
+  - fixed 8 bp, Sunday: +$1.84/h [−5.00, +8.16], down from +$6.11.
+- **Selection:** about a dozen settings were tried on one weekday and one Sunday. These numbers
+  choose a setting to test; they are not a result.
+
+### What follows
+
+- **Majors:** the fee is the problem, not speed. No maker wallet there has a positive markout
+  before rebates.
+- **HIP-3:** deep fills pay on both days. Our loss is the 0.5–0.8 s in which a quote can be hit
+  after the market has moved to it. Three levers address it: quote only where jumps are rare
+  (closed hours), set the depth in volatility units, or cut the reaction time.
+- **Registered next:** `hush@d=12/quiet=0/k=10/tol=0.3` on 48 weekday hours
+  (`paper-hip3-farsweep-20261109.md`) and on the weekend of 14–15 November
+  (`paper-hip3-weekend-20261109.md`), both on the 50-market recordings.
+- **The open measurement:** how long an order really takes to reach the book from this PC. The
+  engine assumes 0.2 s; at 0.7 s the weekday edge is gone and the weekend edge is not.
 
 ## What a faster server would buy: the delay frontier (2026-11-09, exploratory)
 
@@ -1124,3 +1333,4 @@ The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
 | `eval/paper/loss/` | Every live PC run scored: dollars by component per run, markout curve 0.2–300 s, the move before each fill, by coin and hour |
 | `eval/paper/test_hush_*_20261108.*` | The `hush@` registered test: tune output, reports paired with the ungated control and with `zgap@0.05`, markouts, by coin, the dashboard table |
 | `eval/paper/latency/` | The delay frontier: each replay's report by venue and total delay, and `frontier_20261109.csv` with $ an hour at each maker-fee tier (`scripts/latency/`) |
+| `eval/paper/flow/`, `scripts/flow/` | Every public print with both wallets (`prints.py`), TWAP slices and maker markouts (`twap.py`, `study.py`), our fills against the true mid (`ourfills.py`), the edge per fill (`edge.py`), and the volatility-scaled replays (`variants.csv`) |

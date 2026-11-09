@@ -212,8 +212,13 @@ class CoinState:
 
     def on_depth(self, ev: Depth, local_ms: int | None = None) -> None:
         self.depth = ev
-        if (local_ms is not None and self.top is not None and ev.t_ms >= self.top.t_ms
-                and max(ev.bids) == self.top.bid and min(ev.asks) == self.top.ask):
+        if (
+            local_ms is not None
+            and self.top is not None
+            and ev.t_ms >= self.top.t_ms
+            and max(ev.bids) == self.top.bid
+            and min(ev.asks) == self.top.ask
+        ):
             self.book_received_ms = local_ms
 
     def on_trade(self, ev: Trade, local_ms: int) -> None:
@@ -375,8 +380,10 @@ class CoinState:
 
     # --- the 100 ms grid
     def sample(self, local_ms: int) -> None:
-        if self.book_received_ms is None or self.ref_received_ms is None or any(
-            local_ms - t > 3000 for t in (self.book_received_ms, self.ref_received_ms)
+        if (
+            self.book_received_ms is None
+            or self.ref_received_ms is None
+            or any(local_ms - t > 3000 for t in (self.book_received_ms, self.ref_received_ms))
         ):
             return  # a quiet/disconnected feed cannot supply fabricated flat-return labels
         raw = self.raw_gap()

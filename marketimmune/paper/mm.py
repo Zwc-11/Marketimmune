@@ -66,8 +66,10 @@ class MMParams:
             value = getattr(self, setting.name)
             if value is not None and not math.isfinite(value):
                 raise ValueError(f"mm {setting.name} must be finite")
-        if self.h <= 0 or any(getattr(self, name) < 0 for name in ("net", "stop", "hold", "dd", "pause", "burst", "vol", "tol", "cool", "stale")):
-            raise ValueError("mm spread must be positive and risk limits cannot be negative")
+        if self.h < 0 or any(
+            getattr(self, name) < 0 for name in ("net", "stop", "hold", "dd", "pause", "burst", "vol", "tol", "cool", "stale")
+        ):
+            raise ValueError("mm spread and risk limits cannot be negative")
 
     @property
     def skew_bps(self) -> float:
@@ -121,8 +123,9 @@ def micro_bps(top: Top) -> float:
     return ((top.bid * top.ask_sz + top.ask * top.bid_sz) / size / top.mid - 1.0) * BPS
 
 
-def sweep_fill(top: Top, depth: Depth | None, side: int, qty: float,
-               used: dict[tuple[int, int, float], float] | None = None) -> tuple[float, float]:
+def sweep_fill(
+    top: Top, depth: Depth | None, side: int, qty: float, used: dict[tuple[int, int, float], float] | None = None
+) -> tuple[float, float]:
     """Average price of a taker order of ``qty`` (``side`` +1 buys) through the seen book: the top's
     size first, then fresh depth beyond it. Unobserved size is not executable."""
     if not math.isfinite(qty) or qty <= 0:
