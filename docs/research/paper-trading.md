@@ -922,6 +922,31 @@ on weekday hours (`paper-hip3-deep8-20261109.md`). The test data are the PC's `l
 segments from 01:28 UTC on Monday 9 November, 16 h. In the 11.7 weekend hours it made +$6.11/h
 [+0.44, +11.60], two-thirds of it on `xyz:ANT` and `io:ANTH`.
 
+**It fails on weekdays** (`eval/paper/hip3/test_deep8_*`). The data were 13.9 h, 01:29–15:31 UTC
+Monday; the run stopped when the 50-market run started.
+
+| Setting | Weekend (11.7 h) | Weekday [95%] | bp per filled $, weekday |
+|---|---:|---|---:|
+| `hush@d=8/quiet=0` (registered) | +6.11 | −36.49 [−81.96, −4.52] | −3.08 |
+| `hush@d=8/quiet=5` | | −8.22 [−20.28, +3.04] | −2.84 |
+| `mm@8` | +1.65 | −29.15 [−47.40, −15.20] | −1.89 |
+| `mm@5` | | −63.87 [−89.28, −43.64] | −2.03 |
+| `zgap@0.05` | −5.54 | −172.30 [−264.00, −108.92] | −1.83 |
+| `touch` | −40.22 | −498.64 [−773.80, −318.80] | −1.76 |
+
+- **Five times the fills, and losing ones.** The 8 bp quotes filled $118k an hour against $23k on
+  Sunday. Their markout before the fee was −2.45 bp at 1 s and −3.10 at 30 min, against +1.18 and
+  +2.65 on Sunday.
+- **By session:** −$16.44/h before the US open and −$291.18/h in the hour after it.
+- **By market:** losses on 24 of 32 markets.
+- **The Anthropic pair:** about flat on weekdays, +$0.53/h for 8 bp quotes and +$1.93 for `mm@8`.
+- **Robustness:**
+  - Capping through-fills at the print's size: −$43.53/h.
+  - Closing leftovers at each segment's end: about −$0.5/h more.
+  - Retimed to 300 / 200 ms total delay: −$16.26 [−42.00, +4.80] / −$7.26 [−25.84, +11.88].
+- **So the weekend edge was the weekend:** stale oracles and takers who overshoot. Once the
+  underlying stocks trade, the quotes are run over.
+
 ## Searching the deep quotes (2026-11-09, exploratory)
 
 `scripts/search/`, `eval/paper/search/`.

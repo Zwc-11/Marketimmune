@@ -16,12 +16,18 @@ model:
   sweep would have stopped one order sooner.
 
 Sides are +1 for a bid (we buy) and -1 for an ask.
+
+``CAP_THROUGH`` (``paper_trade --cap-through-fills``, a sensitivity setting): a trade through the
+order's price fills at most that trade's size, not the whole order. That is a lower bound, since a
+sweep's other prints are not added up.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+
+CAP_THROUGH = False  # see the module docstring
 
 NEVER = 1 << 62
 
@@ -57,7 +63,7 @@ class PaperOrder:
             return 0.0
         better = px < self.px if self.side > 0 else px > self.px
         if better:
-            fill = self.qty
+            fill = min(self.qty, sz) if CAP_THROUGH else self.qty
         elif px == self.px:
             ahead = seen_size if self.queue is None else self.queue
             if self.joined is None:

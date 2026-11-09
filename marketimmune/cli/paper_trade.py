@@ -25,6 +25,7 @@ import urllib.request
 from pathlib import Path
 
 from marketimmune.logger import init_logger
+from marketimmune.paper import orders
 from marketimmune.paper.dashboard import Board
 from marketimmune.paper.engine import Engine
 from marketimmune.paper.journal import Journal
@@ -84,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         "--twins", default="", help="HIP-3 markets referenced to another market's book: follower=leader,... (e.g. io:SNDK=xyz:SNDK)"
     )
     parser.add_argument("--maker-fee-bps", type=float, default=1.5)
+    parser.add_argument("--cap-through-fills", action="store_true", help="sensitivity: a trade through a quote fills at most its own size")
     parser.add_argument("--taker-fee-bps", type=float, default=4.5)
     parser.add_argument("--no-raw", action="store_true", help="do not keep the raw messages")
     parser.add_argument("--no-journal", action="store_true", help="do not write the decision journal")
@@ -107,6 +109,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--segment-hours", type=float, default=None, help="split a live run into segments of this length under --out")
     args = parser.parse_args(argv)
+    orders.CAP_THROUGH = args.cap_through_fills
     if args.replay is not None:
         engine = make_engine(args, args.out)
         if args.state_dir is not None:
