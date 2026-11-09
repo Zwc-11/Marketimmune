@@ -1,6 +1,6 @@
 # Pre-registration: 8 bp deep quotes on HIP-3 growth-mode markets, weekday hours
 
-Written 2026-11-09 about 00:45 UTC, before any test hour is recorded. Scored once.
+Written 2026-11-09 about 00:40 UTC, before any test hour is recorded. Scored once.
 
 ## Where this comes from
 
