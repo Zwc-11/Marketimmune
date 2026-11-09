@@ -8,16 +8,16 @@ Written 2026-11-09 about 00:40 UTC, before any test hour is recorded. Scored onc
 market, passive only, with no wallet gate (`quiet=0`). A resting order stays while it is within
 0.3 × 8 = 2.4 bp of its target, so it keeps its place in the queue.
 
-**The evidence so far:** the cloud's HIP-3 recording of 2026-11-08 00:00–13:00 UTC, a Sunday.
+**The evidence so far:** the cloud's HIP-3 recording of 2026-11-08 00:24–12:05 UTC, a Sunday (11.7 h).
 - **Selection window** (00:22–02:00, 1.6 h): +$13.53/h.
 - **First registered test's window** (02:20–05:20, 3 h): +$6.66/h [+1.48, +12.88]. This setting
   was reported there, not registered; the registered gated one failed
   (`paper-hip3-20261108.md`).
-- **All 13 h as recorded** (`eval/paper/latency/hip3_here_report.json`, exploratory; it includes
+- **All 11.7 h as recorded** (`eval/paper/latency/hip3_here_report.json`, exploratory; it includes
   both windows above): +$6.11/h [+0.44, +11.60].
   - $23k filled an hour; 0.35 orders per filled $; worst drawdown −$28.
   - Per filled $: +2.66 bp. Spread +6.42, move in 1 s −5.23, position +1.78, fee −0.30.
-- **Concentration:** two-thirds of the 13 h total came from `xyz:ANT` and `io:ANTH`, the two
+- **Concentration:** two-thirds of the 11.7 h total came from `xyz:ANT` and `io:ANTH`, the two
   pre-IPO Anthropic markets. Without them it made +$1.96/h.
 - **Selection effects:** this setting was one of six reported together in each window, and it is
   picked here after seeing them. The true value is likely lower than the evidence.
@@ -65,7 +65,7 @@ stationary-bootstrap 95% interval above zero (`paper_report`: 15-minute blocks, 
 
 ## Power and limits
 
-**Power.** Over 13 h the interval was about ±5.6 $/h, so over 16 h it is about ±5. A true +$6/h
+**Power.** Over 11.7 h the interval was about ±5.6 $/h, so over 16 h it is about ±5. A true +$6/h
 would pass a little over half the time. The weekend-to-weekday change and the selection effects
 both push the true value below +6.
 
@@ -75,3 +75,8 @@ both push the true value below +6.
 - **The fee:** the `io:` markets' growth-mode fee is assumed equal to trade.xyz's.
 - **Concentration:** if the pair carries the result again, it is a bet on one underlying.
 - **Capacity:** $250 quotes.
+
+## Correction (2026-11-09 01:45 UTC, before any test segment was read)
+
+The evidence recording was first described as 13 h (00:00–13:00 UTC). The replay covers
+00:24–12:05 UTC, 11.7 h; the text above now says so. Nothing registered changed.

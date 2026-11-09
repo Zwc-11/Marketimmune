@@ -1,0 +1,360 @@
+{
+ "hours": {
+  "f/seg-20261107T2329": 2.0,
+  "f/seg-20261108T0129": 2.001,
+  "f/seg-20261108T0329": 2.0,
+  "f/seg-20261108T0529": 2.0,
+  "f/seg-20261108T0729": 2.001,
+  "f/seg-20261108T0929": 2.001,
+  "f/seg-20261108T1129": 2.0,
+  "f/seg-20261108T1329": 2.001
+ },
+ "configs": [
+  "250x4"
+ ],
+ "budget_usd": 5000.0,
+ "latency_ms": 265,
+ "retime": "hl=265,cb=0",
+ "fees_bps": {
+  "maker": 1.5,
+  "taker": 4.5
+ },
+ "clock_corrected": [
+  "f"
+ ],
+ "causal_clock": true,
+ "max_orders_per_usd": 1.0,
+ "options": 5,
+ "excluded": 1,
+ "over_limit": [
+  {
+   "strategy": "mm@3",
+   "config": "250x4",
+   "orders_per_usd": 1.35,
+   "usd_per_hour": -2.2
+  }
+ ],
+ "families": {
+  "hush": {
+   "best": {
+    "strategy": "hush@d=3/quiet=5/inf=0.665/tol=0.3",
+    "config": "250x4",
+    "usd_per_hour": -1.9,
+    "orders_per_usd": 0.55,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "f/seg-20261107T2329": 0.4,
+    "f/seg-20261108T0129": -5.3,
+    "f/seg-20261108T0329": -0.2,
+    "f/seg-20261108T0529": -1.6,
+    "f/seg-20261108T0729": 1.8,
+    "f/seg-20261108T0929": -5.2,
+    "f/seg-20261108T1129": -1.6,
+    "f/seg-20261108T1329": -3.8
+   },
+   "cv_usd_per_hour": -1.9,
+   "folds": [
+    {
+     "left_out": "f/seg-20261107T2329",
+     "pick": "hush@d=3/quiet=5/inf=0.665/tol=0.3 250x4",
+     "left_out_usd_per_hour": 0.4
+    },
+    {
+     "left_out": "f/seg-20261108T0129",
+     "pick": "hush@d=3/quiet=5/inf=0.665/tol=0.3 250x4",
+     "left_out_usd_per_hour": -5.3
+    },
+    {
+     "left_out": "f/seg-20261108T0329",
+     "pick": "hush@d=3/quiet=5/inf=0.665/tol=0.3 250x4",
+     "left_out_usd_per_hour": -0.2
+    },
+    {
+     "left_out": "f/seg-20261108T0529",
+     "pick": "hush@d=3/quiet=5/inf=0.665/tol=0.3 250x4",
+     "left_out_usd_per_hour": -1.6
+    },
+    {
+     "left_out": "f/seg-20261108T0729",
+     "pick": "hush@d=3/quiet=5/inf=0.665/tol=0.3 250x4",
+     "left_out_usd_per_hour": 1.8
+    },
+    {
+     "left_out": "f/seg-20261108T0929",
+     "pick": "hush@d=3/quiet=5/inf=0.665/tol=0.3 250x4",
+     "left_out_usd_per_hour": -5.2
+    },
+    {
+     "left_out": "f/seg-20261108T1129",
+     "pick": "hush@d=3/quiet=5/inf=0.665/tol=0.3 250x4",
+     "left_out_usd_per_hour": -1.6
+    },
+    {
+     "left_out": "f/seg-20261108T1329",
+     "pick": "hush@d=3/quiet=5/inf=0.665/tol=0.3 250x4",
+     "left_out_usd_per_hour": -3.8
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "hush@d=3/quiet=5/inf=0.665/tol=0.3",
+     "config": "250x4",
+     "usd_per_hour": -1.9,
+     "orders_per_usd": 0.55,
+     "f/seg-20261107T2329": 0.4,
+     "f/seg-20261108T0129": -5.3,
+     "f/seg-20261108T0329": -0.2,
+     "f/seg-20261108T0529": -1.6,
+     "f/seg-20261108T0729": 1.8,
+     "f/seg-20261108T0929": -5.2,
+     "f/seg-20261108T1129": -1.6,
+     "f/seg-20261108T1329": -3.8,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  },
+  "mm": {
+   "best": {
+    "strategy": "mm@1.5",
+    "config": "250x4",
+    "usd_per_hour": -4.8,
+    "orders_per_usd": 0.65,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "f/seg-20261107T2329": -4.5,
+    "f/seg-20261108T0129": -9.9,
+    "f/seg-20261108T0329": -3.3,
+    "f/seg-20261108T0529": -0.6,
+    "f/seg-20261108T0729": -5.9,
+    "f/seg-20261108T0929": -2.5,
+    "f/seg-20261108T1129": -8.4,
+    "f/seg-20261108T1329": -3.7
+   },
+   "cv_usd_per_hour": -4.8,
+   "folds": [
+    {
+     "left_out": "f/seg-20261107T2329",
+     "pick": "mm@1.5 250x4",
+     "left_out_usd_per_hour": -4.5
+    },
+    {
+     "left_out": "f/seg-20261108T0129",
+     "pick": "mm@1.5 250x4",
+     "left_out_usd_per_hour": -9.9
+    },
+    {
+     "left_out": "f/seg-20261108T0329",
+     "pick": "mm@1.5 250x4",
+     "left_out_usd_per_hour": -3.3
+    },
+    {
+     "left_out": "f/seg-20261108T0529",
+     "pick": "mm@1.5 250x4",
+     "left_out_usd_per_hour": -0.6
+    },
+    {
+     "left_out": "f/seg-20261108T0729",
+     "pick": "mm@1.5 250x4",
+     "left_out_usd_per_hour": -5.9
+    },
+    {
+     "left_out": "f/seg-20261108T0929",
+     "pick": "mm@1.5 250x4",
+     "left_out_usd_per_hour": -2.5
+    },
+    {
+     "left_out": "f/seg-20261108T1129",
+     "pick": "mm@1.5 250x4",
+     "left_out_usd_per_hour": -8.4
+    },
+    {
+     "left_out": "f/seg-20261108T1329",
+     "pick": "mm@1.5 250x4",
+     "left_out_usd_per_hour": -3.7
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "mm@1.5",
+     "config": "250x4",
+     "usd_per_hour": -4.8,
+     "orders_per_usd": 0.65,
+     "f/seg-20261107T2329": -4.5,
+     "f/seg-20261108T0129": -9.9,
+     "f/seg-20261108T0329": -3.3,
+     "f/seg-20261108T0529": -0.6,
+     "f/seg-20261108T0729": -5.9,
+     "f/seg-20261108T0929": -2.5,
+     "f/seg-20261108T1129": -8.4,
+     "f/seg-20261108T1329": -3.7,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  },
+  "touch": {
+   "best": {
+    "strategy": "touch",
+    "config": "250x4",
+    "usd_per_hour": -27.0,
+    "orders_per_usd": 0.13,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "f/seg-20261107T2329": -32.5,
+    "f/seg-20261108T0129": -33.3,
+    "f/seg-20261108T0329": -17.9,
+    "f/seg-20261108T0529": -19.6,
+    "f/seg-20261108T0729": -20.7,
+    "f/seg-20261108T0929": -24.1,
+    "f/seg-20261108T1129": -31.9,
+    "f/seg-20261108T1329": -36.3
+   },
+   "cv_usd_per_hour": -27.0,
+   "folds": [
+    {
+     "left_out": "f/seg-20261107T2329",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -32.5
+    },
+    {
+     "left_out": "f/seg-20261108T0129",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -33.3
+    },
+    {
+     "left_out": "f/seg-20261108T0329",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -17.9
+    },
+    {
+     "left_out": "f/seg-20261108T0529",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -19.6
+    },
+    {
+     "left_out": "f/seg-20261108T0729",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -20.7
+    },
+    {
+     "left_out": "f/seg-20261108T0929",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -24.1
+    },
+    {
+     "left_out": "f/seg-20261108T1129",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -31.9
+    },
+    {
+     "left_out": "f/seg-20261108T1329",
+     "pick": "touch 250x4",
+     "left_out_usd_per_hour": -36.3
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "touch",
+     "config": "250x4",
+     "usd_per_hour": -27.0,
+     "orders_per_usd": 0.13,
+     "f/seg-20261107T2329": -32.5,
+     "f/seg-20261108T0129": -33.3,
+     "f/seg-20261108T0329": -17.9,
+     "f/seg-20261108T0529": -19.6,
+     "f/seg-20261108T0729": -20.7,
+     "f/seg-20261108T0929": -24.1,
+     "f/seg-20261108T1129": -31.9,
+     "f/seg-20261108T1329": -36.3,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  },
+  "zgap": {
+   "best": {
+    "strategy": "zgap@0.05",
+    "config": "250x4",
+    "usd_per_hour": -2.4,
+    "orders_per_usd": 0.29,
+    "held_out_usd_per_hour": {}
+   },
+   "best_per_segment_usd_per_hour": {
+    "f/seg-20261107T2329": -9.7,
+    "f/seg-20261108T0129": -0.0,
+    "f/seg-20261108T0329": -2.2,
+    "f/seg-20261108T0529": -1.2,
+    "f/seg-20261108T0729": 0.5,
+    "f/seg-20261108T0929": -0.9,
+    "f/seg-20261108T1129": 0.2,
+    "f/seg-20261108T1329": -5.7
+   },
+   "cv_usd_per_hour": -2.4,
+   "folds": [
+    {
+     "left_out": "f/seg-20261107T2329",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": -9.7
+    },
+    {
+     "left_out": "f/seg-20261108T0129",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": -0.0
+    },
+    {
+     "left_out": "f/seg-20261108T0329",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": -2.2
+    },
+    {
+     "left_out": "f/seg-20261108T0529",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": -1.2
+    },
+    {
+     "left_out": "f/seg-20261108T0729",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": 0.5
+    },
+    {
+     "left_out": "f/seg-20261108T0929",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": -0.9
+    },
+    {
+     "left_out": "f/seg-20261108T1129",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": 0.2
+    },
+    {
+     "left_out": "f/seg-20261108T1329",
+     "pick": "zgap@0.05 250x4",
+     "left_out_usd_per_hour": -5.7
+    }
+   ],
+   "picks_agree": true,
+   "all": [
+    {
+     "strategy": "zgap@0.05",
+     "config": "250x4",
+     "usd_per_hour": -2.4,
+     "orders_per_usd": 0.29,
+     "f/seg-20261107T2329": -9.7,
+     "f/seg-20261108T0129": -0.0,
+     "f/seg-20261108T0329": -2.2,
+     "f/seg-20261108T0529": -1.2,
+     "f/seg-20261108T0729": 0.5,
+     "f/seg-20261108T0929": -0.9,
+     "f/seg-20261108T1129": 0.2,
+     "f/seg-20261108T1329": -5.7,
+     "held_out_usd_per_hour": {}
+    }
+   ]
+  }
+ },
+ "held_out_hours": {}
+}
