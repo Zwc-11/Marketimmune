@@ -72,3 +72,22 @@ stationary-bootstrap 95% interval above zero (`paper_report`: 15-minute blocks, 
 - **Multiplicity:** this runs beside the 32-market weekday test
   (`paper-hip3-deep8-20261109.md`). Two markets and some hours overlap. Each is scored on its own
   criterion, and the write-up reports both.
+
+## Addendum, 2026-11-09 about 23:37 UTC (before any test segment was read)
+
+**1. The run stopped early and was restarted.** `live-hip3-wide` recorded 5.4 h (15:31 to
+20:54 UTC), under the 8 h minimum. An audited copy of the runner restarted the same 50 markets at
+20:55 UTC, in `G:\Crypto Data\paper\live-hip3-audited-20261109T2056`. By the rule above, the
+test is that run's first eight 2-hour segments, 20:55 UTC on 9 November to about 12:56 UTC on
+10 November. The 5.4 h of `live-hip3-wide` are reported beside it and do not count.
+- **Read so far:** file listings, the first two segments' `meta.json` and `manifest.json`, and
+  the runner's log. No fills, prices or reports.
+
+**2. The engine that scores it.** An audit of the paper engine finished the same evening (branch
+`audit/hip3-20261109`). It found that the engine this registration names fills too much: a trade
+through a quote filled the whole order, shrinking displayed size counted as cancellations ahead, a
+quote beyond the recorded levels was first in line, and each segment started flat. All four
+flatter deep quotes. So P1 is scored on the audited engine (branch `audit/hip3-20261109` at
+`a1c3d11`), which decides the result, and the engine as registered (master at `e68c306`) is
+reported beside it. Positions carry across segments, so "positions start flat" holds for the
+first segment only.
