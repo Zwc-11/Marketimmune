@@ -1,6 +1,6 @@
 # Pre-registration: 10 bp deep quotes on the 50 wide-spread HIP-3 growth-mode markets
 
-Written 2026-11-09 about 04:15 UTC. None of the test hours exists yet. None of the 50 markets'
+Written 2026-11-09 about 04:00 UTC. None of the test hours exists yet. None of the 50 markets'
 recordings has been read, apart from a 70-second live smoke test whose results were not looked at.
 Scored once.
 
