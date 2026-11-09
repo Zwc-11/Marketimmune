@@ -78,3 +78,26 @@ def test_hush_quotes_deep_only_while_informed_wallets_are_quiet() -> None:
     assert q.targets(coin, 4_000, 0.0, 0.04, 0.0) == (None, None)  # 1 s after an informed take: out
     assert coin.informed_quiet_ms(9_000, 0.9, 5) == 6_000.0
     assert q.targets(coin, 9_000, 0.0, 0.04, 0.0)[0] is not None  # quiet again after 5 s
+
+
+def test_hush_widens_with_volatility_and_pauses_after_a_jump() -> None:
+    from marketimmune.paper.signals import CoinState, Wallets
+    from marketimmune.paper.strategies import Hush, parse_hush
+
+    coin = CoinState("xyz:NVDA", Wallets(), sz_decimals=3)
+    coin.on_top(SimpleNamespace(t_ms=0, bid=199.99, ask=200.01, mid=200.0), 0)  # type: ignore[arg-type]
+    wide = Hush(parse_hush("d=8/quiet=0/k=4"))
+    wide.qty = 1.0
+    assert wide.half_spread(coin) == 8.0  # no volatility estimate yet: d
+    coin.var_1s = 9.0  # 1 s volatility 3 bp
+    assert wide.half_spread(coin) == 12.0  # 4 x 3 bp
+    bid, ask = wide.targets(coin, 1_000, 0.0, 4.0, 0.0)
+    assert bid == 199.76 and ask == 200.24  # 12 bp either side
+
+    calm = Hush(parse_hush("d=8/quiet=0/jump=5/calm=30"))
+    calm.qty = 1.0
+    assert calm.targets(coin, 1_000, 0.0, 4.0, 0.0)[0] is not None
+    coin.on_top(SimpleNamespace(t_ms=1_500, bid=199.85, ask=199.87, mid=199.86), 1_500)  # type: ignore[arg-type]
+    assert calm.targets(coin, 1_600, 0.0, 4.0, 0.0) == (None, None)  # the mid fell 7 bp within a second
+    assert calm.targets(coin, 20_000, 0.0, 4.0, 0.0) == (None, None)  # still inside the 30 s pause
+    assert calm.targets(coin, 31_700, 0.0, 4.0, 0.0)[0] is not None  # quoting again

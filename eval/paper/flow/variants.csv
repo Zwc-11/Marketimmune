@@ -1,0 +1,15 @@
+order,what,setting,group,mon_usd_per_hour,mon_low,mon_high,mon_filled_per_hour,mon_bps,mon_edge60,mon_edge60_low,mon_edge60_high,sun_usd_per_hour,sun_low,sun_high,sun_edge60,sun_edge60_low,sun_edge60_high,deep_share
+0,"Fixed 8 bp (registered, failed)",hush@d=8/quiet=0/tol=0.3,Baseline,-36.49,-81.96,-4.52,118332.0,-3.084,-3.28,-4.66,-1.25,6.11,0.44,11.6,0.48,-0.59,1.5,0.26
+1,+ wallet gate,hush@d=8/quiet=5/tol=0.3,Tried,-8.22,-20.28,3.04,28949.0,-2.84,,,,,,,,,,
+2,+ oracle guard,hush@d=8/quiet=0/z=1/tol=0.3,Tried,-23.48,-49.12,-3.32,86710.0,-2.707,,,,,,,,,,
+3,+ index guard,hush@d=8/quiet=0/z=1/tol=0.3 (--twins to xyz:XYZ100),Tried,-26.79,-53.56,-4.12,70204.0,-3.816,,,,,,,,,,
+4,+ pause after a jump,hush@d=8/quiet=0/jump=5/calm=60/tol=0.3,Tried,-12.2,-23.08,-2.52,6732.0,-18.122,,,,,,,,,,
+5,Fixed 16 bp,hush@d=16/quiet=0/tol=0.3,Tried,-15.6,-33.56,1.32,24448.0,-6.379,,,,,,,,,,0.51
+6,Fixed 20 bp,hush@d=20/quiet=0/tol=0.3,Tried,-13.49,-30.32,2.16,12652.0,-10.666,,,,,,,,,,
+7,"6 x volatility, at least 8 bp",hush@d=8/quiet=0/k=6/tol=0.3,Volatility-scaled,2.9,-18.76,26.48,27068.0,1.072,-0.76,-2.86,1.07,4.34,-2.2,11.04,,,,0.62
+8,"10 x volatility, at least 8 bp",hush@d=8/quiet=0/k=10/tol=0.3,Volatility-scaled,1.17,-7.88,10.68,10714.0,1.092,1.05,-3.35,4.41,2.2,-4.32,8.64,,,,0.67
+9,"10 x volatility, at least 12 bp (the pick)",hush@d=12/quiet=0/k=10/tol=0.3,Pick,2.89,-8.04,16.12,8306.0,3.474,3.41,-0.66,6.95,2.77,-3.0,8.48,2.61,0.42,4.41,0.78
+10,"14 x volatility, at least 8 bp",hush@d=8/quiet=0/k=14/tol=0.3,Volatility-scaled,-4.7,-14.8,4.8,5818.0,-8.078,,,,1.18,-3.36,5.72,,,,
+11,"20 x volatility, at least 8 bp",hush@d=8/quiet=0/k=20/tol=0.3,Volatility-scaled,-8.59,-19.44,2.08,3240.0,-26.507,,,,,,,,,,
+12,"The pick, orders 0.7 s late, fills capped",hush@d=12/quiet=0/k=10/tol=0.3 --latency-ms 700 --cap-through-fills,Stress,-2.44,-19.6,12.84,9769.0,-2.499,-0.45,-7.39,4.98,2.73,-3.68,8.92,1.78,-1.32,3.85,
+13,"Fixed 8 bp, orders 0.7 s late, fills capped (Sunday only)",hush@d=8/quiet=0/tol=0.3 --latency-ms 700 --cap-through-fills,Stress,,,,,,,,,1.84,-5.0,8.16,-0.75,-3.8,1.32,

@@ -73,7 +73,7 @@ from typing import Protocol
 from marketimmune.paper.immune import FillModel, features, model_for, side_features
 from marketimmune.paper.mm import MarketMaking, parse
 from marketimmune.paper.optimal import policies
-from marketimmune.paper.signals import FORECAST_MS, CoinState, on_tick
+from marketimmune.paper.signals import FORECAST_MS, CoinState, log_bps, on_tick
 
 Quotes = tuple[float | None, float | None]
 
@@ -690,7 +690,10 @@ class HushParams:
     quotes this many bps from the mid (default: as deep as ``d``). ``quiet``: seconds since the last
     take on the coin by a wallet scoring at least ``inf`` bps with ``n`` scored takes (A1's wallet
     score), below which nothing is quoted. ``z``: also pull the side the Coinbase gap says is at risk
-    (``guard@``'s rule; 0 turns it off)."""
+    (``guard@``'s rule; 0 turns it off). ``k``: entry quotes are at least ``k`` times the mid's 1 s
+    volatility from the mid (so the depth widens when the market does; 0: ``d`` only). ``jump`` and
+    ``calm``: after the mid moves ``jump`` bps or more within a second, nothing is quoted for
+    ``calm`` seconds (0: off)."""
 
     d: float = 1.0
     x: float = -1.0
@@ -698,6 +701,9 @@ class HushParams:
     inf: float = 1.3
     n: float = 5.0
     z: float = 0.0
+    k: float = 0.0
+    jump: float = 0.0
+    calm: float = 0.0
     lean: float = 1.0
     net: float = 0.0
     stop: float = 0.0
@@ -737,9 +743,12 @@ class Hush:
         self.p = params
         self.why = "not started"
         self.qty = 0.0
+        self.calm_until = 0
 
     def half_spread(self, coin: CoinState) -> float:
-        return self.p.d
+        """The entry depth, bps: ``d``, or ``k`` times the 1 s volatility if that is more."""
+        sigma = coin.sigma_1s if self.p.k > 0 else None
+        return max(self.p.d, self.p.k * sigma) if sigma is not None else self.p.d
 
     def quotes(self, coin: CoinState, local_ms: int, position: float, max_position: float) -> Quotes:
         return self.targets(coin, local_ms, position, max_position, 0.0)
@@ -756,11 +765,19 @@ class Hush:
         if quiet_ms < p.quiet * 1_000:
             self.why = f"an informed wallet took {quiet_ms / 1_000:.1f} s ago (< {p.quiet:g} s): no quotes"
             return None, None
+        if p.jump > 0:
+            move = abs(log_bps(coin.view.at(local_ms), coin.view.at(local_ms - 1_000)))
+            if move >= p.jump:
+                self.calm_until = local_ms + int(p.calm * 1_000)
+            if local_ms < self.calm_until:
+                self.why = f"the mid jumped {p.jump:g} bp or more in a second: no quotes for {(self.calm_until - local_ms) / 1_000:.0f} s"
+                return None, None
         eps = 1e-9 * max(self.qty, 1e-12)
         units = position / self.qty if self.qty else 0.0
-        x = p.d if p.x < 0 else p.x
-        bid_bps = x if units < -1e-6 else p.d
-        ask_bps = x if units > 1e-6 else p.d
+        d = self.half_spread(coin)
+        x = d if p.x < 0 else p.x
+        bid_bps = x if units < -1e-6 else d
+        ask_bps = x if units > 1e-6 else d
         bid = min(_down(top.mid * (1 - bid_bps / BPS), tick), top.bid) if position < max_position - eps else None
         ask = max(_up(top.mid * (1 + ask_bps / BPS), tick), top.ask) if position > -max_position + eps else None
         notes = [f"quiet {quiet_ms / 1_000:.0f} s: bid {bid_bps:g} bp, ask {ask_bps:g} bp from the mid"]
