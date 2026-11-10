@@ -100,3 +100,12 @@ registered pulled them only when the whole feed was silent. Reported beside P1: 
 **4. Interim look (10 November, 01:47 UTC).** The runner's live view was opened at 4.9 h into the
 test (segment 3). It showed each strategy's running PnL on the test hours. Nothing was replayed or
 changed. The rule and the scoring are as above.
+
+**Interruption (recorded 10 November, 02:39 UTC).** The runner was stopped at 02:33:50 UTC and
+restarted into the same folder at 02:38:28 UTC, with positions and wallet scores carried
+(`seg-20261110T023827-65c867b8`). So segment `seg-20261110T005608-825965b3` is 1.6 h, not 2 h, and
+4.6 minutes are missing. A 75-second run on the earlier engine, 02:36:49–02:38:04 UTC, went to
+`live-hip3-wide\seg-20261110T0236` and is not test data. The counting rule above is unchanged:
+segments are counted as recorded, the short one included.
+
+The first eight segments now end at about 12:38 UTC on 10 November (15.6 h of data).
