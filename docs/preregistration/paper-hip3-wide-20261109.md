@@ -96,3 +96,7 @@ first segment only.
 engine pulls a market's quotes when that market's own book has not changed for 3 s; the engine as
 registered pulled them only when the whole feed was silent. Reported beside P1: `hush@d=10` with
 `/stale=30` on the audited engine, replayed from the same recording. P1 is unchanged.
+
+**4. Interim look (10 November, 01:47 UTC).** The runner's live view was opened at 4.9 h into the
+test (segment 3). It showed each strategy's running PnL on the test hours. Nothing was replayed or
+changed. The rule and the scoring are as above.
