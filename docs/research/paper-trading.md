@@ -1183,6 +1183,84 @@ times the mid's 1 s volatility from the mid.
 - **The open measurement:** how long an order really takes to reach the book from this PC. The
   engine assumes 0.2 s; at 0.7 s the weekday edge is gone and the weekend edge is not.
 
+## The engine audit: the deep quotes replayed on corrected fills (2026-11-10, exploratory)
+
+`eval/paper/audit/`, `scripts/audit/README.md`. Branch `audit/hip3-20261109`.
+
+**What happened.** While the section above was being written, a separate audit of the paper engine
+finished on the PC (`G:\Crypto Data\paper\audit-hip3-20261109`, report `AUDIT_REPORT.md`). It
+found that the engine every HIP-3 result above was produced on fills too much:
+
+- **A trade through a quote filled the whole order,** whatever the trade's size. On thin markets a
+  quote 8 bp from the mid is often inside the real spread, so a $30 trade through it was booked as
+  a $250 fill.
+- **Displayed size that shrank counted as the queue ahead cancelling,** and a quote beyond the
+  recorded book levels was first in line.
+- **Each 2-hour segment started flat,** so leftover positions were closed at the mid for free.
+- **The budget ignored resting quotes,** and a market stayed quotable while only other markets'
+  feeds were arriving.
+
+The audited engine caps each fill at its trade's size, gives no cancellation credit, carries
+positions across segments, and pulls a market's quotes when that market's own book has not changed
+for `stale` seconds (3 by default). It is in the repository as branch `audit/hip3-20261109`
+(the audit's source plus master, 429 tests passing, 4 skipped), with `hush@`'s `k` ported to it.
+
+**The same settings on both engines,** 32 markets, 0.3 / 0.9 bp, $250 × 4, 200 ms, $ an hour:
+
+| `hush@…/quiet=0/tol=0.3` | Sunday, earlier engine | Sunday, audited | Monday, earlier engine | Monday, audited |
+|---|---|---|---|---|
+| `d=8` | +6.11 [+0.44, +11.60] | −0.24 [−2.24, +1.56] | −36.49 [−81.96, −4.52] | −7.31 [−19.56, +2.96] |
+| `d=12` | +2.97 [−6.60, +11.40] | −0.68 [−2.40, +1.08] | | −5.39 [−12.12, +1.48] |
+| `d=8/k=6` | +4.34 [−2.20, +11.04] | +0.44 [−1.12, +1.88] | +2.90 [−18.76, +26.48] | −9.82 [−20.44, −1.12] |
+| `d=8/k=10` | +2.20 [−4.32, +8.64] | +0.29 [−1.84, +2.20] | +1.17 [−7.88, +10.68] | −5.95 [−14.40, +0.56] |
+| `d=12/k=10` (the registered pick) | +2.77 [−3.00, +8.48] | +0.16 [−1.64, +1.92] | +2.89 [−8.04, +16.12] | −7.04 [−16.56, −0.08] |
+
+On the audited engine:
+
+| | Sunday fills | Sunday filled $ | Sunday edge per fill, 60 s | Monday fills | Monday filled $ | Monday edge per fill, 60 s | Monday orders and cancels per filled $ |
+|---|---:|---:|---|---:|---:|---|---:|
+| `d=8` | 374 | $32,843 | −4.33 [−9.71, −0.17] | 1,382 | $203,366 | −3.38 [−5.39, −0.68] | 1.8 |
+| `d=12` | 159 | $13,882 | −2.19 [−7.57, +3.22] | 709 | $98,419 | −2.78 [−5.36, +1.44] | 2.8 |
+| `d=8/k=6` | 242 | $24,430 | −2.32 [−6.27, +0.51] | 474 | $64,954 | −2.81 [−6.11, +0.65] | 4.3 |
+| `d=8/k=10` | 94 | $10,919 | −0.94 [−6.53, +3.70] | 218 | $27,669 | −2.77 [−11.00, +4.01] | 6.6 |
+| `d=12/k=10` | 75 | $8,103 | −4.17 [−20.12, +6.24] | 172 | $20,396 | −4.00 [−14.84, +6.40] | 8.7 |
+
+**What it changes:**
+
+- **The Sunday profit was the fill rule.** The fixed 8 bp quotes go from +$6.11/h to −$0.24/h, and
+  their fills lose 4.3 bp at 60 s with the interval below zero. The earlier engine filled
+  $269,032 on those hours in 1,320 fills; the audited engine fills $32,843 in 374.
+- **Volatility-scaled depth does not help.** The pick goes from +$2.89/h to −$7.04/h on Monday,
+  interval below zero, and from +$2.77/h to +$0.16/h on Sunday. No setting has a positive edge per
+  fill on either day.
+- **The pick's Monday loss is a position, not its fills:** −45.8 of its −48.0 bp per filled $ is
+  the position held, which the earlier engine closed for free every two hours.
+- **The message count is over the address rate limit** (one request per $1 traded, plus 10,000):
+  1.8 to 8.7 orders and cancels per filled $ on Monday.
+
+**The per-market stale rule.** In two Sunday hours a market's book went unchanged for more than
+3 s during 45% to 55% of the time, so under the audited default the quotes are out of the book
+about half of a quiet market's hours and are re-sent each time the book moves. With
+`/stale=30` on Sunday: `d=8` −$0.07/h [−1.04, +0.88], `d=12` −$0.01/h, the pick −$0.61/h
+[−2.72, +1.04], with 2.3 to 4.1 orders and cancels per filled $. The conclusion is the same.
+
+**What the tape says, without any fill model.** The real makers' fills 8 bp or more from the mid
+(`eval/paper/flow/market_distance.csv`) earned about $6,300 at 10 s over Sunday's 16 h on these
+recorded markets, all makers together: $558 at 8–12 bp, $955 at 12–20 bp, $4,826 beyond 20 bp. That is
+about $400 an hour to share among every order resting that deep, and the far end of it is filled
+only in sweeps. A $250 quote's share of it is cents.
+
+**Standing of the earlier sections.** The diagnosis above (most weekday fills trade after the mid
+has reached the quote) was measured on the earlier engine's fills, and its dollar sizes are too
+large. The tape studies (TWAP slices, maker wallets, markouts by distance) use real prints and are
+not affected. Every HIP-3 $ an hour before this section came from the earlier engine.
+
+**The registrations.** `paper-hip3-wide-20261109.md`, `paper-hip3-farsweep-20261109.md` and
+`paper-hip3-weekend-20261109.md` carry dated addenda (9 November, 23:37 and 23:45 UTC, before any
+test segment): the audited engine decides each result, the engine as registered is reported beside
+it, and each pick is also reported with `/stale=30`. On these selection numbers all three are
+expected to fail. They are still scored as registered.
+
 ## What a faster server would buy: the delay frontier (2026-11-09, exploratory)
 
 `scripts/latency/`, `eval/paper/latency/frontier_20261109.csv`.
@@ -1334,3 +1412,4 @@ The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
 | `eval/paper/test_hush_*_20261108.*` | The `hush@` registered test: tune output, reports paired with the ungated control and with `zgap@0.05`, markouts, by coin, the dashboard table |
 | `eval/paper/latency/` | The delay frontier: each replay's report by venue and total delay, and `frontier_20261109.csv` with $ an hour at each maker-fee tier (`scripts/latency/`) |
 | `eval/paper/flow/`, `scripts/flow/` | Every public print with both wallets (`prints.py`), TWAP slices and maker markouts (`twap.py`, `study.py`), our fills against the true mid (`ourfills.py`), the edge per fill (`edge.py`), and the volatility-scaled replays (`variants.csv`) |
+| `eval/paper/audit/`, `scripts/audit/` | The deep quotes replayed on the audited engine (branch `audit/hip3-20261109`): reports for Monday and Sunday, Sunday with `stale=30`, and `deep_audit.csv` with both engines side by side |
