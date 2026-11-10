@@ -90,7 +90,13 @@ def main() -> None:
             )
         for tag, src in (("reg", reg), ("pre_aud", pre_a), ("pre_reg", pre_r)):
             if s in src:
-                row.update({f"{tag}_usd_per_hour": src[s]["usd_per_hour"], f"{tag}_low": src[s]["usd_per_hour_ci95"][0], f"{tag}_high": src[s]["usd_per_hour_ci95"][1]})
+                row.update(
+                    {
+                        f"{tag}_usd_per_hour": src[s]["usd_per_hour"],
+                        f"{tag}_low": src[s]["usd_per_hour_ci95"][0],
+                        f"{tag}_high": src[s]["usd_per_hour_ci95"][1],
+                    }
+                )
         rows.append(row)
     T = pd.DataFrame(rows)
     T.to_csv(out, index=False)
