@@ -79,3 +79,45 @@ Written 2026-11-09 about 23:15 UTC, four days before the first test hour. Scored
 - **Selection bias:** the pick was chosen from about a dozen settings tried on one weekday and
   one Sunday.
 - **One location:** the PC's feed arrives about 0.33 s after the block.
+
+## Addendum, 2026-11-09 about 23:37 UTC (four days before the first test hour)
+
+Two things changed after the registration above was committed at 23:15 UTC. Neither the pick, the
+window nor the criteria change.
+
+**1. Where the test data is recorded.** `live-hip3-wide` stopped at 20:54 UTC on 9 November. The
+same 50 markets are being recorded by an audited copy of the runner, in
+`G:\Crypto Data\paper\live-hip3-audited-20261109T2056`, scheduled to run until about
+16 November 15:30 UTC. That recording, or a restart of it on the same 50 markets, is the test
+data. The window, the warm-up and the minimum are as registered.
+
+**2. The engine that scores it.** An audit of the paper engine finished the same evening
+(`G:\Crypto Data\paper\audit-hip3-20261109`, in this repository as branch `audit/hip3-20261109`).
+It found that the engine this registration names fills too much:
+- a trade through a quote filled the whole order, whatever the trade's size;
+- displayed size that shrank was counted as the queue ahead cancelling;
+- a quote beyond the recorded book levels was treated as first in line;
+- each 2-hour segment started flat, so leftover positions were closed for free.
+
+All four flatter deep quotes. So:
+- **Primary:** P1 and P2 are scored on the audited engine (branch `audit/hip3-20261109` at
+  `a1c3d11`, which also carries `k`). It decides the result.
+- **Also reported:** the same replay on the engine as registered (master at `ff481d8`).
+- **Sensitivity:** `--cap-through-fills` no longer does anything, because the audited engine
+  always caps a fill at its trade's size. The stress is `--latency-ms 700` alone.
+- **Positions** now carry from one segment to the next. "The cost of closing each segment's
+  leftover positions" becomes the cost of closing what is held at the end of the test.
+
+**3. A limit that was not stated.** Hyperliquid allows an address one request per $1 it has
+traded, plus 10,000. On the selection data the pick sent more than that: 1.2 orders per filled $
+on the registered engine, and the audited engine fills less. The test reports orders and cancels
+per filled $, and a pass on P1 and P2 with that number above 1 is a pass for the fills only, not for
+a strategy a new account could run.
+
+**4. One more setting reported (added 23:45 UTC, before any test segment).** The audited engine
+pulls a market's quotes when that market's own book has not changed for 3 s (`stale`, default 3).
+The engine as registered pulled them only when the whole feed was silent. In two Sunday selection
+hours (02:00 and 06:00 UTC on 8 November) a market's book went unchanged for more than 3 s during
+45% to 55% of the time, averaged over the 32 markets, so under the audited engine the pick is out
+of the book for about half of a quiet market's hours. Reported beside the primary: the pick with
+`/stale=30` on the audited engine. The primary is unchanged.
