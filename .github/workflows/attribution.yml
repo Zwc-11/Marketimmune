@@ -1,0 +1,16 @@
+name: attribution
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  no-ai-attribution:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: No AI author, committer or attribution trailer in history
+        run: sh scripts/check_attribution.sh history HEAD

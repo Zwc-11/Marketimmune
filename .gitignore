@@ -36,7 +36,8 @@ db.sqlite3-*
 # Editor and agent caches
 .tmp/
 .codex/
-.claude/
+.claude/*
+!.claude/settings.json
 .cursor/
 .ipynb_checkpoints/
 
