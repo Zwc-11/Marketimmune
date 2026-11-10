@@ -1,0 +1,3 @@
+strategy,net10,net10_low,net10_high,net60,net60_low,net60_high,net300,net300_low,net300_high
+hush@d=10/quiet=0/tol=0.3,-2.9,-4.16,-1.65,-3.36,-4.82,-1.9,-3.89,-6.46,-1.4
+hush@d=10/quiet=0/tol=0.3/stale=30,-4.31,-7.31,-1.31,-4.43,-7.73,-1.26,-5.85,-10.46,-1.04

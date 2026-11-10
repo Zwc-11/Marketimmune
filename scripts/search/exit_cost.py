@@ -20,11 +20,14 @@ def last_books(raw: Path) -> dict[str, dict]:
     files = sorted(raw.glob("hl-*.log.gz"))
     books: dict[str, dict] = {}
     with gzip.open(files[-1], "rt") as f:
-        for line in f:
-            if '"l2Book"' not in line[:60]:
-                continue
-            data = json.loads(line.split("\t", 1)[1])["data"]
-            books[data["coin"]] = data
+        try:
+            for line in f:
+                if '"l2Book"' not in line[:60] or not line.endswith("\n"):
+                    continue
+                data = json.loads(line.split("\t", 1)[1])["data"]
+                books[data["coin"]] = data
+        except EOFError:  # a recording cut by a stop: keep the whole lines
+            pass
     return books
 
 

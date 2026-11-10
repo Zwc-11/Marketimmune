@@ -1261,6 +1261,45 @@ test segment): the audited engine decides each result, the engine as registered 
 it, and each pick is also reported with `/stale=30`. On these selection numbers all three are
 expected to fail. They are still scored as registered.
 
+## The 50-market test: 10 bp quotes fail (registered, scored 2026-11-10)
+
+`docs/preregistration/paper-hip3-wide-20261109.md` (Result), `eval/paper/wide/`, `scripts/wide/`.
+
+**Test:** `hush@d=10/quiet=0/tol=0.3` on the 50 wide-spread growth-mode HIP-3 markets. Data: the
+first eight segments of the audited runner's recording, 20:55 UTC on 9 November to 12:44 UTC on
+10 November, 15.6 h. The audited engine decides (addendum 2).
+
+**P1 fails: −$4.12 an hour [−10.72, +2.16].** On the engine as registered: −$11.57 [−23.12, −0.04].
+
+| `…/quiet=0/tol=0.3` | $ an hour, audited [95%] | Edge per fill, 60 s [95%] | Filled $ an hour | Engine as registered |
+|---|---|---|---:|---|
+| `hush@d=6` | −3.78 [−9.16, +1.44] | −2.66 [−3.82, −1.55] | 32,037 | −48.82 |
+| `hush@d=8` | −8.34 [−15.76, −1.64] | −3.75 [−5.11, −2.37] | 24,218 | −30.14 |
+| `hush@d=10` (registered) | −4.12 [−10.72, +2.16] | −3.36 [−4.82, −1.90] | 16,603 | −11.57 |
+| `hush@d=10/stale=30` | −4.95 [−9.32, −1.12] | −4.43 [−7.73, −1.26] | 9,760 | |
+| `hush@d=12` | +0.19 [−6.68, +6.92] | −3.37 [−5.84, −1.08] | 15,668 | −7.91 |
+| `mm@8` | −9.11 [−13.48, −4.84] | −1.98 [−3.10, −0.92] | 38,647 | −27.21 |
+| `touch` | −16.98 [−22.08, −11.92] | −2.72 [−3.30, −2.18] | 65,486 | −176.80 |
+
+- **No setting's fills beat the fee** at 60 s. Every interval is below zero.
+- **The registered setting's fills** earned 3.4 bp of spread and lost 4.7 bp to the first second
+  and 6.5 bp to the first minute.
+- **The markets with no listed stock behind them** made +$0.34 an hour; the other 47 −$4.46.
+- **Two markets are 83% of the loss:** `xyz:KORU` and `xyz:KIOXIA`.
+- **Session:** the test was almost all outside US regular hours (4 of 936 minutes inside).
+- **Before the test:** the 5.4 h before it, in US hours and not test data, gave +$0.80 an hour
+  [−10.72, +10.32] on the audited engine.
+- **Free closes on the registered engine:** that engine filled 8.8 times as much, and closing its
+  leftovers each segment would have cost $1.40 an hour more.
+
+**Standing.** This is the third registered failure of passive deep quotes on HIP-3:
+- the 32-market weekday test (`paper-hip3-deep8-20261109.md`);
+- the audited replays of the Sunday and Monday selection hours;
+- this test.
+
+The volatility-scaled tests (`paper-hip3-farsweep-20261109.md`, `paper-hip3-weekend-20261109.md`)
+are still scored as registered.
+
 ## What a faster server would buy: the delay frontier (2026-11-09, exploratory)
 
 `scripts/latency/`, `eval/paper/latency/frontier_20261109.csv`.
@@ -1413,3 +1452,4 @@ The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
 | `eval/paper/latency/` | The delay frontier: each replay's report by venue and total delay, and `frontier_20261109.csv` with $ an hour at each maker-fee tier (`scripts/latency/`) |
 | `eval/paper/flow/`, `scripts/flow/` | Every public print with both wallets (`prints.py`), TWAP slices and maker markouts (`twap.py`, `study.py`), our fills against the true mid (`ourfills.py`), the edge per fill (`edge.py`), and the volatility-scaled replays (`variants.csv`) |
 | `eval/paper/audit/`, `scripts/audit/` | The deep quotes replayed on the audited engine (branch `audit/hip3-20261109`): reports for Monday and Sunday, Sunday with `stale=30`, and `deep_audit.csv` with both engines side by side |
+| `eval/paper/wide/`, `scripts/wide/` | The registered 50-market test: reports on both engines and the 5.4 h before it, by market, groups, risk, markouts, edge per fill, and `wide_test.csv` |

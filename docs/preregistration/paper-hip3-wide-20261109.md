@@ -109,3 +109,77 @@ restarted into the same folder at 02:38:28 UTC, with positions and wallet scores
 segments are counted as recorded, the short one included.
 
 The first eight segments now end at about 12:38 UTC on 10 November (15.6 h of data).
+
+## Result (scored 10 November 2026, from about 13:30 UTC)
+
+**P1 fails: `hush@d=10/quiet=0/tol=0.3` made −$4.12 an hour [−10.72, +2.16]** on the audited
+engine. It lost before the fee, too.
+
+**Data.** The first eight segments of `live-hip3-audited-20261109T2056`, 20:55 UTC on 9 November
+to 12:44 UTC on 10 November: 15.6 h, all 50 markets.
+- All 100 files were checked against the PC by name and size.
+- Three files of segment 3 end mid-stream (the runner was stopped at 02:33:50 UTC). The replay
+  uses every whole line before the cut.
+
+**Engines.** Audited: branch `audit/hip3-20261109`; its engine code is unchanged since `a1c3d11`
+(`git diff` of `marketimmune/` is empty). As registered: `e68c306`. Both use the same replay
+command, `--clock test --causal-clock`, 0.3 / 0.9 bp, $250 × 4, $5,000, 200 ms.
+
+**Every setting on the test hours**, audited engine unless marked:
+
+| Setting | $ an hour [95%] | Fills | Filled $ an hour | Spread | Move in 1 s | Position | Edge per fill, 60 s [95%] | Engine as registered |
+|---|---|---:|---:|---:|---:|---:|---|---|
+| `hush@d=10` (registered) | −4.12 [−10.72, +2.16] | 2,784 | 16,603 | +3.40 | −4.67 | −0.91 | −3.36 [−4.82, −1.90] | −11.57 [−23.12, −0.04] |
+| `hush@d=10/stale=30` | −4.95 [−9.32, −1.12] | 1,587 | 9,760 | +3.04 | −5.36 | −2.46 | −4.43 [−7.73, −1.26] | |
+| `hush@d=6` | −3.78 [−9.16, +1.44] | 5,459 | 32,037 | +2.27 | −3.72 | +0.57 | −2.66 [−3.82, −1.55] | −48.82 [−71.04, −28.72] |
+| `hush@d=8` | −8.34 [−15.76, −1.64] | 4,064 | 24,218 | +2.49 | −4.09 | −1.54 | −3.75 [−5.11, −2.37] | −30.14 [−44.08, −16.20] |
+| `hush@d=12` | +0.19 [−6.68, +6.92] | 2,502 | 15,668 | +4.07 | −4.64 | +0.99 | −3.37 [−5.84, −1.08] | −7.91 [−21.04, +5.72] |
+| `mm@8` | −9.11 [−13.48, −4.84] | 5,402 | 38,647 | +0.94 | −1.87 | −1.03 | −1.98 [−3.10, −0.92] | −27.21 [−37.92, −15.88] |
+| `touch` | −16.98 [−22.08, −11.92] | 10,796 | 65,486 | +0.74 | −2.65 | −0.38 | −2.72 [−3.30, −2.18] | −176.80 [−204.32, −148.48] |
+
+All `hush@` rows are `quiet=0/tol=0.3`. Spread, move in 1 s and position are bp per filled $
+before the fee. The edge per fill is the $-weighted 60 s markout less the 0.3 bp maker fee, with a
+15-minute block bootstrap (`scripts/flow/edge.py`).
+
+**Reported regardless (registered setting, audited engine):**
+- **Market groups:** the three markets with no listed stock behind them made +$0.34 an hour
+  (`io:ANTH` +0.90, `io:OAI` −0.13 on 5 fills, `xyz:ANT` −0.43). The other 47 made −$4.46.
+- **Session:** only 4 minutes of the test (20:55–21:00 UTC) were in US regular hours. The split
+  carries no information; the test is the Asia and Europe session.
+- **Fill markouts before the fee:** −1.27 bp at 1 s, −3.06 at 60 s, −3.59 at 5 min, +0.96 at
+  30 min.
+- **By market** (`eval/paper/wide/audA_markets.csv`):
+  - 14 markets positive, 20 negative, and 15 never filled.
+  - `xyz:KORU` (−$1.74 an hour) and `xyz:KIOXIA` (−$1.69) are 83% of the loss.
+  - Best: `io:ANTH` +$0.90 and `xyz:MINIMAX` +$0.76.
+- **Orders and cancels per filled $:** 1.51. Hyperliquid allows one per $1 traded plus 10,000,
+  so a new account could not keep it up.
+- **Risk:**
+  - largest position $945 in one market, $4,389 across markets;
+  - worst drawdown −$83.80;
+  - closing what was held at the end would have cost $1.72.
+
+**On the engine as registered:**
+- **Result:** the registered setting made −$11.57 an hour [−23.12, −0.04]. P1 fails on that engine
+  too.
+- **Fills:** it filled $2,283,652 against the audited engine's $258,914, 8.8 times as much.
+- **Free closes:** closing each segment's leftover positions, which that engine does for free,
+  would have cost $21.82 more ($1.40 an hour).
+
+**The 5.4 h of `live-hip3-wide` (15:31–20:54 UTC on 9 November, US regular hours; not test data):**
+- **Audited engine:** the registered setting made +$0.80 an hour [−10.72, +10.32], `hush@d=12`
+  +$5.40 [−2.24, +12.44].
+- **Engine as registered:** the registered setting made −$14.42 [−31.40, +2.24].
+
+**Interim look.** At 4.9 h into the test, the runner's live board showed the registered setting at
++$2.28. The full replay is what scores.
+
+**Reading.**
+- **Fills:** 10 bp quotes on these 50 markets are filled by moves that keep going. They lose
+  4.7 bp in the first second and 6.5 bp by the minute, against 3.4 bp of spread.
+- **No setting has a positive edge per fill.** `hush@d=12`'s +$0.19 an hour comes from positions
+  held for half an hour, not from its fills.
+
+**Files:**
+- `eval/paper/wide/`: reports, groups, markets, risk, markouts, edge and `wide_test.csv`.
+- `scripts/wide/`: `score.py` and `table.py`.
