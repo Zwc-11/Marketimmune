@@ -135,3 +135,12 @@ hours (02:00 and 06:00 UTC on 8 November) a market's book went unchanged for mor
 45% to 55% of the time, averaged over the 32 markets, so under the audited engine the pick is out
 of the book for about half of a quiet market's hours. Reported beside the primary: the pick with
 `/stale=30` on the audited engine. The primary is unchanged.
+
+**Interruption (recorded 10 November, 02:39 UTC).** The runner was stopped at 02:33:50 UTC and
+restarted into the same folder at 02:38:28 UTC, with positions and wallet scores carried
+(`seg-20261110T023827-65c867b8`). So segment `seg-20261110T005608-825965b3` is 1.6 h, not 2 h, and
+4.6 minutes are missing. A 75-second run on the earlier engine, 02:36:49–02:38:04 UTC, went to
+`live-hip3-wide\seg-20261110T0236` and is not test data. The counting rule above is unchanged:
+segments are counted as recorded, the short one included.
+
+The 24 test segments now end at about 00:38 UTC on 12 November (47.6 h of data).
