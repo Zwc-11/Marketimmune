@@ -98,7 +98,9 @@ def main() -> None:
         f = f.assign(pos_usd=f.pos * f.px).reset_index(drop=True)
         # gross: every market's latest position after each fill (within a segment when nothing carries)
         windows = [f] if carry else [g for _, g in f.groupby("segment")]
-        gross = max(w.pivot_table(index=w.index, columns="coin", values="pos_usd").ffill().fillna(0).abs().sum(axis=1).max() for w in windows)
+        gross = max(
+            w.pivot_table(index=w.index, columns="coin", values="pos_usd").ffill().fillna(0).abs().sum(axis=1).max() for w in windows
+        )
         K.append(
             {
                 "strategy": s,
