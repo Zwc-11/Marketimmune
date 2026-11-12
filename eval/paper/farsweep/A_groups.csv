@@ -1,0 +1,6 @@
+strategy,hours,usd_per_hour,no_anchor_usd_per_hour,other_47_usd_per_hour,us_hours,us_usd_per_hour,rest_usd_per_hour
+hush@d=12/quiet=0/k=10/tol=0.3,35.356,-0.37,1.49,-1.87,6.467,-0.76,-0.29
+hush@d=12/quiet=0/k=10/tol=0.3/stale=30,35.356,0.78,1.19,-0.41,6.467,0.5,0.84
+hush@d=8/quiet=0/k=10/tol=0.3,35.356,-6.13,1.07,-7.2,6.467,-5.56,-6.26
+hush@d=8/quiet=0/k=6/tol=0.3,35.356,-3.6,0.21,-3.81,6.467,3.52,-5.19
+hush@d=8/quiet=0/tol=0.3,35.356,-6.33,-0.8,-5.53,6.467,1.23,-8.02

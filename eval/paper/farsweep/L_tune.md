@@ -1,0 +1,15 @@
+Segments (hours): test/seg-20261109T225523-bfcba6ca 2.00, test/seg-20261110T005608-825965b3 1.61, test/seg-20261110T023827-65c867b8 2.00, test/seg-20261110T043923-22d8f7fe 2.00, test/seg-20261110T064034-e89a95a6 2.00, test/seg-20261110T084147-435199f9 2.00, test/seg-20261110T104313-46efd58d 2.00, test/seg-20261110T124438-893ffd8d 2.00, test/seg-20261110T144603-8b656ac7 2.00, test/seg-20261110T164735-72205ee3 2.00, test/seg-20261110T184913-c7218f93 2.00, test/seg-20261110T205043-f12e6a89 2.00, test/seg-20261110T225200-afb65da2 2.00, test/seg-20261111T005313-7c6672d0 2.00, test/seg-20261111T025439-af1346ac 2.00, test/seg-20261111T045558-8888cec8 2.00, test/seg-20261111T065713-69db9930 2.00, test/seg-20261111T085844-80797bfc 2.00, test/seg-20261111T105957-9fbbb482 1.75. Latency 700 ms; fees 0.3 / 0.9 bp. Configs: 250x4 (quote USD x quotes a coin), budget 5000.0 USD a strategy. Only settings at or under 1.0 orders per USD filled (Hyperliquid's rate limit) are selected; 1 of 1 were over it.
+
+| family | best (all segments) | config | orders per $ | $/h in-sample | $/h left-out (CV) | picks agree | test/seg-20261109T225523-bfcba6ca | test/seg-20261110T005608-825965b3 | test/seg-20261110T023827-65c867b8 | test/seg-20261110T043923-22d8f7fe | test/seg-20261110T064034-e89a95a6 | test/seg-20261110T084147-435199f9 | test/seg-20261110T104313-46efd58d | test/seg-20261110T124438-893ffd8d | test/seg-20261110T144603-8b656ac7 | test/seg-20261110T164735-72205ee3 | test/seg-20261110T184913-c7218f93 | test/seg-20261110T205043-f12e6a89 | test/seg-20261110T225200-afb65da2 | test/seg-20261111T005313-7c6672d0 | test/seg-20261111T025439-af1346ac | test/seg-20261111T045558-8888cec8 | test/seg-20261111T065713-69db9930 | test/seg-20261111T085844-80797bfc | test/seg-20261111T105957-9fbbb482 |
+|---|---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+
+Every setting within the rate limit, $ an hour (all segments, then each):
+
+| strategy | config | orders per $ | all | test/seg-20261109T225523-bfcba6ca | test/seg-20261110T005608-825965b3 | test/seg-20261110T023827-65c867b8 | test/seg-20261110T043923-22d8f7fe | test/seg-20261110T064034-e89a95a6 | test/seg-20261110T084147-435199f9 | test/seg-20261110T104313-46efd58d | test/seg-20261110T124438-893ffd8d | test/seg-20261110T144603-8b656ac7 | test/seg-20261110T164735-72205ee3 | test/seg-20261110T184913-c7218f93 | test/seg-20261110T205043-f12e6a89 | test/seg-20261110T225200-afb65da2 | test/seg-20261111T005313-7c6672d0 | test/seg-20261111T025439-af1346ac | test/seg-20261111T045558-8888cec8 | test/seg-20261111T065713-69db9930 | test/seg-20261111T085844-80797bfc | test/seg-20261111T105957-9fbbb482 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+
+Over the rate limit (not selectable), best first:
+
+| strategy | config | orders per $ | $/h |
+|---|---|---:|---:|
+| `hush@d=12/quiet=0/k=10/tol=0.3` | 250x4 | 1.86 | -0.2 |

@@ -144,3 +144,100 @@ restarted into the same folder at 02:38:28 UTC, with positions and wallet scores
 segments are counted as recorded, the short one included.
 
 The 24 test segments now end at about 00:38 UTC on 12 November (47.6 h of data).
+
+## Result (scored 12 November 2026, from 01:30 UTC)
+
+**Both criteria fail. P1: the pick's edge per fill is −6.75 bp [−14.22, −0.00]. P2: it made
+−$0.37 an hour [−5.92, +4.96].** Audited engine, as addendum 2 requires.
+
+**Data.** The runner stopped at 12:45:54 UTC on 11 November, partway through its 20th segment, and
+recorded nothing after. 18 test segments exist: 00:57 UTC on 10 November to 12:45 UTC on
+11 November, 35.3 h, all 50 markets. The rule for a run that stops early (at least 30 h) applies,
+so the test is scored on those 18.
+- Warm-up: `seg-20261109T225523-bfcba6ca`, replayed first and not scored.
+- All 213 files (19 segments' raw files and `meta.json`) were checked against the PC by name and
+  size.
+- The last segment (1.75 h) has no `recording.json`, and its last files end mid-stream. The
+  replay uses every whole line before the cut.
+
+**Engines.**
+- **Audited:** branch `audit/hip3-20261109`. Its engine code is unchanged since `a1c3d11`
+  (`git diff` of `marketimmune/` is empty).
+- **As registered:** `ff481d8`.
+- **Replay command, both:** `--clock test --causal-clock`, 0.3 / 0.9 bp, $250 × 4, $5,000,
+  200 ms, the 50 markets.
+
+**Every setting on the test hours**, audited engine unless marked:
+
+| Setting | $ an hour [95%] | Fills | Filled $ an hour | Spread | Move in 1 s | Position | Edge per fill, 60 s [95%] | Engine as registered |
+|---|---|---:|---:|---:|---:|---:|---|---|
+| `d=12/k=10` (the pick) | −0.37 [−5.92, +4.96] | 634 | 1,926 | +9.19 | −8.77 | −2.06 | −6.75 [−14.22, −0.00] | −4.12 [−14.24, +7.04] |
+| `d=8` (control) | −6.33 [−10.52, −1.88] | 6,862 | 21,395 | +2.31 | −3.69 | −1.28 | −3.92 [−5.53, −2.33] | −39.74 [−63.88, −20.60] |
+| `d=12/k=10/stale=30` | +0.78 [−4.48, +5.80] | 600 | 1,973 | +9.14 | −7.15 | +2.27 | +0.10 [−6.24, +4.89] | |
+| `d=8/k=10` | −6.14 [−13.08, +0.28] | 793 | 2,403 | +8.07 | −7.57 | −25.74 | −3.59 [−10.31, +2.44] | −5.61 [−18.12, +9.04] |
+| `d=8/k=6` | −3.60 [−9.64, +2.12] | 1,943 | 5,744 | +5.36 | −5.73 | −5.60 | −3.63 [−7.59, +0.06] | +2.18 [−5.80, +10.56] |
+| `d=12/k=10`, orders 700 ms late | +0.73 [−3.88, +5.48] | 904 | 2,899 | +6.91 | −7.61 | +3.52 | −5.05 [−12.63, +1.51] | |
+
+All rows are `hush@…/quiet=0/tol=0.3`. Spread, move in 1 s and position are bp per filled $
+before the 0.3 bp fee. The edge per fill is the $-weighted 60 s markout less the fee, with a
+15-minute block bootstrap (`scripts/flow/edge.py`). The pick's upper bound is −0.004 before
+rounding.
+
+**Reported regardless (the pick, audited engine):**
+- **Against the control:**
+  - $ an hour: +5.89 [−1.52, +13.04], better in 81 of 143 blocks (`paper_report --baseline`).
+  - Edge per fill: −2.84 bp [−9.77, +3.76], paired on the same blocks
+    (`scripts/flow/edge_diff.py`). The pick's fills were worth less than the control's.
+- **Mechanism** (`scripts/flow/ourfills.py`): 62% of the pick's filled $ traded when the true mid
+  was still 5 bp or more from the quote. That is against 28% for the control, and 26% for the
+  fixed 8 bp quotes on Monday 9 November (earlier engine). The far fills lost anyway:
+  - the 36% filled more than 12 bp from the mid made −5.97 bp at 60 s;
+  - the 16% at 8–12 bp made −13.10 bp.
+- **Fill markouts before the fee:** +0.42 bp at 1 s, −6.45 at 60 s, −9.48 at 5 min, −10.01 at
+  30 min.
+- **Session:** US regular hours (14:30–21:00 UTC, 6.5 h) −$0.76 an hour, the rest −$0.29.
+- **By market** (`eval/paper/farsweep/A_markets.csv`):
+  - 18 markets positive, 12 negative, 19 never filled.
+  - `xyz:CRWV` lost $3.01 an hour, more than the whole loss.
+  - Best: `xyz:ANT` +$1.00, `xyz:ARM` +$0.90, `xyz:KIOXIA` +$0.61.
+  - The three markets with no listed stock behind them (`io:OAI`, `io:ANTH`, `xyz:ANT`) made
+    +$1.49 an hour; the other 47 −$1.87.
+- **Orders and cancels per filled $:** 6.01 (the control 1.43). Above 1, so by addendum 3 a pass
+  would have been a pass for the fills only.
+- **Risk:**
+  - largest position $1,126 in one market, $5,920 across markets;
+  - worst drawdown −$148.44;
+  - closing what was held at the end would have cost $1.63.
+- **Orders 700 ms late:** +$0.73 an hour [−3.88, +5.48], edge per fill −5.05 bp [−12.63, +1.51]. It
+  filled half as much again (904 fills, $102,430) and earned less spread (6.9 bp). The dollars
+  were positive from held positions (+3.5 bp per filled $), not from the fills.
+
+**On the engine as registered:**
+- **Result:** the pick made −$4.12 an hour [−14.24, +7.04], with an edge per fill of +1.76 bp
+  [−0.65, +3.96]. Both criteria fail on that engine too.
+- **Fills:** it filled $506,439 against the audited engine's $68,047, 7.4 times as much.
+- **Against the control:** it beat it by +$35.45 an hour [+10.92, +66.92], because the control
+  lost −$39.74 there.
+- **Free closes:** closing each segment's leftover positions, which that engine does for free,
+  would have cost $64.51 ($1.83 an hour).
+
+**Against selection.** On Monday's hours replayed on the audited engine the pick made −$7.04 an
+hour [−16.56, −0.08], with an edge of −4.0 bp [−14.84, +6.4] (`eval/paper/audit/deep_audit.csv`). A
+fail was expected, and the test agrees.
+
+**Reading.**
+- **The volatility scaling works as built.** It moves the fills away from the mid: most of the
+  pick's filled dollars traded with the mid still 5 bp or more away.
+- **The fills it keeps are informed too.** On these 50 markets, a trade that reaches a quote 12 bp
+  or more out is part of a move that keeps going. The fills lose 6 bp by the minute and 10 bp by
+  half an hour, against 9 bp of spread.
+- **What kept the dollars near zero** is that the pick barely traded: $1,926 filled an hour against
+  the control's $21,395.
+- **Weekend test:** `paper-hip3-weekend-20261109.md` is still to be scored. It needs the runner to
+  be recording from 14 November 00:00 UTC.
+
+**Files:**
+- `eval/paper/farsweep/`: the reports (A: audited engine, R: engine as registered, L: audited
+  engine at 700 ms), and by market, groups, risk, markouts, edge per fill, the paired edge
+  difference, fill distance, exit costs and `farsweep_test.csv`.
+- `scripts/farsweep/table.py`, `scripts/flow/edge_diff.py` and `scripts/wide/final_exit.py`.

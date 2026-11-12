@@ -121,3 +121,13 @@ hours (02:00 and 06:00 UTC on 8 November) a market's book went unchanged for mor
 45% to 55% of the time, averaged over the 32 markets, so under the audited engine the pick is out
 of the book for about half of a quiet market's hours. Reported beside the primary: the pick with
 `/stale=30` on the audited engine. The primary is unchanged.
+
+**Recording note (12 November 2026, 01:30 UTC; no test segment exists yet).** The audited runner
+stopped at 12:45:54 UTC on 11 November and has recorded nothing since. Its last segment,
+`seg-20261111T105957-9fbbb482`, has no `recording.json`. The registration already covers what
+happens next:
+- **Restart:** a restart on the same 50 markets is test data (addendum, item 1).
+- **No recording:** if nothing is recording that weekend, the registration moves once to
+  21–22 November (Test data, as registered).
+
+The window, the warm-up and the minimum are unchanged.

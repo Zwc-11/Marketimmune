@@ -1,0 +1,6 @@
+strategy,gross_usd,cost_usd,per_hour
+hush@d=12/quiet=0/k=10/tol=0.3,4751.53,1.63,0.05
+hush@d=12/quiet=0/k=10/tol=0.3/stale=30,3583.51,1.19,0.03
+hush@d=8/quiet=0/k=10/tol=0.3,4244.78,1.54,0.04
+hush@d=8/quiet=0/k=6/tol=0.3,4016.9,1.38,0.04
+hush@d=8/quiet=0/tol=0.3,3266.22,1.17,0.03

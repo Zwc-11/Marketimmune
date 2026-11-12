@@ -1,0 +1,19 @@
+Segments (hours): test/seg-20261109T225523-bfcba6ca 2.00, test/seg-20261110T005608-825965b3 1.61, test/seg-20261110T023827-65c867b8 2.00, test/seg-20261110T043923-22d8f7fe 2.00, test/seg-20261110T064034-e89a95a6 2.00, test/seg-20261110T084147-435199f9 2.00, test/seg-20261110T104313-46efd58d 2.00, test/seg-20261110T124438-893ffd8d 2.00, test/seg-20261110T144603-8b656ac7 2.00, test/seg-20261110T164735-72205ee3 2.00, test/seg-20261110T184913-c7218f93 2.00, test/seg-20261110T205043-f12e6a89 2.00, test/seg-20261110T225200-afb65da2 2.00, test/seg-20261111T005313-7c6672d0 2.00, test/seg-20261111T025439-af1346ac 2.00, test/seg-20261111T045558-8888cec8 2.00, test/seg-20261111T065713-69db9930 2.00, test/seg-20261111T085844-80797bfc 2.00, test/seg-20261111T105957-9fbbb482 1.75. Latency 200 ms; fees 0.3 / 0.9 bp. Configs: 250x4 (quote USD x quotes a coin), budget 5000.0 USD a strategy. Only settings at or under 1.0 orders per USD filled (Hyperliquid's rate limit) are selected; 0 of 4 were over it.
+
+| family | best (all segments) | config | orders per $ | $/h in-sample | $/h left-out (CV) | picks agree | test/seg-20261109T225523-bfcba6ca | test/seg-20261110T005608-825965b3 | test/seg-20261110T023827-65c867b8 | test/seg-20261110T043923-22d8f7fe | test/seg-20261110T064034-e89a95a6 | test/seg-20261110T084147-435199f9 | test/seg-20261110T104313-46efd58d | test/seg-20261110T124438-893ffd8d | test/seg-20261110T144603-8b656ac7 | test/seg-20261110T164735-72205ee3 | test/seg-20261110T184913-c7218f93 | test/seg-20261110T205043-f12e6a89 | test/seg-20261110T225200-afb65da2 | test/seg-20261111T005313-7c6672d0 | test/seg-20261111T025439-af1346ac | test/seg-20261111T045558-8888cec8 | test/seg-20261111T065713-69db9930 | test/seg-20261111T085844-80797bfc | test/seg-20261111T105957-9fbbb482 |
+|---|---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| hush | `hush@d=8/quiet=0/k=6/tol=0.3` | 250x4 | 0.37 | 0.6 | 0.6 | yes | -26.6 | -15.5 | 1.6 | 8.1 | -2.0 | 16.8 | 14.1 | 4.9 | 44.4 | 10.3 | -19.1 | 7.0 | 17.7 | -26.9 | -13.1 | 16.1 | 1.4 | -26.2 | -4.8 |
+
+Every setting within the rate limit, $ an hour (all segments, then each):
+
+| strategy | config | orders per $ | all | test/seg-20261109T225523-bfcba6ca | test/seg-20261110T005608-825965b3 | test/seg-20261110T023827-65c867b8 | test/seg-20261110T043923-22d8f7fe | test/seg-20261110T064034-e89a95a6 | test/seg-20261110T084147-435199f9 | test/seg-20261110T104313-46efd58d | test/seg-20261110T124438-893ffd8d | test/seg-20261110T144603-8b656ac7 | test/seg-20261110T164735-72205ee3 | test/seg-20261110T184913-c7218f93 | test/seg-20261110T205043-f12e6a89 | test/seg-20261110T225200-afb65da2 | test/seg-20261111T005313-7c6672d0 | test/seg-20261111T025439-af1346ac | test/seg-20261111T045558-8888cec8 | test/seg-20261111T065713-69db9930 | test/seg-20261111T085844-80797bfc | test/seg-20261111T105957-9fbbb482 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `hush@d=8/quiet=0/k=6/tol=0.3` | 250x4 | 0.37 | 0.6 | -26.6 | -15.5 | 1.6 | 8.1 | -2.0 | 16.8 | 14.1 | 4.9 | 44.4 | 10.3 | -19.1 | 7.0 | 17.7 | -26.9 | -13.1 | 16.1 | 1.4 | -26.2 | -4.8 |
+| `hush@d=12/quiet=0/k=10/tol=0.3` | 250x4 | 0.54 | -4.2 | -5.3 | -13.6 | 11.7 | 9.7 | 0.8 | -19.7 | -3.2 | 33.8 | -3.1 | 10.0 | -17.5 | -0.3 | -6.9 | -60.1 | -15.6 | 4.4 | 16.9 | -20.1 | -3.0 |
+| `hush@d=8/quiet=0/k=10/tol=0.3` | 250x4 | 0.51 | -5.4 | -1.9 | -22.2 | 11.3 | 21.2 | 6.5 | -12.6 | -28.1 | 25.0 | -34.8 | 1.5 | -16.9 | -2.3 | -5.7 | -14.2 | -25.8 | 14.3 | 12.3 | -24.7 | -9.6 |
+| `hush@d=8/quiet=0/tol=0.3` | 250x4 | 0.20 | -41.0 | -63.4 | -43.6 | -48.4 | -10.6 | -19.4 | -13.2 | -32.2 | -176.5 | -23.4 | -4.8 | -17.6 | -192.3 | -8.9 | -35.3 | -24.3 | 0.4 | -17.2 | -30.9 | -15.0 |
+
+Over the rate limit (not selectable), best first:
+
+| strategy | config | orders per $ | $/h |
+|---|---|---:|---:|

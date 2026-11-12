@@ -1,0 +1,5 @@
+strategy,segments,gross_usd,cost_usd,per_hour
+hush@d=12/quiet=0/k=10/tol=0.3,18,87091.33,64.51,1.83
+hush@d=8/quiet=0/k=10/tol=0.3,18,89416.14,60.16,1.7
+hush@d=8/quiet=0/k=6/tol=0.3,18,92974.76,58.2,1.65
+hush@d=8/quiet=0/tol=0.3,18,91101.64,59.7,1.69
