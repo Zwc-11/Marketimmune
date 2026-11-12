@@ -180,7 +180,7 @@ so the test is scored on those 18.
 
 All rows are `hush@…/quiet=0/tol=0.3`. Spread, move in 1 s and position are bp per filled $
 before the 0.3 bp fee. The edge per fill is the $-weighted 60 s markout less the fee, with a
-15-minute block bootstrap (`scripts/flow/edge.py`). The pick's upper bound is −0.004 before
+15-minute block bootstrap (`scripts/flow/edge.py`). The pick's upper bound is −0.003 before
 rounding.
 
 **Reported regardless (the pick, audited engine):**
