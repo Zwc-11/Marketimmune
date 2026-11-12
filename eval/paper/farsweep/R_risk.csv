@@ -1,0 +1,5 @@
+strategy,fills,filled_usd,actions,actions_per_filled_usd,largest_market_position_usd,largest_gross_position_usd
+hush@d=12/quiet=0/k=10/tol=0.3,2293,506439,559702,1.11,1252,7657
+hush@d=8/quiet=0/k=10/tol=0.3,2453,524743,540264,1.03,1264,8442
+hush@d=8/quiet=0/k=6/tol=0.3,6355,1365404,1026343,0.75,1303,8191
+hush@d=8/quiet=0/tol=0.3,28917,6175837,2439689,0.4,1862,9585

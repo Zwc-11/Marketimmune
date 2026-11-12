@@ -1300,6 +1300,51 @@ first eight segments of the audited runner's recording, 20:55 UTC on 9 November 
 The volatility-scaled tests (`paper-hip3-farsweep-20261109.md`, `paper-hip3-weekend-20261109.md`)
 are still scored as registered.
 
+## The weekday test of the volatility-scaled deep quotes: it fails (registered, scored 2026-11-12)
+
+`docs/preregistration/paper-hip3-farsweep-20261109.md` (Result), `eval/paper/farsweep/`,
+`scripts/farsweep/`.
+
+**Test:** `hush@d=12/quiet=0/k=10/tol=0.3`, quotes at the larger of 12 bp and 10 times each
+market's 1 s volatility, on the 50 wide-spread HIP-3 markets. The audited engine decides.
+- **Data:** the audited runner's 18 segments from 00:57 UTC on 10 November to 12:45 UTC on
+  11 November, 35.3 h.
+- **Short run:** the runner stopped at 12:45:54 UTC on 11 November, so the registered rule for a
+  short run (at least 30 h) applies.
+
+**Both criteria fail:**
+- **P1:** edge per fill −6.75 bp [−14.22, −0.00].
+- **P2:** −$0.37 an hour [−5.92, +4.96].
+- **On the engine as registered:** −$4.12 [−14.24, +7.04], edge +1.76 [−0.65, +3.96].
+
+| `hush@…/quiet=0/tol=0.3` | $ an hour, audited [95%] | Edge per fill, 60 s [95%] | Filled $ an hour | Share of filled $ 5 bp+ from the mid | Engine as registered |
+|---|---|---|---:|---:|---|
+| `d=12/k=10` (registered) | −0.37 [−5.92, +4.96] | −6.75 [−14.22, −0.00] | 1,926 | 62% | −4.12 |
+| `d=8` (control) | −6.33 [−10.52, −1.88] | −3.92 [−5.53, −2.33] | 21,395 | 28% | −39.74 |
+| `d=12/k=10/stale=30` | +0.78 [−4.48, +5.80] | +0.10 [−6.24, +4.89] | 1,973 | 65% | |
+| `d=8/k=10` | −6.14 [−13.08, +0.28] | −3.59 [−10.31, +2.44] | 2,403 | | −5.61 |
+| `d=8/k=6` | −3.60 [−9.64, +2.12] | −3.63 [−7.59, +0.06] | 5,744 | | +2.18 |
+| `d=12/k=10`, orders 700 ms late | +0.73 [−3.88, +5.48] | −5.05 [−12.63, +1.51] | 2,899 | | |
+
+- **The scaling did what it was built for.** 62% of the pick's filled $ came with the true mid
+  still 5 bp or more from the quote. On Monday, the fixed 8 bp quotes had 26% (earlier engine).
+- **The far fills lost anyway.** Fills more than 12 bp from the mid made −6.0 bp at 60 s.
+  Those at 8–12 bp made −13.1. A trade that reaches a quote that far out on these markets is
+  part of a move that keeps going.
+- **Small dollars because small volume:** $1,926 filled an hour, a tenth of the control's.
+  `xyz:CRWV` alone lost $3.01 an hour.
+- **Orders and cancels per filled $:** 6.0. A new account could not run it under Hyperliquid's
+  limit of one request per $1 traded, plus 10,000.
+- **Against the control:** better in dollars (+$5.89 an hour [−1.52, +13.04]) by trading less.
+  The fills were worse: −2.84 bp [−9.77, +3.76].
+- **Orders 700 ms late:** +$0.73 an hour [−3.88, +5.48], with an edge per fill of −5.05 bp
+  [−12.63, +1.51]. The positive dollars came from held positions, not from the fills.
+
+**Standing:** the fourth registered failure of passive deep quotes on HIP-3. Every setting's edge
+per fill at 60 s is below +0.2 bp on the audited engine. The weekend test
+(`paper-hip3-weekend-20261109.md`) needs the runner recording from 14 November 00:00 UTC; if it
+is not, the registration moves to 21–22 November.
+
 ## What a faster server would buy: the delay frontier (2026-11-09, exploratory)
 
 `scripts/latency/`, `eval/paper/latency/frontier_20261109.csv`.
@@ -1453,3 +1498,4 @@ The raw recordings (about 300 MB, `data/paper/*/raw/`) are not committed.
 | `eval/paper/flow/`, `scripts/flow/` | Every public print with both wallets (`prints.py`), TWAP slices and maker markouts (`twap.py`, `study.py`), our fills against the true mid (`ourfills.py`), the edge per fill (`edge.py`), and the volatility-scaled replays (`variants.csv`) |
 | `eval/paper/audit/`, `scripts/audit/` | The deep quotes replayed on the audited engine (branch `audit/hip3-20261109`): reports for Monday and Sunday, Sunday with `stale=30`, and `deep_audit.csv` with both engines side by side |
 | `eval/paper/wide/`, `scripts/wide/` | The registered 50-market test: reports on both engines and the 5.4 h before it, by market, groups, risk, markouts, edge per fill, and `wide_test.csv` |
+| `eval/paper/farsweep/`, `scripts/farsweep/` | The registered weekday test of the volatility-scaled deep quotes: reports on the audited engine, at 700 ms and on the engine as registered, by market, groups, risk, markouts, edge per fill and the paired difference (`scripts/flow/edge_diff.py`), fill distance, exit costs (`scripts/wide/final_exit.py`), and `farsweep_test.csv` |
